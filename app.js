@@ -1,3 +1,9 @@
+(function() {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('[TimeTracker] init DOM ready');
+    try {
+
+
 // ------------------ Constants & state ------------------
 const STORE_KEY = 'tt_entries_v1';
 const SETTINGS_KEY = 'tt_settings_v1';
@@ -331,3 +337,11 @@ btnCloudSave.addEventListener('click', async ()=>{
 
 // ------------------ Kick off ------------------
 render();
+
+    } catch (err) {
+      console.error('[TimeTracker] Erreur fatale:', err);
+      alert('Erreur JavaScript : ' + err.message);
+    }
+  });
+})();
+

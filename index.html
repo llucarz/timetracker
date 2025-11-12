@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Time Tracker – 35h + Heures Sup</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Time Tracker – 35h + Heures Sup</h1>
+    <div class="sub">Auto‑hébergeable (HTML/CSS/JS). Stockage LocalStorage + export (JSON/CSV/YAML). Option : synchro cloud via Vercel KV.</div>
+  </header>
+
+  <div class="wrap">
+    <div class="grid">
+      <!-- FORMULAIRE (saisie) -->
+      <section class="card" id="formCard">
+        <h3 style="margin:0 0 6px">Saisie journalière</h3>
+        <div class="sub">Indique tes horaires : arrivée, pause, reprise, départ. Tu peux ajouter une note.</div>
+        <label for="date">Date</label>
+        <div class="row">
+          <input type="date" id="date" />
+          <button class="btn secondary" id="btnToday" title="Remplir avec aujourd'hui">Aujourd'hui</button>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="start">Arrivée</label>
+            <input type="time" id="start" />
+          </div>
+          <div>
+            <label for="lunchStart">Début pause</label>
+            <input type="time" id="lunchStart" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="lunchEnd">Fin pause</label>
+            <input type="time" id="lunchEnd" />
+          </div>
+          <div>
+            <label for="end">Départ</label>
+            <input type="time" id="end" />
+          </div>
+        </div>
+        <label for="notes">Note (optionnel)</label>
+        <input type="text" id="notes" placeholder="Ex.: support, déploiement, réunion…" />
+
+        <div class="btns">
+          <button class="btn green" id="btnSave">Enregistrer</button>
+          <button class="btn secondary" id="btnClear">Effacer</button>
+          <button class="btn warn" id="btnDuplicate">Dupliquer la veille</button>
+          <button class="btn danger" id="btnDelete" style="display:none">Supprimer la saisie</button>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="k">Temps travaillé (jour)</div><div class="v" id="statDay">0h00</div></div>
+          <div class="stat"><div class="k">Cumul semaine</div><div class="v" id="statWeek">0h00</div></div>
+          <div class="stat"><div class="k">Cumul mois</div><div class="v" id="statMonth">0h00</div></div>
+          <div class="stat"><div class="k">Cumul année</div><div class="v" id="statYear">0h00</div></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="k" style="font-size:12px;color:var(--muted)">Objectif hebdo (h)</div>
+          <div class="row">
+            <input type="number" id="weeklyTarget" min="1" step="0.5" value="35" />
+            <div class="progress"><div id="weekProgress"></div></div>
+          </div>
+        </div>
+
+        <div class="footer">Astuce : clique une ligne du tableau pour la modifier. Tout est sauvegardé automatiquement dans le navigateur.</div>
+      </section>
+
+      <!-- TABLEAU & RÉCAPS (zone verte) -->
+      <section class="card">
+        <div class="toolbar">
+          <div class="left">
+            <span class="pill" id="weekLabel">Semaine —</span>
+            <span class="pill" id="monthLabel">Mois —</span>
+            <span class="pill" id="yearLabel">Année —</span>
+          </div>
+          <div class="right">
+            <button class="btn secondary" id="prevPeriod" title="Période précédente">◀</button>
+
+            <!-- Pickers natifs, affichés selon le filtre -->
+            <input type="week"  id="weekPicker"  class="picker" />
+            <input type="month" id="monthPicker" class="picker" />
+            <input type="number" id="yearPicker"  class="picker" min="1970" max="2100" step="1" style="width:100px" placeholder="Année" />
+
+            <button class="btn secondary" id="nextPeriod" title="Période suivante">▶</button>
+
+            <button class="btn secondary" id="btnExportJSON">Exporter JSON</button>
+            <button class="btn secondary" id="btnExportCSV">Exporter CSV</button>
+            <button class="btn secondary" id="btnExportYAML">Exporter YAML</button>
+            <label class="btn" for="fileImport" style="cursor:pointer">Importer</label>
+            <input type="file" id="fileImport" accept=".json,.csv,.yaml,.yml" style="display:none" />
+
+            <!-- Option cloud -->
+            <button class="btn secondary" id="btnCloudKey">Cloud : clé</button>
+            <button class="btn secondary" id="btnCloudLoad">Cloud : charger</button>
+            <button class="btn secondary" id="btnCloudSave">Cloud : sauver</button>
+          </div>
+        </div>
+
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Arrivée</th>
+              <th>Pause</th>
+              <th>Reprise</th>
+              <th>Départ</th>
+              <th>Total</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+
+        <div class="stats" style="margin-top:14px">
+          <div class="stat">
+            <div class="k">Heures semaine</div>
+            <div class="v" id="sumWeek">0h00</div>
+            <div class="delta" id="deltaWeek">—</div>
+          </div>
+          <div class="stat">
+            <div class="k">Heures mois</div>
+            <div class="v" id="sumMonth">0h00</div>
+            <div class="delta" id="deltaMonth">—</div>
+          </div>
+          <div class="stat">
+            <div class="k">Heures année</div>
+            <div class="v" id="sumYear">0h00</div>
+            <div class="delta" id="deltaYear">—</div>
+          </div>
+          <div class="stat">
+            <div class="k">Total global</div>
+            <div class="v" id="sumAll">0h00</div>
+            <div class="delta" id="entriesCount">0 saisies</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>

@@ -262,9 +262,85 @@ tr:hover{
   color:var(--muted);
 }
 
-/* Responsive */
+/* ----------- Responsive ----------- */
+
+/* 1) Tablettes / petits laptops */
 @media (max-width:980px){
   .grid{
     grid-template-columns:1fr;
+  }
+}
+
+/* 2) Mobiles "classiques" (< 768px) */
+@media (max-width:768px){
+  header{
+    text-align:center;
+  }
+
+  h1{
+    font-size:22px;
+  }
+
+  .wrap{
+    padding:12px 12px 28px;
+  }
+
+  .card{
+    padding:14px;
+  }
+
+  .row{
+    grid-template-columns:1fr; /* champs l’un sous l’autre */
+  }
+
+  .btns{
+    flex-direction:column;
+  }
+
+  button,
+  .btn{
+    width:100%;
+    justify-content:center;
+  }
+
+  .toolbar{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .toolbar .left,
+  .toolbar .right{
+    justify-content:flex-start;
+  }
+
+  .stats{
+    grid-template-columns:repeat(2,minmax(0,1fr)); /* 2 cartes par ligne */
+  }
+
+  table{
+    display:block;
+    overflow-x:auto;      /* scroll horizontal si besoin */
+    white-space:nowrap;
+  }
+}
+
+/* 3) Très petits écrans (< 480px) */
+@media (max-width:480px){
+  h1{
+    font-size:20px;
+  }
+
+  .stats{
+    grid-template-columns:1fr; /* 1 carte par ligne pour être nickel */
+  }
+
+  th,td{
+    padding:8px;
+    font-size:12px;
+  }
+
+  .pill{
+    font-size:12px;
+    padding:4px 8px;
   }
 }

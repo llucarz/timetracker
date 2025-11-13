@@ -509,24 +509,22 @@ function render() {
     tbody.appendChild(tr);
   }
 
-  const weekMin = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
-  const monthMin = sumMinutes(
-    x => x.date.slice(0, 7) === anchor.slice(0, 7)
-  );
-  const yearMin = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
-  const allMin = sumMinutes(() => true);
+    const weekMin  = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
+  const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
+  const yearMin  = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
+  const allMin   = sumMinutes(() => true);
 
-  sumWeek.textContent = minToHM(weekMin);
+  sumWeek.textContent  = minToHM(weekMin);
   sumMonth.textContent = minToHM(monthMin);
-  sumYear.textContent = minToHM(yearMin);
-  sumAll.textContent = minToHM(allMin);
-  entriesCount.textContent = `${entries.length} saisie${
-    entries.length > 1 ? "s" : ""
-  }`;
+  sumYear.textContent  = minToHM(yearMin);
+  sumAll.textContent   = minToHM(allMin);
+  entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
 
-  // Objectifs et deltas
+  // ---- Objectifs et deltas (semaine / mois / année) ----
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
   const dailyTarget = targetHours / 5;
+
+  // Semaine (comme avant)
   const absenceDaysWeek = entries.filter(
     e =>
       e.date >= wStart &&
@@ -551,13 +549,125 @@ function render() {
     deltaWeek.className = "delta";
   }
 
-  // Pour le mois / année, on garde l'ancien calcul simple
-  deltaMonth.textContent = "—";
-  deltaMonth.className = "delta";
-  deltaYear.textContent = "—";
-  deltaYear.className = "delta";
+  // Mois : somme des objectifs hebdo ajustés pour toutes les semaines du mois
+  const monthTargetMin = monthTargetMinutes(anchor, targetHours);
+  if (monthMin > monthTargetMin && monthTargetMin > 0) {
+    const monthDelta = monthMin - monthTargetMin;
+    deltaMonth.textContent = `+${minToHM(monthDelta)} vs cible`;
+    deltaMonth.className = "delta plus";
+  } else {
+    deltaMonth.textContent = "—";
+    deltaMonth.className = "delta";
+  }
+
+  // Année : somme des objectifs hebdo ajustés pour toutes les semaines de l'année
+  const yearTargetMin = yearTargetMinutes(anchor, targetHours);
+  if (yearMin > yearTargetMin && yearTargetMin > 0) {
+    const yearDelta = yearMin - yearTargetMin;
+    deltaYear.textContent = `+${minToHM(yearDelta)} vs cible`;
+    deltaYear.className = "delta plus";
+  } else {
+    deltaYear.textContent = "—";
+    deltaYear.className = "delta";
+  }
 
   updateWeekProgress(weekMin, wStart, wEnd);
+}
+
+// Objectif mensuel ajusté selon les absences
+function monthTargetMinutes(anchorKey, weeklyTargetHours) {
+  const dailyTarget = weeklyTargetHours / 5;
+  const y = +anchorKey.slice(0, 4);
+  const m = +anchorKey.slice(5, 7) - 1;
+
+  const monthFirst = new Date(Date.UTC(y, m, 1));
+  const monthLast  = new Date(Date.UTC(y, m + 1, 0));
+
+  let monday = mondayOf(monthFirst);
+  let totalHours = 0;
+
+  while (monday <= monthLast) {
+    const weekStart = new Date(monday);
+    const weekEnd   = new Date(monday);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+
+    // on ne compte que les semaines qui coupent ce mois
+    if (weekEnd < monthFirst || weekStart > monthLast) {
+      monday.setUTCDate(monday.getUTCDate() + 7);
+      continue;
+    }
+
+    const weekStartKey = toDateKey(weekStart);
+    const weekEndKey   = toDateKey(weekEnd);
+
+    let absenceDays = 0;
+    for (const e of entries) {
+      if (
+        e.date >= weekStartKey &&
+        e.date <= weekEndKey &&
+        (e.status === "school" || e.status === "vacation" || e.status === "sick")
+      ) {
+        absenceDays++;
+      }
+    }
+
+    const adjustedWeekly = Math.max(
+      0,
+      weeklyTargetHours - absenceDays * dailyTarget
+    );
+    totalHours += adjustedWeekly;
+
+    monday.setUTCDate(monday.getUTCDate() + 7);
+  }
+
+  return Math.round(totalHours * 60);
+}
+
+// Objectif annuel ajusté selon les absences
+function yearTargetMinutes(anchorKey, weeklyTargetHours) {
+  const dailyTarget = weeklyTargetHours / 5;
+  const y = +anchorKey.slice(0, 4);
+
+  const yearFirst = new Date(Date.UTC(y, 0, 1));
+  const yearLast  = new Date(Date.UTC(y, 11, 31));
+
+  let monday = mondayOf(yearFirst);
+  let totalHours = 0;
+
+  while (monday <= yearLast) {
+    const weekStart = new Date(monday);
+    const weekEnd   = new Date(monday);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+
+    if (weekEnd < yearFirst || weekStart > yearLast) {
+      monday.setUTCDate(monday.getUTCDate() + 7);
+      continue;
+    }
+
+    const weekStartKey = toDateKey(weekStart);
+    const weekEndKey   = toDateKey(weekEnd);
+
+    let absenceDays = 0;
+    for (const e of entries) {
+      if (
+        e.date >= weekStartKey &&
+        e.date <= weekEndKey &&
+        (e.status === "school" || e.status === "vacation" || e.status === "sick")
+      ) {
+        absenceDays++;
+      }
+    }
+
+    const adjustedWeekly = Math.max(
+      0,
+      weeklyTargetHours - absenceDays * dailyTarget
+    );
+    totalHours += adjustedWeekly;
+
+    monday.setUTCDate(monday.getUTCDate() + 7);
+  }
+
+  return Math.round(totalHours * 60);
 }
 
 // Divers

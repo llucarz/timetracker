@@ -9,7 +9,10 @@
 <body>
   <header>
     <h1>Time Tracker – 35h + Heures Sup</h1>
-    <div class="sub">Auto‑hébergeable (HTML/CSS/JS). Stockage LocalStorage + export (JSON/CSV/YAML). Option : synchro cloud via Vercel KV.</div>
+    <div class="sub">
+      Auto-hébergeable (HTML/CSS/JS). Stockage LocalStorage + export CSV. 
+      Option : synchro cloud via Upstash / Vercel KV.
+    </div>
   </header>
 
   <div class="wrap">
@@ -18,6 +21,7 @@
       <section class="card" id="formCard">
         <h3 style="margin:0 0 6px">Saisie journalière</h3>
         <div class="sub">Indique tes horaires : arrivée, pause, reprise, départ. Tu peux ajouter une note.</div>
+
         <label for="date">Date</label>
         <div class="row">
           <input type="date" id="date" />
@@ -34,6 +38,7 @@
             <input type="time" id="lunchStart" />
           </div>
         </div>
+
         <div class="row">
           <div>
             <label for="lunchEnd">Fin pause</label>
@@ -44,8 +49,21 @@
             <input type="time" id="end" />
           </div>
         </div>
+
         <label for="notes">Note (optionnel)</label>
         <input type="text" id="notes" placeholder="Ex.: support, déploiement, réunion…" />
+
+        <label for="status">Statut de la journée</label>
+        <select id="status">
+          <option value="work">Travail</option>
+          <option value="school">École / formation</option>
+          <option value="vacation">Vacances</option>
+          <option value="sick">Arrêt maladie</option>
+        </select>
+        <div class="sub" style="margin-top:4px">
+          Les journées non « Travail » ne comptent pas dans les heures, 
+          et retirent 1/5 de l'objectif hebdo (35h → 7h par jour).
+        </div>
 
         <div class="btns">
           <button class="btn green" id="btnSave">Enregistrer</button>
@@ -69,7 +87,10 @@
           </div>
         </div>
 
-        <div class="footer">Astuce : clique une ligne du tableau pour la modifier. Tout est sauvegardé automatiquement dans le navigateur.</div>
+        <div class="footer">
+          Astuce : clique une ligne du tableau pour la modifier. 
+          Tout est sauvegardé automatiquement dans le navigateur.
+        </div>
       </section>
 
       <!-- TABLEAU & RÉCAPS (zone verte) -->
@@ -90,11 +111,9 @@
 
             <button class="btn secondary" id="nextPeriod" title="Période suivante">▶</button>
 
-            <button class="btn secondary" id="btnExportJSON">Exporter JSON</button>
             <button class="btn secondary" id="btnExportCSV">Exporter CSV</button>
-            <button class="btn secondary" id="btnExportYAML">Exporter YAML</button>
             <label class="btn" for="fileImport" style="cursor:pointer">Importer</label>
-            <input type="file" id="fileImport" accept=".json,.csv,.yaml,.yml" style="display:none" />
+            <input type="file" id="fileImport" accept=".json,.csv" style="display:none" />
 
             <!-- Option cloud -->
             <button class="btn secondary" id="btnCloudKey">Cloud : clé</button>
@@ -112,6 +131,7 @@
               <th>Reprise</th>
               <th>Départ</th>
               <th>Total</th>
+              <th>Statut</th>
               <th>Note</th>
             </tr>
           </thead>

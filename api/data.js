@@ -1,35 +1,53 @@
-// api/data.js — Vercel Serverless Function (Node) + Vercel KV (Upstash Redis)
-import { kv } from '@vercel/kv';
+// api/data.js — API Vercel + Upstash Redis (REST)
+
+import { Redis } from '@upstash/redis';
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 export default async function handler(req, res) {
+  const { method, query } = req;
+  const key = (query.key || '').toString().trim();
+
+  if (!key) {
+    return res.status(400).json({ error: 'Missing ?key=' });
+  }
+
+  const redisKey = `tt:${key}`; // clé logique pour ton time tracker
+
   try {
-    const { method, query } = req;
-    const key = (query.key || '').toString().trim();
-    if (!key) return res.status(400).json({ error: 'Missing ?key=' });
-
-    const kvKey = `tt:${key}`;
-
     if (method === 'GET') {
-      const data = await kv.get(kvKey);
-      // data est soit un tableau (nos entrées), soit null
-      const entries = Array.isArray(data) ? data : [];
+      const raw = await redis.get(redisKey);
+
+      // raw peut être null, une string JSON, ou déjà un tableau
+      let entries = [];
+      if (Array.isArray(raw)) entries = raw;
+      else if (typeof raw === 'string' && raw.length) {
+        try { entries = JSON.parse(raw); } catch { entries = []; }
+      }
+
       return res.status(200).json({ entries });
     }
 
     if (method === 'POST') {
-      const body = await readJson(req);       // << pas req.json()
+      const body = await readJson(req);
+
       if (!Array.isArray(body?.entries)) {
-        return res.status(400).json({ error: 'entries[] required' });
+        return res.status(400).json({ error: 'Body must be { entries: [...] }' });
       }
-      await kv.set(kvKey, body.entries);      // on stocke juste le tableau
+
+      // on stocke en JSON
+      await redis.set(redisKey, JSON.stringify(body.entries));
       return res.status(200).json({ ok: true });
     }
 
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).end('Method Not Allowed');
-  } catch (e) {
-    console.error('KV API error:', e);
-    return res.status(500).json({ error: e?.message || 'KV error' });
+  } catch (err) {
+    console.error('Upstash error:', err);
+    return res.status(500).json({ error: 'Upstash error', detail: String(err) });
   }
 }
 
@@ -38,7 +56,11 @@ function readJson(req) {
     let data = '';
     req.on('data', chunk => (data += chunk));
     req.on('end', () => {
-      try { resolve(JSON.parse(data || '{}')); } catch (e) { reject(e); }
+      try {
+        resolve(JSON.parse(data || '{}'));
+      } catch (e) {
+        reject(e);
+      }
     });
     req.on('error', reject);
   });

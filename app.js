@@ -111,6 +111,7 @@ const btnDuplicate = $("#btnDuplicate");
 const btnDelete = $("#btnDelete");
 
 const weeklyTargetInput = $("#weeklyTarget");
+const workDaysInput = $("#workDays");
 const statDay = $("#statDay");
 const statWeek = $("#statWeek");
 const statMonth = $("#statMonth");
@@ -152,12 +153,13 @@ let periodAnchorKey = toDateKey(new Date());
 settings.cloudKey ??= "";
 updateCloudKeyLabel();
 
-// Init date et weeklyTarget
+// Init date et settings
 if (!dateInput.value) {
   dateInput.valueAsNumber =
     Date.now() - new Date().getTimezoneOffset() * 60000;
 }
 weeklyTargetInput.value = settings.weeklyTarget ?? 35;
+workDaysInput.value = settings.workDays ?? 5;
 
 // Init pickers
 (function initPickers() {
@@ -228,6 +230,14 @@ btnClear.addEventListener("click", clearForm);
 weeklyTargetInput.addEventListener("change", () => {
   const v = parseFloat(weeklyTargetInput.value || "35");
   settings.weeklyTarget = isFinite(v) ? v : 35;
+  saveSettings();
+  render();
+});
+
+workDaysInput.addEventListener("change", () => {
+  const v = parseInt(workDaysInput.value || "5", 10);
+  settings.workDays = Number.isFinite(v) && v > 0 ? v : 5;
+  workDaysInput.value = settings.workDays;
   saveSettings();
   render();
 });
@@ -450,7 +460,9 @@ function updateLiveStats() {
 
 function updateWeekProgress(weekMin, wStart, wEnd) {
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const dailyTarget = targetHours / 5;
+  const workDays = parseInt(workDaysInput.value || settings.workDays || "5", 10) || 5;
+  const dailyTarget = targetHours / workDays;
+
   const absenceDays = entries.filter(
     e =>
       e.date >= wStart &&
@@ -460,10 +472,380 @@ function updateWeekProgress(weekMin, wStart, wEnd) {
         e.status === "sick" ||
         e.status === "holiday")
   ).length;
+
   const adjustedTarget = Math.max(0, targetHours - absenceDays * dailyTarget);
   const targetMin = adjustedTarget * 60;
   const p =
     targetMin > 0
       ? Math.max(0, Math.min(100, Math.round((weekMin * 100) / targetMin)))
       : 0;
-  weekProgress.style.width = p + "%
+  weekProgress.style.width = p + "%";
+}
+
+// Rendu global
+function render() {
+  const anchor = periodAnchorKey || toDateKey(new Date());
+  const { start: wStart, end: wEnd } = weekRangeOf(anchor);
+
+  // Pastilles actives
+  [weekLabel, monthLabel, yearLabel].forEach(el =>
+    el.classList.remove("active")
+  );
+  (currentFilter === "week"
+    ? weekLabel
+    : currentFilter === "month"
+    ? monthLabel
+    : yearLabel
+  ).classList.add("active");
+
+  if (weekPicker)
+    weekPicker.style.display = currentFilter === "week" ? "inline-block" : "none";
+  if (monthPicker)
+    monthPicker.style.display = currentFilter === "month" ? "inline-block" : "none";
+  if (yearPicker)
+    yearPicker.style.display = currentFilter === "year" ? "inline-block" : "none";
+
+  // Labels
+  weekLabel.textContent = `Semaine ${wStart} → ${wEnd}`;
+  monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
+  yearLabel.textContent = `Année ${anchor.slice(0, 4)}`;
+
+  const inRange = e =>
+    currentFilter === "week"
+      ? e.date >= wStart && e.date <= wEnd
+      : currentFilter === "month"
+      ? e.date.slice(0, 7) === anchor.slice(0, 7)
+      : e.date.slice(0, 4) === anchor.slice(0, 4);
+
+  tbody.innerHTML = "";
+  for (const e of entries.filter(inRange)) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${e.date}</td>
+      <td>${e.start || ""}</td>
+      <td>${e.lunchStart || ""}</td>
+      <td>${e.lunchEnd || ""}</td>
+      <td>${e.end || ""}</td>
+      <td>${minToHM(computeMinutes(e))}</td>
+      <td>${statusLabel(e.status)}</td>
+      <td>${escapeHtml(e.notes || "")}</td>
+    `;
+    tr.addEventListener("click", () => {
+      editingId = e.id;
+      dateInput.value = e.date;
+      startInput.value = e.start || "";
+      lStartInput.value = e.lunchStart || "";
+      lEndInput.value = e.lunchEnd || "";
+      endInput.value = e.end || "";
+      notesInput.value = e.notes || "";
+      statusInput.value = e.status || "work";
+      btnDelete.style.display = "inline-block";
+      updateLiveStats();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    tbody.appendChild(tr);
+  }
+
+  const weekMin  = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
+  const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
+  const yearMin  = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
+  const allMin   = sumMinutes(() => true);
+
+  sumWeek.textContent  = minToHM(weekMin);
+  sumMonth.textContent = minToHM(monthMin);
+  sumYear.textContent  = minToHM(yearMin);
+  sumAll.textContent   = minToHM(allMin);
+  entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
+
+  // ---- Objectifs et deltas (semaine / mois / année) ----
+  const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
+  const workDays = parseInt(workDaysInput.value || settings.workDays || "5", 10) || 5;
+  const dailyTarget = targetHours / workDays;
+
+  // Semaine
+  const absenceDaysWeek = entries.filter(
+    e =>
+      e.date >= wStart &&
+      e.date <= wEnd &&
+      (e.status === "school" ||
+        e.status === "vacation" ||
+        e.status === "sick" ||
+        e.status === "holiday")
+  ).length;
+
+  const adjustedWeeklyTarget = Math.max(
+    0,
+    targetHours - absenceDaysWeek * dailyTarget
+  );
+  const weekTargetMin = adjustedWeeklyTarget * 60;
+
+  if (absenceDaysWeek >= workDays && weekMin === 0) {
+    deltaWeek.textContent = "Absent toute la semaine";
+    deltaWeek.className = "delta";
+  } else if (weekMin > weekTargetMin && weekTargetMin > 0) {
+    const weekDelta = weekMin - weekTargetMin;
+    deltaWeek.textContent = `+${minToHM(weekDelta)} vs cible`;
+    deltaWeek.className = "delta plus";
+  } else {
+    deltaWeek.textContent = "—";
+    deltaWeek.className = "delta";
+  }
+
+  // Mois
+  const monthTargetMin = monthTargetMinutes(anchor, targetHours, workDays);
+  if (monthMin > monthTargetMin && monthTargetMin > 0) {
+    const monthDelta = monthMin - monthTargetMin;
+    deltaMonth.textContent = `+${minToHM(monthDelta)} vs cible`;
+    deltaMonth.className = "delta plus";
+  } else {
+    deltaMonth.textContent = "—";
+    deltaMonth.className = "delta";
+  }
+
+  // Année
+  const yearTargetMin = yearTargetMinutes(anchor, targetHours, workDays);
+  if (yearMin > yearTargetMin && yearTargetMin > 0) {
+    const yearDelta = yearMin - yearTargetMin;
+    deltaYear.textContent = `+${minToHM(yearDelta)} vs cible`;
+    deltaYear.className = "delta plus";
+  } else {
+    deltaYear.textContent = "—";
+    deltaYear.className = "delta";
+  }
+
+  updateWeekProgress(weekMin, wStart, wEnd);
+}
+
+// Objectif mensuel ajusté selon les absences
+function monthTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
+  const dailyTarget = weeklyTargetHours / workDays;
+  const y = +anchorKey.slice(0, 4);
+  const m = +anchorKey.slice(5, 7) - 1;
+
+  const monthFirst = new Date(Date.UTC(y, m, 1));
+  const monthLast  = new Date(Date.UTC(y, m + 1, 0));
+
+  let monday = mondayOf(monthFirst);
+  let totalHours = 0;
+
+  while (monday <= monthLast) {
+    const weekStart = new Date(monday);
+    const weekEnd   = new Date(monday);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+
+    // on ne compte que les semaines qui coupent ce mois
+    if (weekEnd < monthFirst || weekStart > monthLast) {
+      monday.setUTCDate(monday.getUTCDate() + 7);
+      continue;
+    }
+
+    const weekStartKey = toDateKey(weekStart);
+    const weekEndKey   = toDateKey(weekEnd);
+
+    let absenceDays = 0;
+    for (const e of entries) {
+      if (
+        e.date >= weekStartKey &&
+        e.date <= weekEndKey &&
+        (e.status === "school" ||
+         e.status === "vacation" ||
+         e.status === "sick" ||
+         e.status === "holiday")
+      ) {
+        absenceDays++;
+      }
+    }
+
+    const adjustedWeekly = Math.max(
+      0,
+      weeklyTargetHours - absenceDays * dailyTarget
+    );
+    totalHours += adjustedWeekly;
+
+    monday.setUTCDate(monday.getUTCDate() + 7);
+  }
+
+  return Math.round(totalHours * 60);
+}
+
+// Objectif annuel ajusté selon les absences
+function yearTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
+  const dailyTarget = weeklyTargetHours / workDays;
+  const y = +anchorKey.slice(0, 4);
+
+  const yearFirst = new Date(Date.UTC(y, 0, 1));
+  const yearLast  = new Date(Date.UTC(y, 11, 31));
+
+  let monday = mondayOf(yearFirst);
+  let totalHours = 0;
+
+  while (monday <= yearLast) {
+    const weekStart = new Date(monday);
+    const weekEnd   = new Date(monday);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+
+    if (weekEnd < yearFirst || weekStart > yearLast) {
+      monday.setUTCDate(monday.getUTCDate() + 7);
+      continue;
+    }
+
+    const weekStartKey = toDateKey(weekStart);
+    const weekEndKey   = toDateKey(weekEnd);
+
+    let absenceDays = 0;
+    for (const e of entries) {
+      if (
+        e.date >= weekStartKey &&
+        e.date <= weekEndKey &&
+        (e.status === "school" ||
+         e.status === "vacation" ||
+         e.status === "sick" ||
+         e.status === "holiday")
+      ) {
+        absenceDays++;
+      }
+    }
+
+    const adjustedWeekly = Math.max(
+      0,
+      weeklyTargetHours - absenceDays * dailyTarget
+    );
+    totalHours += adjustedWeekly;
+
+    monday.setUTCDate(monday.getUTCDate() + 7);
+  }
+
+  return Math.round(totalHours * 60);
+}
+
+// Divers
+function statusLabel(status) {
+  switch (status) {
+    case "school":
+      return "École / formation";
+    case "vacation":
+      return "Vacances";
+    case "sick":
+      return "Arrêt maladie";
+    case "holiday":
+      return "Jour férié";
+    default:
+      return "Travail";
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, m => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[m]));
+}
+
+function download(filename, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function toCSV(data) {
+  const head = [
+    "date",
+    "start",
+    "lunchStart",
+    "lunchEnd",
+    "end",
+    "minutes",
+    "status",
+    "notes",
+  ];
+  const rows = data.map(e => [
+    e.date,
+    e.start || "",
+    e.lunchStart || "",
+    e.lunchEnd || "",
+    e.end || "",
+    computeMinutes(e),
+    e.status || "work",
+    (e.notes || "").replaceAll('"', '""'),
+  ]);
+  const csv = [
+    head.join(","),
+    ...rows.map(r => r.map(x => `"${x}"`).join(",")),
+  ].join("\n");
+  return csv;
+}
+
+async function importFile(ev) {
+  const f = ev.target.files[0];
+  if (!f) return;
+  const text = await f.text();
+  if (f.name.endsWith(".json")) {
+    try {
+      const arr = JSON.parse(text);
+      if (!Array.isArray(arr)) throw 0;
+      mergeEntries(arr);
+    } catch {
+      alert("JSON invalide.");
+    }
+  } else if (f.name.endsWith(".csv")) {
+    const arr = parseCSV(text);
+    mergeEntries(arr);
+  } else alert("Format non supporté.");
+  fileImport.value = "";
+  render();
+}
+
+function mergeEntries(arr) {
+  for (const r of arr) {
+    if (!r.date) continue;
+    const idx = entries.findIndex(x => x.date === r.date);
+    const obj = {
+      id: idx > -1 ? entries[idx].id : crypto.randomUUID(),
+      date: r.date,
+      start: r.start || "",
+      lunchStart: r.lunchStart || "",
+      lunchEnd: r.lunchEnd || "",
+      end: r.end || "",
+      notes: r.notes || "",
+      status: r.status || "work",
+    };
+    if (idx > -1) entries[idx] = obj;
+    else entries.push(obj);
+  }
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  saveEntries();
+}
+
+function parseCSV(csv) {
+  const lines = csv.split(/\r?\n/).filter(Boolean);
+  const head = lines
+    .shift()
+    .split(",")
+    .map(s => s.replaceAll('"', "").trim());
+  const idx = k => head.indexOf(k);
+  const out = [];
+  for (const line of lines) {
+    const cols = line
+      .match(/("(?:[^"]|"")*"|[^,]+)/g)
+      .map(s => s.replace(/^"|"$/g, "").replaceAll('""', '"'));
+    out.push({
+      date: cols[idx("date")] || "",
+      start: cols[idx("start")] || "",
+      lunchStart: cols[idx("lunchStart")] || "",
+      lunchEnd: cols[idx("lunchEnd")] || "",
+      end: cols[idx("end")] || "",
+      notes: cols[idx("notes")] || "",
+      status: cols[idx("status")] || "work",
+    });
+  }
+  return out;
+}
+
+// Premier rendu
+render();
+updateLiveStats();

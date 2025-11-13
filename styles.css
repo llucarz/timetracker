@@ -18,8 +18,23 @@ button,.btn{background:linear-gradient(180deg,rgba(79,140,255,.15),rgba(79,140,2
 .btn.danger{background:linear-gradient(180deg,rgba(239,68,68,.18),rgba(239,68,68,.06));border-color:rgba(239,68,68,.5)}
 .btn.warn{background:linear-gradient(180deg,rgba(245,158,11,.18),rgba(245,158,11,.06));border-color:rgba(245,158,11,.5)}
 .btn.green{background:linear-gradient(180deg,rgba(34,197,94,.2),rgba(34,197,94,.08));border-color:rgba(34,197,94,.5)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
-.stat{background:#0f1628;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px}
+.stats{
+  display:grid;
+  /* les 4 colonnes restent, mais on force à ne pas dépasser */
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin-top:10px;
+}
+
+.stat{
+  background:#0f1628;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  padding:12px;
+  min-width:0;       /* empêche le débordement horizontal */
+  box-sizing:border-box;
+}
+
 .stat .k{font-size:12px;color:var(--muted)}
 .stat .v{font-size:22px;font-weight:700;margin-top:4px}
 .delta.plus{color:var(--accent-2);font-weight:600}

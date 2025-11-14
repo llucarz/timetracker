@@ -36,7 +36,7 @@ function weekRangeOf(dateStr) {
 }
 
 // ========= Stockage =========
-const STORE_KEY = "tt_entries_v2";  // version avec statut
+const STORE_KEY = "tt_entries_v2";
 const SETTINGS_KEY = "tt_settings_v2";
 
 let entries = loadEntries();
@@ -69,20 +69,16 @@ function loadSettings() {
   }
 }
 
-function saveSettings() {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-}
-
 // valeurs par défaut
-settings.weeklyTarget ??= 35;        // heures / semaine
-settings.workingDays ??= 5;          // jours travaillés / semaine
+settings.weeklyTarget ??= 35;       // heures / semaine
+settings.workingDays ??= 5;         // jours travaillés
 settings.cloudKey ??= "";
-settings.overtimeUsedMin ??= 0;      // minutes déjà récupérées via le portefeuille
+settings.overtimeUsedMin ??= 0;     // minutes d'heures sup déjà récupérées
 
 // ========= Minutes de travail =========
 function computeMinutes(entry) {
   const status = entry.status || "work";
-  if (status !== "work") return 0; // école, vacances, maladie, férié => 0h
+  if (status !== "work") return 0;
 
   const a = hmToMin(entry.start);
   const b = hmToMin(entry.lunchStart);
@@ -121,7 +117,7 @@ const btnDuplicate = $("#btnDuplicate");
 const btnDelete    = $("#btnDelete");
 
 const weeklyTargetInput = $("#weeklyTarget");
-const workingDaysInput  = $("#workingDays");
+const workingDaysInput  = $("#workingDays");         // peut ne pas exister
 
 const statDay   = $("#statDay");
 const statWeek  = $("#statWeek");
@@ -156,7 +152,7 @@ const btnCloudKey  = $("#btnCloudKey");
 const btnCloudLoad = $("#btnCloudLoad");
 const btnCloudSave = $("#btnCloudSave");
 
-// DOM portefeuille d’heures sup
+// DOM portefeuille d’heures sup (peut ne pas exister encore)
 const otBalanceHM   = $("#otBalanceHM");
 const otBalanceDays = $("#otBalanceDays");
 const otEarned      = $("#otEarned");
@@ -170,13 +166,13 @@ let currentFilter   = "week";
 let periodAnchorKey = toDateKey(new Date());
 
 // ========= Init champs =========
-if (!dateInput.value) {
+if (dateInput && !dateInput.value) {
   dateInput.valueAsNumber =
     Date.now() - new Date().getTimezoneOffset() * 60000;
 }
 
-weeklyTargetInput.value = settings.weeklyTarget;
-workingDaysInput.value  = settings.workingDays;
+if (weeklyTargetInput) weeklyTargetInput.value = settings.weeklyTarget;
+if (workingDaysInput)  workingDaysInput.value  = settings.workingDays;
 
 // Pickers init
 (function initPickers() {
@@ -185,7 +181,7 @@ workingDaysInput.value  = settings.workingDays;
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
 
   if (monthPicker) monthPicker.value = `${y}-${m}`;
-  if (yearPicker) yearPicker.value  = String(y);
+  if (yearPicker)  yearPicker.value  = String(y);
 
   if (weekPicker) {
     const onejan = new Date(Date.UTC(y, 0, 1));
@@ -196,154 +192,192 @@ workingDaysInput.value  = settings.workingDays;
   }
 })();
 
-// ========= Events formulaire =========
-[
-  startInput,
-  lStartInput,
-  lEndInput,
-  endInput,
-  dateInput,
-  statusInput
-].forEach(i => i.addEventListener("input", updateLiveStats));
-
-btnToday.addEventListener("click", () => {
-  dateInput.valueAsNumber =
-    Date.now() - new Date().getTimezoneOffset() * 60000;
-  updateLiveStats();
-});
-
-btnDuplicate.addEventListener("click", duplicateYesterday);
-
-btnSave.addEventListener("click", () => {
-  const e = collectForm();
-  if (!e.date) {
-    alert("Choisis une date.");
-    return;
-  }
-  if (!(e.start && e.end) && e.status === "work") {
-    if (
-      !confirm(
-        "Heures d'arrivée et de départ non complètes. Enregistrer quand même ?"
-      )
-    )
-      return;
-  }
-
-  if (editingId) {
-    const idx = entries.findIndex(x => x.id === editingId);
-    if (idx > -1) entries[idx] = { ...entries[idx], ...e };
-  } else {
-    const existingIdx = entries.findIndex(x => x.date === e.date);
-    if (existingIdx > -1) entries.splice(existingIdx, 1);
-    entries.push({ id: crypto.randomUUID(), ...e });
-  }
-
-  entries.sort((a, b) => a.date.localeCompare(b.date));
-  saveEntries();
-  clearForm();
-  render();
-});
-
-btnDelete.addEventListener("click", () => {
-  if (!editingId) return;
-  const idx = entries.findIndex(x => x.id === editingId);
-  if (idx > -1) {
-    entries.splice(idx, 1);
-    saveEntries();
-  }
-  clearForm();
-  render();
-});
-
-btnClear.addEventListener("click", clearForm);
-
-weeklyTargetInput.addEventListener("change", () => {
-  const v = parseFloat(weeklyTargetInput.value || "35");
-  settings.weeklyTarget = isFinite(v) && v > 0 ? v : 35;
-  weeklyTargetInput.value = settings.weeklyTarget;
-  saveSettings();
-  render();
-  updateLiveStats();
-});
-
-workingDaysInput.addEventListener("change", () => {
-  let v = parseInt(workingDaysInput.value || "5", 10);
+// ========= Helpers jours travaillés / objectif jour =========
+function getWorkingDays() {
+  const fromSettings = settings.workingDays ?? 5;
+  if (!workingDaysInput) return fromSettings;
+  let v = parseInt(workingDaysInput.value || `${fromSettings}`, 10);
   if (!isFinite(v) || v < 1) v = 1;
   if (v > 7) v = 7;
-  settings.workingDays = v;
-  workingDaysInput.value = v;
-  saveSettings();
-  render();
-  updateLiveStats();
-});
+  return v;
+}
 
-// ========= Export / import =========
-btnExportCSV.addEventListener("click", () =>
-  download("timetracker.csv", toCSV(entries))
-);
-fileImport.addEventListener("change", importFile);
+function dailyTargetMinutes() {
+  const weekly = weeklyTargetInput
+    ? parseFloat(weeklyTargetInput.value || `${settings.weeklyTarget || 35}`) || 35
+    : settings.weeklyTarget || 35;
+  const wd = getWorkingDays();
+  return (weekly * 60) / Math.max(1, wd);
+}
 
-// ========= Cloud =========
-btnCloudKey.addEventListener("click", () => {
-  const current = settings.cloudKey || "";
-  const val = prompt("Clé de sauvegarde cloud (ex: prenom-35h) :", current);
-  if (!val) return;
-  settings.cloudKey = val.trim();
-  saveSettings();
-  updateCloudKeyLabel();
-});
+// ========= Events formulaire =========
+if (startInput && lStartInput && lEndInput && endInput && dateInput && statusInput) {
+  [
+    startInput,
+    lStartInput,
+    lEndInput,
+    endInput,
+    dateInput,
+    statusInput
+  ].forEach(i => i.addEventListener("input", updateLiveStats));
+}
 
-btnCloudSave.addEventListener("click", async () => {
-  if (!settings.cloudKey) {
-    alert("Définis d'abord une clé cloud.");
-    return;
-  }
-  try {
-    const res = await fetch(
-      `/api/data?key=${encodeURIComponent(settings.cloudKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries })
-      }
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    alert("Sauvegarde cloud OK ✅");
-  } catch (e) {
-    alert(`Sauvegarde cloud impossible : ${e.message || e}`);
-  }
-});
+if (btnToday && dateInput) {
+  btnToday.addEventListener("click", () => {
+    dateInput.valueAsNumber =
+      Date.now() - new Date().getTimezoneOffset() * 60000;
+    updateLiveStats();
+  });
+}
 
-btnCloudLoad.addEventListener("click", async () => {
-  if (!settings.cloudKey) {
-    alert("Définis d'abord une clé cloud.");
-    return;
-  }
-  if (!confirm("Remplacer les données locales par celles du cloud ?")) return;
+if (btnDuplicate) btnDuplicate.addEventListener("click", duplicateYesterday);
 
-  try {
-    const res = await fetch(
-      `/api/data?key=${encodeURIComponent(settings.cloudKey)}`
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (!Array.isArray(data.entries)) {
-      alert("Aucune donnée trouvée pour cette clé.");
+if (btnSave) {
+  btnSave.addEventListener("click", () => {
+    const e = collectForm();
+    if (!e.date) {
+      alert("Choisis une date.");
       return;
     }
-    entries = data.entries.map(e => ({
-      status: "work",
-      ...e,
-      status: e.status || "work",
-      id: e.id || crypto.randomUUID()
-    }));
+    if (!(e.start && e.end) && e.status === "work") {
+      if (
+        !confirm(
+          "Heures d'arrivée et de départ non complètes. Enregistrer quand même ?"
+        )
+      )
+        return;
+    }
+
+    if (editingId) {
+      const idx = entries.findIndex(x => x.id === editingId);
+      if (idx > -1) entries[idx] = { ...entries[idx], ...e };
+    } else {
+      const existingIdx = entries.findIndex(x => x.date === e.date);
+      if (existingIdx > -1) entries.splice(existingIdx, 1);
+      entries.push({ id: crypto.randomUUID(), ...e });
+    }
+
+    entries.sort((a, b) => a.date.localeCompare(b.date));
     saveEntries();
+    clearForm();
     render();
-    alert("Données cloud chargées ✅");
-  } catch (e) {
-    alert(`Chargement cloud impossible : ${e.message || e}`);
-  }
-});
+  });
+}
+
+if (btnDelete) {
+  btnDelete.addEventListener("click", () => {
+    if (!editingId) return;
+    const idx = entries.findIndex(x => x.id === editingId);
+    if (idx > -1) {
+      entries.splice(idx, 1);
+      saveEntries();
+    }
+    clearForm();
+    render();
+  });
+}
+
+if (btnClear) btnClear.addEventListener("click", clearForm);
+
+if (weeklyTargetInput) {
+  weeklyTargetInput.addEventListener("change", () => {
+    const v = parseFloat(weeklyTargetInput.value || "35");
+    settings.weeklyTarget = isFinite(v) && v > 0 ? v : 35;
+    weeklyTargetInput.value = settings.weeklyTarget;
+    saveSettings();
+    render();
+    updateLiveStats();
+  });
+}
+
+if (workingDaysInput) {
+  workingDaysInput.addEventListener("change", () => {
+    let v = parseInt(workingDaysInput.value || "5", 10);
+    if (!isFinite(v) || v < 1) v = 1;
+    if (v > 7) v = 7;
+    settings.workingDays = v;
+    workingDaysInput.value = v;
+    saveSettings();
+    render();
+    updateLiveStats();
+  });
+}
+
+// ========= Export / import =========
+if (btnExportCSV) {
+  btnExportCSV.addEventListener("click", () =>
+    download("timetracker.csv", toCSV(entries))
+  );
+}
+if (fileImport) fileImport.addEventListener("change", importFile);
+
+// ========= Cloud =========
+if (btnCloudKey) {
+  btnCloudKey.addEventListener("click", () => {
+    const current = settings.cloudKey || "";
+    const val = prompt("Clé de sauvegarde cloud (ex: prenom-35h) :", current);
+    if (!val) return;
+    settings.cloudKey = val.trim();
+    saveSettings();
+    updateCloudKeyLabel();
+  });
+}
+
+if (btnCloudSave) {
+  btnCloudSave.addEventListener("click", async () => {
+    if (!settings.cloudKey) {
+      alert("Définis d'abord une clé cloud.");
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/data?key=${encodeURIComponent(settings.cloudKey)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entries })
+        }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      alert("Sauvegarde cloud OK ✅");
+    } catch (e) {
+      alert(`Sauvegarde cloud impossible : ${e.message || e}`);
+    }
+  });
+}
+
+if (btnCloudLoad) {
+  btnCloudLoad.addEventListener("click", async () => {
+    if (!settings.cloudKey) {
+      alert("Définis d'abord une clé cloud.");
+      return;
+    }
+    if (!confirm("Remplacer les données locales par celles du cloud ?")) return;
+
+    try {
+      const res = await fetch(
+        `/api/data?key=${encodeURIComponent(settings.cloudKey)}`
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!Array.isArray(data.entries)) {
+        alert("Aucune donnée trouvée pour cette clé.");
+        return;
+      }
+      entries = data.entries.map(e => ({
+        status: "work",
+        ...e,
+        status: e.status || "work",
+        id: e.id || crypto.randomUUID()
+      }));
+      saveEntries();
+      render();
+      alert("Données cloud chargées ✅");
+    } catch (e) {
+      alert(`Chargement cloud impossible : ${e.message || e}`);
+    }
+  });
+}
 
 function updateCloudKeyLabel() {
   if (!btnCloudKey) return;
@@ -363,24 +397,32 @@ function openPicker(el) {
   }
 }
 
-weekLabel.addEventListener("click", () => {
-  currentFilter = "week";
-  render();
-  openPicker(weekPicker);
-});
+if (weekLabel) {
+  weekLabel.addEventListener("click", () => {
+    currentFilter = "week";
+    render();
+    openPicker(weekPicker);
+  });
+}
 
-monthLabel.addEventListener("click", () => {
-  currentFilter = "month";
-  render();
-  openPicker(monthPicker);
-});
+if (monthLabel) {
+  monthLabel.addEventListener("click", () => {
+    currentFilter = "month";
+    render();
+    openPicker(monthPicker);
+  });
+}
 
-yearLabel.addEventListener("click", () => {
-  currentFilter = "year";
-  render();
-  yearPicker.style.display = "inline-block";
-  yearPicker.focus();
-});
+if (yearLabel) {
+  yearLabel.addEventListener("click", () => {
+    currentFilter = "year";
+    render();
+    if (yearPicker) {
+      yearPicker.style.display = "inline-block";
+      yearPicker.focus();
+    }
+  });
+}
 
 function isoWeekStart(value) {
   const [y, wStr] = value.split("-W");
@@ -433,36 +475,36 @@ function shiftAnchor(delta) {
   render();
 }
 
-prevPeriod.addEventListener("click", () => shiftAnchor(-1));
-nextPeriod.addEventListener("click", () => shiftAnchor(+1));
+if (prevPeriod) prevPeriod.addEventListener("click", () => shiftAnchor(-1));
+if (nextPeriod) nextPeriod.addEventListener("click", () => shiftAnchor(+1));
 
 // ========= Helpers formulaire =========
 function collectForm() {
   return {
-    date: dateInput.value || null,
-    start: startInput.value || "",
-    lunchStart: lStartInput.value || "",
-    lunchEnd: lEndInput.value || "",
-    end: endInput.value || "",
-    notes: (notesInput.value || "").trim(),
-    status: statusInput.value || "work"
+    date: dateInput ? dateInput.value || null : null,
+    start: startInput ? startInput.value || "" : "",
+    lunchStart: lStartInput ? lStartInput.value || "" : "",
+    lunchEnd: lEndInput ? lEndInput.value || "" : "",
+    end: endInput ? endInput.value || "" : "",
+    notes: (notesInput && notesInput.value ? notesInput.value : "").trim(),
+    status: statusInput ? statusInput.value || "work" : "work"
   };
 }
 
 function clearForm() {
   editingId = null;
-  startInput.value =
-    lStartInput.value =
-    lEndInput.value =
-    endInput.value =
-    notesInput.value =
-      "";
-  statusInput.value = "work";
-  btnDelete.style.display = "none";
+  if (startInput)  startInput.value  = "";
+  if (lStartInput) lStartInput.value = "";
+  if (lEndInput)   lEndInput.value   = "";
+  if (endInput)    endInput.value    = "";
+  if (notesInput)  notesInput.value  = "";
+  if (statusInput) statusInput.value = "work";
+  if (btnDelete)   btnDelete.style.display = "none";
   updateLiveStats();
 }
 
 function duplicateYesterday() {
+  if (!dateInput) return;
   const d = dateInput.value
     ? new Date(dateInput.value + "T12:00:00")
     : new Date();
@@ -473,48 +515,44 @@ function duplicateYesterday() {
     alert("Aucune saisie la veille.");
     return;
   }
-  startInput.value = y.start || "";
-  lStartInput.value = y.lunchStart || "";
-  lEndInput.value = y.lunchEnd || "";
-  endInput.value = y.end || "";
-  notesInput.value = y.notes || "";
-  statusInput.value = y.status || "work";
+  if (startInput)  startInput.value  = y.start || "";
+  if (lStartInput) lStartInput.value = y.lunchStart || "";
+  if (lEndInput)   lEndInput.value   = y.lunchEnd || "";
+  if (endInput)    endInput.value    = y.end || "";
+  if (notesInput)  notesInput.value  = y.notes || "";
+  if (statusInput) statusInput.value = y.status || "work";
   updateLiveStats();
 }
 
-// ========= Live stats (zone gauche) =========
-function dailyTargetMinutes() {
-  const weekly = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const wd =
-    parseInt(workingDaysInput.value || `${settings.workingDays || 5}`, 10) ||
-    5;
-  return (weekly * 60) / Math.max(1, wd);
-}
-
+// ========= Live stats (card gauche) =========
 function updateLiveStats() {
+  if (!statDay || !statWeek || !statMonth || !statYear) return;
+
   const e = collectForm();
   const minutes = computeMinutes(e);
   statDay.textContent = minToHM(minutes);
 
   const today = e.date || toDateKey(new Date());
   const { start, end } = weekRangeOf(today);
-  const weekMin = sumMinutes(x => x.date >= start && x.date <= end);
+  const weekMin  = sumMinutes(x => x.date >= start && x.date <= end);
   const monthMin = sumMinutes(x => x.date.slice(0, 7) === today.slice(0, 7));
-  const yearMin = sumMinutes(x => x.date.slice(0, 4) === today.slice(0, 4));
+  const yearMin  = sumMinutes(x => x.date.slice(0, 4) === today.slice(0, 4));
 
-  statWeek.textContent = minToHM(weekMin);
+  statWeek.textContent  = minToHM(weekMin);
   statMonth.textContent = minToHM(monthMin);
-  statYear.textContent = minToHM(yearMin);
+  statYear.textContent  = minToHM(yearMin);
 
   updateWeekProgress(weekMin, start, end);
-  recomputeOvertime(); // pour voir l’impact direct sur le portefeuille
+  recomputeOvertime();
 }
 
 function updateWeekProgress(weekMin, wStart, wEnd) {
-  const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const workingDays =
-    parseInt(workingDaysInput.value || `${settings.workingDays || 5}`, 10) ||
-    5;
+  if (!weekProgress) return;
+  const targetHours = weeklyTargetInput
+    ? parseFloat(weeklyTargetInput.value || "35") || 35
+    : settings.weeklyTarget || 35;
+
+  const workingDays = getWorkingDays();
   const dailyTarget = targetHours / Math.max(1, workingDays);
 
   const absenceDays = entries.filter(
@@ -543,15 +581,13 @@ function render() {
   const { start: wStart, end: wEnd } = weekRangeOf(anchor);
 
   // pastilles
-  [weekLabel, monthLabel, yearLabel].forEach(el =>
-    el.classList.remove("active")
-  );
+  [weekLabel, monthLabel, yearLabel].forEach(el => el && el.classList.remove("active"));
   (currentFilter === "week"
     ? weekLabel
     : currentFilter === "month"
     ? monthLabel
     : yearLabel
-  ).classList.add("active");
+  )?.classList.add("active");
 
   if (weekPicker)
     weekPicker.style.display =
@@ -563,10 +599,9 @@ function render() {
     yearPicker.style.display =
       currentFilter === "year" ? "inline-block" : "none";
 
-  // labels
-  weekLabel.textContent  = `Semaine ${wStart} → ${wEnd}`;
-  monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
-  yearLabel.textContent  = `Année ${anchor.slice(0, 4)}`;
+  if (weekLabel)  weekLabel.textContent  = `Semaine ${wStart} → ${wEnd}`;
+  if (monthLabel) monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
+  if (yearLabel)  yearLabel.textContent  = `Année ${anchor.slice(0, 4)}`;
 
   const inRange = e =>
     currentFilter === "week"
@@ -576,33 +611,35 @@ function render() {
       : e.date.slice(0, 4) === anchor.slice(0, 4);
 
   // tableau
-  tbody.innerHTML = "";
-  for (const e of entries.filter(inRange)) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${e.date}</td>
-      <td>${e.start || ""}</td>
-      <td>${e.lunchStart || ""}</td>
-      <td>${e.lunchEnd || ""}</td>
-      <td>${e.end || ""}</td>
-      <td>${minToHM(computeMinutes(e))}</td>
-      <td>${statusLabel(e.status)}</td>
-      <td>${escapeHtml(e.notes || "")}</td>
-    `;
-    tr.addEventListener("click", () => {
-      editingId = e.id;
-      dateInput.value = e.date;
-      startInput.value = e.start || "";
-      lStartInput.value = e.lunchStart || "";
-      lEndInput.value = e.lunchEnd || "";
-      endInput.value = e.end || "";
-      notesInput.value = e.notes || "";
-      statusInput.value = e.status || "work";
-      btnDelete.style.display = "inline-block";
-      updateLiveStats();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-    tbody.appendChild(tr);
+  if (tbody) {
+    tbody.innerHTML = "";
+    for (const e of entries.filter(inRange)) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${e.date}</td>
+        <td>${e.start || ""}</td>
+        <td>${e.lunchStart || ""}</td>
+        <td>${e.lunchEnd || ""}</td>
+        <td>${e.end || ""}</td>
+        <td>${minToHM(computeMinutes(e))}</td>
+        <td>${statusLabel(e.status)}</td>
+        <td>${escapeHtml(e.notes || "")}</td>
+      `;
+      tr.addEventListener("click", () => {
+        editingId = e.id;
+        if (dateInput)   dateInput.value   = e.date;
+        if (startInput)  startInput.value  = e.start || "";
+        if (lStartInput) lStartInput.value = e.lunchStart || "";
+        if (lEndInput)   lEndInput.value   = e.lunchEnd || "";
+        if (endInput)    endInput.value    = e.end || "";
+        if (notesInput)  notesInput.value  = e.notes || "";
+        if (statusInput) statusInput.value = e.status || "work";
+        if (btnDelete)   btnDelete.style.display = "inline-block";
+        updateLiveStats();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      tbody.appendChild(tr);
+    }
   }
 
   // agrégats
@@ -611,19 +648,19 @@ function render() {
   const yearMin  = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
   const allMin   = sumMinutes(() => true);
 
-  sumWeek.textContent  = minToHM(weekMin);
-  sumMonth.textContent = minToHM(monthMin);
-  sumYear.textContent  = minToHM(yearMin);
-  sumAll.textContent   = minToHM(allMin);
-  entriesCount.textContent = `${entries.length} saisie${
-    entries.length > 1 ? "s" : ""
-  }`;
+  if (sumWeek)  sumWeek.textContent  = minToHM(weekMin);
+  if (sumMonth) sumMonth.textContent = minToHM(monthMin);
+  if (sumYear)  sumYear.textContent  = minToHM(yearMin);
+  if (sumAll)   sumAll.textContent   = minToHM(allMin);
+  if (entriesCount)
+    entriesCount.textContent = `${entries.length} saisie${
+      entries.length > 1 ? "s" : ""
+    }`;
 
-  // objectifs / deltas
-  const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const workingDays =
-    parseInt(workingDaysInput.value || `${settings.workingDays || 5}`, 10) ||
-    5;
+  const targetHours = weeklyTargetInput
+    ? parseFloat(weeklyTargetInput.value || "35") || 35
+    : settings.weeklyTarget || 35;
+  const workingDays = getWorkingDays();
   const dailyTarget = targetHours / Math.max(1, workingDays);
 
   // semaine
@@ -643,46 +680,54 @@ function render() {
   );
   const weekTargetMin = adjustedWeeklyTarget * 60;
 
-  if (absenceDaysWeek >= workingDays && weekMin === 0) {
-    deltaWeek.textContent = "Absent toute la semaine";
-    deltaWeek.className = "delta";
-  } else if (weekMin > weekTargetMin && weekTargetMin > 0) {
-    const weekDelta = weekMin - weekTargetMin;
-    deltaWeek.textContent = `+${minToHM(weekDelta)} vs cible`;
-    deltaWeek.className = "delta plus";
-  } else {
-    deltaWeek.textContent = "—";
-    deltaWeek.className = "delta";
+  if (deltaWeek) {
+    if (absenceDaysWeek >= workingDays && weekMin === 0) {
+      deltaWeek.textContent = "Absent toute la semaine";
+      deltaWeek.className = "delta";
+    } else if (weekMin > weekTargetMin && weekTargetMin > 0) {
+      const weekDelta = weekMin - weekTargetMin;
+      deltaWeek.textContent = `+${minToHM(weekDelta)} vs cible`;
+      deltaWeek.className = "delta plus";
+    } else {
+      deltaWeek.textContent = "—";
+      deltaWeek.className = "delta";
+    }
   }
 
-  // mois / année : cibles ajustées avec absences
-  const monthTargetMin = monthTargetMinutes(anchor, targetHours, workingDays);
-  if (monthMin > monthTargetMin && monthTargetMin > 0) {
-    const monthDelta = monthMin - monthTargetMin;
-    deltaMonth.textContent = `+${minToHM(monthDelta)} vs cible`;
-    deltaMonth.className = "delta plus";
-  } else {
-    deltaMonth.textContent = "—";
-    deltaMonth.className = "delta";
+  // mois / année
+  const monthTargetMin = monthTargetMinutes(anchor, targetHours);
+  if (deltaMonth) {
+    if (monthMin > monthTargetMin && monthTargetMin > 0) {
+      const monthDelta = monthMin - monthTargetMin;
+      deltaMonth.textContent = `+${minToHM(monthDelta)} vs cible`;
+      deltaMonth.className = "delta plus";
+    } else {
+      deltaMonth.textContent = "—";
+      deltaMonth.className = "delta";
+    }
   }
 
-  const yearTargetMin = yearTargetMinutes(anchor, targetHours, workingDays);
-  if (yearMin > yearTargetMin && yearTargetMin > 0) {
-    const yearDelta = yearMin - yearTargetMin;
-    deltaYear.textContent = `+${minToHM(yearDelta)} vs cible`;
-    deltaYear.className = "delta plus";
-  } else {
-    deltaYear.textContent = "—";
-    deltaYear.className = "delta";
+  const yearTargetMin = yearTargetMinutes(anchor, targetHours);
+  if (deltaYear) {
+    if (yearMin > yearTargetMin && yearTargetMin > 0) {
+      const yearDelta = yearMin - yearTargetMin;
+      deltaYear.textContent = `+${minToHM(yearDelta)} vs cible`;
+      deltaYear.className = "delta plus";
+    } else {
+      deltaYear.textContent = "—";
+      deltaYear.className = "delta";
+    }
   }
 
   updateWeekProgress(weekMin, wStart, wEnd);
   recomputeOvertime();
 }
 
-// ========= Objectifs mensuels / annuels ajustés =========
-function monthTargetMinutes(anchorKey, weeklyTargetHours, workingDays) {
+// ========= Objectifs mensuels / annuels =========
+function monthTargetMinutes(anchorKey, weeklyTargetHours) {
+  const workingDays = getWorkingDays();
   const dailyTarget = weeklyTargetHours / Math.max(1, workingDays);
+
   const y = +anchorKey.slice(0, 4);
   const m = +anchorKey.slice(5, 7) - 1;
 
@@ -731,7 +776,8 @@ function monthTargetMinutes(anchorKey, weeklyTargetHours, workingDays) {
   return Math.round(totalHours * 60);
 }
 
-function yearTargetMinutes(anchorKey, weeklyTargetHours, workingDays) {
+function yearTargetMinutes(anchorKey, weeklyTargetHours) {
+  const workingDays = getWorkingDays();
   const dailyTarget = weeklyTargetHours / Math.max(1, workingDays);
   const y = +anchorKey.slice(0, 4);
 
@@ -781,21 +827,15 @@ function yearTargetMinutes(anchorKey, weeklyTargetHours, workingDays) {
 }
 
 // ========= Portefeuille d’heures sup =========
-// On calcule pour chaque jour :
-// diff = minutesTravaillées - objectifJour (0 pour absences)
-// Solde brut = somme de toutes les diff (peut être négatif)
-// Solde net = solde brut - minutes déjà récupérées (settings.overtimeUsedMin)
-
 function recomputeOvertime() {
-  if (!otBalanceHM) return; // section absente
+  if (!otBalanceHM || !otBalanceDays || !otEarned || !otUsed) return;
 
   const dayTargetMin = dailyTargetMinutes();
   let earnedMin = 0;
 
   for (const e of entries) {
     const status = e.status || "work";
-    if (status !== "work") continue; // absences => pas d'obligation
-
+    if (status !== "work") continue;
     const worked = computeMinutes(e);
     earnedMin += worked - dayTargetMin;
   }
@@ -820,8 +860,7 @@ function recomputeOvertime() {
   otBalanceDays.textContent = sign ? `${sign}${labelDays}` : labelDays;
 }
 
-// user clique sur "Enregistrer la récup"
-if (otApply) {
+if (otApply && otDaysInput && otHoursInput) {
   otApply.addEventListener("click", () => {
     const d = parseFloat(otDaysInput.value || "0") || 0;
     const h = parseFloat(otHoursInput.value || "0") || 0;
@@ -924,7 +963,7 @@ async function importFile(ev) {
     alert("Format non supporté.");
   }
 
-  fileImport.value = "";
+  ev.target.value = "";
   render();
 }
 

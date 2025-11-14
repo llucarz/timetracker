@@ -6,25 +6,31 @@
   <title>Time Tracker</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<header class="topbar">
-  <div class="topbar-right">
-    <button class="btn secondary" id="accountBtn">
-      Créer un compte
-    </button>
-  </div>
-</header>
 <body>
+  <!-- Barre du haut -->
+  <header class="topbar">
+    <div class="topbar-right">
+      <button class="btn secondary" id="accountBtn">
+        Créer un compte
+      </button>
+    </div>
+  </header>
+
   <div class="wrap">
     <div class="grid">
-      <!-- FORMULAIRE (saisie) -->
+      <!-- COLONNE GAUCHE : saisie journalière -->
       <section class="card" id="formCard">
         <h3 style="margin:0 0 6px">Saisie journalière</h3>
-        <div class="sub">Indique tes horaires : arrivée, pause, reprise, départ. Tu peux ajouter une note.</div>
+        <div class="sub">
+          Indique tes horaires : arrivée, pause, reprise, départ. Tu peux ajouter une note.
+        </div>
 
         <label for="date">Date</label>
         <div class="row">
           <input type="date" id="date" />
-          <button class="btn secondary" id="btnToday" title="Remplir avec aujourd'hui">Aujourd'hui</button>
+          <button class="btn secondary" id="btnToday" title="Remplir avec aujourd'hui">
+            Aujourd'hui
+          </button>
         </div>
 
         <div class="row">
@@ -50,7 +56,11 @@
         </div>
 
         <label for="notes">Note (optionnel)</label>
-        <input type="text" id="notes" placeholder="Ex.: support, déploiement, réunion…" />
+        <input
+          type="text"
+          id="notes"
+          placeholder="Ex.: support, déploiement, réunion…"
+        />
 
         <label for="status">Statut de la journée</label>
         <select id="status">
@@ -61,26 +71,42 @@
           <option value="holiday">Jour férié</option>
         </select>
         <div class="sub" style="margin-top:4px">
-          Les journées non « Travail » ne comptent pas dans les heures, 
-          et retirent 1/5 de l'objectif hebdo (35h → 7h par jour).
+          Les journées non « Travail » ne comptent pas dans les heures, et retirent
+          1/5 de l'objectif hebdo (35h → 7h par jour).
         </div>
 
         <div class="btns">
           <button class="btn green" id="btnSave">Enregistrer</button>
           <button class="btn secondary" id="btnClear">Effacer</button>
           <button class="btn warn" id="btnDuplicate">Dupliquer la veille</button>
-          <button class="btn danger" id="btnDelete" style="display:none">Supprimer la saisie</button>
+          <button class="btn danger" id="btnDelete" style="display:none">
+            Supprimer la saisie
+          </button>
         </div>
 
         <div class="stats">
-          <div class="stat"><div class="k">Temps travaillé (jour)</div><div class="v" id="statDay">0h00</div></div>
-          <div class="stat"><div class="k">Cumul semaine</div><div class="v" id="statWeek">0h00</div></div>
-          <div class="stat"><div class="k">Cumul mois</div><div class="v" id="statMonth">0h00</div></div>
-          <div class="stat"><div class="k">Cumul année</div><div class="v" id="statYear">0h00</div></div>
+          <div class="stat">
+            <div class="k">Temps travaillé (jour)</div>
+            <div class="v" id="statDay">0h00</div>
+          </div>
+          <div class="stat">
+            <div class="k">Cumul semaine</div>
+            <div class="v" id="statWeek">0h00</div>
+          </div>
+          <div class="stat">
+            <div class="k">Cumul mois</div>
+            <div class="v" id="statMonth">0h00</div>
+          </div>
+          <div class="stat">
+            <div class="k">Cumul année</div>
+            <div class="v" id="statYear">0h00</div>
+          </div>
         </div>
 
         <div style="margin-top:12px">
-          <div class="k" style="font-size:12px;color:var(--muted)">Objectif hebdo (h) & jours travaillés</div>
+          <div class="k" style="font-size:12px;color:var(--muted)">
+            Objectif hebdo (h) & jours travaillés
+          </div>
           <div class="row">
             <input type="number" id="weeklyTarget" min="1" step="0.5" value="35" />
             <input type="number" id="workDays" min="1" max="7" step="1" value="5" />
@@ -88,139 +114,188 @@
           <div class="progress"><div id="weekProgress"></div></div>
         </div>
 
-
         <div class="footer">
-          Astuce : clique une ligne du tableau pour la modifier. 
-          Tout est sauvegardé automatiquement dans le navigateur.
+          Astuce : clique une ligne du tableau pour la modifier. Tout est sauvegardé
+          automatiquement dans le navigateur.
         </div>
       </section>
 
-            <!-- TABLEAU & RÉCAPS (heures semaine/mois/année) -->
-      <section class="card" id="summaryCard">
-        <div class="toolbar">
-          <div class="left">
-            <span class="pill" id="weekLabel">Semaine —</span>
-            <span class="pill" id="monthLabel">Mois —</span>
-            <span class="pill" id="yearLabel">Année —</span>
-          </div>
-          <div class="right">
-            <button class="btn secondary" id="prevPeriod" title="Période précédente">◀</button>
+      <!-- COLONNE DROITE : tableau + compte d'heures sup -->
+      <div class="right-col">
+        <!-- TABLEAU & RÉCAPS (heures semaine/mois/année) -->
+        <section class="card" id="summaryCard">
+          <div class="toolbar">
+            <div class="left">
+              <span class="pill" id="weekLabel">Semaine —</span>
+              <span class="pill" id="monthLabel">Mois —</span>
+              <span class="pill" id="yearLabel">Année —</span>
+            </div>
+            <div class="right">
+              <button
+                class="btn secondary"
+                id="prevPeriod"
+                title="Période précédente"
+              >
+                ◀
+              </button>
 
-            <!-- Pickers natifs, affichés selon le filtre -->
-            <input type="week"  id="weekPicker"  class="picker" />
-            <input type="month" id="monthPicker" class="picker" />
-            <input type="number" id="yearPicker"  class="picker" min="1970" max="2100" step="1" style="width:100px" placeholder="Année" />
+              <!-- Pickers natifs, affichés selon le filtre -->
+              <input type="week" id="weekPicker" class="picker" />
+              <input type="month" id="monthPicker" class="picker" />
+              <input
+                type="number"
+                id="yearPicker"
+                class="picker"
+                min="1970"
+                max="2100"
+                step="1"
+                style="width:100px"
+                placeholder="Année"
+              />
 
-            <button class="btn secondary" id="nextPeriod" title="Période suivante">▶</button>
+              <button
+                class="btn secondary"
+                id="nextPeriod"
+                title="Période suivante"
+              >
+                ▶
+              </button>
 
-            <button class="btn secondary" id="btnExportCSV">Exporter CSV</button>
-            <label class="btn" for="fileImport" style="cursor:pointer">Importer</label>
-            <input type="file" id="fileImport" accept=".json,.csv" style="display:none" />
-          </div>
-        </div>
-
-        <table id="tbl">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Arrivée</th>
-              <th>Pause</th>
-              <th>Reprise</th>
-              <th>Départ</th>
-              <th>Total</th>
-              <th>Statut</th>
-              <th>Note</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-
-        <div class="stats" style="margin-top:14px">
-          <div class="stat">
-            <div class="k">Heures semaine</div>
-            <div class="v" id="sumWeek">0h00</div>
-            <div class="delta" id="deltaWeek">—</div>
-          </div>
-          <div class="stat">
-            <div class="k">Heures mois</div>
-            <div class="v" id="sumMonth">0h00</div>
-            <div class="delta" id="deltaMonth">—</div>
-          </div>
-          <div class="stat">
-            <div class="k">Heures année</div>
-            <div class="v" id="sumYear">0h00</div>
-            <div class="delta" id="deltaYear">—</div>
-          </div>
-          <div class="stat">
-            <div class="k">Total global</div>
-            <div class="v" id="sumAll">0h00</div>
-            <div class="delta" id="entriesCount">0 saisies</div>
-          </div>
-        </div>
-      </section>
-
-            <!-- CARTE SÉPARÉE : COMPTE D’HEURES SUPPLÉMENTAIRES -->
-      <section class="card card-overtime">
-        <div class="overtime">
-          <h3 class="overtime-title">Compte d’heures supplémentaires</h3>
-          <p class="overtime-sub">
-            Solde cumulé : les jours de travail se basent sur “objectif hebdo / jours travaillés”.
-          </p>
-
-          <!-- Encadré 1 : affichage des soldes -->
-          <div class="overtime-main">
-            <div class="overtime-grid">
-              <div class="overtime-box">
-                <div class="k">Solde actuel</div>
-                <div class="v" id="otBalanceHM">0h00</div>
-                <div class="overtime-small" id="otBalanceDays">0 jour · 0h</div>
-              </div>
-              <div class="overtime-box">
-                <div class="k">Heures sup gagnées</div>
-                <div class="v" id="otEarned">0h00</div>
-              </div>
-              <div class="overtime-box">
-                <div class="k">Déjà récupéré</div>
-                <div class="v" id="otUsed">0h00</div>
-              </div>
+              <button class="btn secondary" id="btnExportCSV">Exporter CSV</button>
+              <label class="btn" for="fileImport" style="cursor:pointer"
+                >Importer</label
+              >
+              <input
+                type="file"
+                id="fileImport"
+                accept=".json,.csv"
+                style="display:none"
+              />
             </div>
           </div>
 
-          <!-- Encadré 2 : formulaire de déduction -->
-          <div class="overtime-deduct">
-            <h4 class="overtime-deduct-title">Récupération d’heures</h4>
+          <table id="tbl">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Arrivée</th>
+                <th>Pause</th>
+                <th>Reprise</th>
+                <th>Départ</th>
+                <th>Total</th>
+                <th>Statut</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
 
-            <div class="row">
-              <div>
-                <label for="otDays">Jours récupérés</label>
-                <input type="number" id="otDays" min="0" step="1" value="0">
-              </div>
-              <div>
-                <label for="otHours">Heures récupérées</label>
-                <input type="number" id="otHours" min="0" step="0.5" value="0">
-              </div>
+          <div class="stats" style="margin-top:14px">
+            <div class="stat">
+              <div class="k">Heures semaine</div>
+              <div class="v" id="sumWeek">0h00</div>
+              <div class="delta" id="deltaWeek">—</div>
             </div>
-
-            <div class="row">
-              <div>
-                <label for="otDate">Date de la récup</label>
-                <input type="date" id="otDate">
-              </div>
-              <div>
-                <label for="otNote">Commentaire</label>
-                <input type="text" id="otNote" placeholder="Ex.: RTT, récup astreinte…">
-              </div>
+            <div class="stat">
+              <div class="k">Heures mois</div>
+              <div class="v" id="sumMonth">0h00</div>
+              <div class="delta" id="deltaMonth">—</div>
             </div>
-
-            <div class="overtime-actions">
-              <button class="btn secondary" id="otApply">Enregistrer la récup</button>
-              <button class="btn secondary ghost" id="otShowHistory">Voir les récupérations</button>
+            <div class="stat">
+              <div class="k">Heures année</div>
+              <div class="v" id="sumYear">0h00</div>
+              <div class="delta" id="deltaYear">—</div>
+            </div>
+            <div class="stat">
+              <div class="k">Total global</div>
+              <div class="v" id="sumAll">0h00</div>
+              <div class="delta" id="entriesCount">0 saisies</div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <!-- CARTE SÉPARÉE : COMPTE D’HEURES SUPPLÉMENTAIRES -->
+        <section class="card card-overtime">
+          <div class="overtime">
+            <h3 class="overtime-title">Compte d’heures supplémentaires</h3>
+            <p class="overtime-sub">
+              Solde cumulé : les jours de travail se basent sur « objectif hebdo / jours
+              travaillés ».
+            </p>
+
+            <!-- Encadré 1 : affichage des soldes -->
+            <div class="overtime-main">
+              <div class="overtime-grid">
+                <div class="overtime-box">
+                  <div class="k">Solde actuel</div>
+                  <div class="v" id="otBalanceHM">0h00</div>
+                  <div class="overtime-small" id="otBalanceDays">
+                    0 jour · 0h
+                  </div>
+                </div>
+                <div class="overtime-box">
+                  <div class="k">Heures sup gagnées</div>
+                  <div class="v" id="otEarned">0h00</div>
+                </div>
+                <div class="overtime-box">
+                  <div class="k">Déjà récupéré</div>
+                  <div class="v" id="otUsed">0h00</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Encadré 2 : formulaire de déduction -->
+            <div class="overtime-deduct">
+              <h4 class="overtime-deduct-title">Récupération d’heures</h4>
+
+              <div class="row">
+                <div>
+                  <label for="otDays">Jours récupérés</label>
+                  <input type="number" id="otDays" min="0" step="1" value="0" />
+                </div>
+                <div>
+                  <label for="otHours">Heures récupérées</label>
+                  <input
+                    type="number"
+                    id="otHours"
+                    min="0"
+                    step="0.5"
+                    value="0"
+                  />
+                </div>
+              </div>
+
+              <div class="row">
+                <div>
+                  <label for="otDate">Date de la récup</label>
+                  <input type="date" id="otDate" />
+                </div>
+                <div>
+                  <label for="otNote">Commentaire</label>
+                  <input
+                    type="text"
+                    id="otNote"
+                    placeholder="Ex.: RTT, récup astreinte…"
+                  />
+                </div>
+              </div>
+
+              <div class="overtime-actions">
+                <button class="btn secondary" id="otApply">
+                  Enregistrer la récup
+                </button>
+                <button class="btn secondary ghost" id="otShowHistory">
+                  Voir les récupérations
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <!-- fin .right-col -->
     </div>
   </div>
+
   <!-- MODALE : historique des récupérations -->
   <div id="otModal" class="modal hidden">
     <div class="modal-backdrop"></div>
@@ -247,25 +322,34 @@
       </div>
     </div>
   </div>
+
+  <!-- MODALE : gestion du compte -->
   <div id="accountModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-dialog">
       <h3>Compte Time Tracker</h3>
       <p class="sub">
-        Crée un compte (ou connecte-toi) avec ton nom + ta société.
-        Aucune solution de mot de passe : toute personne connaissant ces infos peut voir/modifier tes heures.
+        Crée un compte (ou connecte-toi) avec ton nom + ta société. Aucune solution
+        de mot de passe : toute personne connaissant ces infos peut voir/modifier tes
+        heures.
       </p>
-  
+
       <label for="accName">Nom d’utilisateur</label>
       <input type="text" id="accName" placeholder="Ex : Léo" />
-  
+
       <label for="accCompany">Société / organisation</label>
       <input type="text" id="accCompany" placeholder="Ex : Easyw3" />
-  
+
       <div class="btns" style="margin-top:16px">
-        <button class="btn green" id="accSaveBtn">Se connecter / créer</button>
+        <button class="btn green" id="accSaveBtn">
+          Se connecter / créer
+        </button>
         <button class="btn secondary" id="accCloseBtn">Fermer</button>
-        <button class="btn danger" id="accLogoutBtn" style="margin-left:auto;display:none">
+        <button
+          class="btn danger"
+          id="accLogoutBtn"
+          style="margin-left:auto;display:none"
+        >
           Se déconnecter
         </button>
       </div>
@@ -275,4 +359,3 @@
   <script src="app.js" defer></script>
 </body>
 </html>
-

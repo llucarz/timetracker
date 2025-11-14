@@ -40,9 +40,9 @@ function weekRangeOf(dateStr) {
 // =========================
 //  Constantes & stockage
 // =========================
-const STORE_KEY     = "tt_entries_v2";
-const SETTINGS_KEY  = "tt_settings_v1";
-const OT_STORE_KEY  = "tt_overtime_v1";
+const STORE_KEY    = "tt_entries_v2";
+const SETTINGS_KEY = "tt_settings_v1";
+const OT_STORE_KEY = "tt_overtime_v1";
 
 // ---- Chargement / sauvegarde entrées ----
 function loadEntries() {
@@ -61,6 +61,7 @@ function loadEntries() {
 
 function saveEntries() {
   localStorage.setItem(STORE_KEY, JSON.stringify(entries));
+  scheduleCloudSync();
 }
 
 // ---- Chargement / sauvegarde settings ----
@@ -69,8 +70,8 @@ function loadSettings() {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
     if (typeof s.weeklyTarget !== "number") s.weeklyTarget = 35;
     if (typeof s.workDays    !== "number") s.workDays    = 5;
-    s.cloudKey   ??= "";
-    s.account    ??= null;        // { name, company, key }
+    s.cloudKey ??= "";
+    s.account  ??= null;   // { name, company, key }
     return s;
   } catch {
     return {
@@ -84,6 +85,7 @@ function loadSettings() {
 
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  scheduleCloudSync();
 }
 
 // ---- Chargement / sauvegarde heures sup ----
@@ -103,17 +105,17 @@ function loadOvertimeState() {
 
 function saveOvertimeState() {
   localStorage.setItem(OT_STORE_KEY, JSON.stringify(otState));
+  scheduleCloudSync();
 }
 
 // =========================
 //  État global en mémoire
 // =========================
-let entries  = loadEntries();
-let settings = loadSettings();
-let otState  = loadOvertimeState();
+let entries   = loadEntries();
+let settings  = loadSettings();
+let otState   = loadOvertimeState();
 let editingId = null;
 
-// Valeurs par défaut
 settings.weeklyTarget ??= 35;
 settings.workDays     ??= 5;
 
@@ -167,7 +169,7 @@ const weekPicker  = $("#weekPicker");
 const monthPicker = $("#monthPicker");
 const yearPicker  = $("#yearPicker");
 
-// Export / import / cloud (ancienne clé)
+// Export / import / cloud manuel
 const btnExportCSV = $("#btnExportCSV");
 const fileImport   = $("#fileImport");
 const btnCloudKey  = $("#btnCloudKey");
@@ -180,21 +182,21 @@ const otBalanceDays = $("#otBalanceDays");
 const otEarned      = $("#otEarned");
 const otUsed        = $("#otUsed");
 
-// Heures sup – formulaire de récup
+// Heures sup – formulaire récup
 const otDaysInput  = $("#otDays");
 const otHoursInput = $("#otHours");
 const otDateInput  = $("#otDate");
 const otNoteInput  = $("#otNote");
 const otApplyBtn   = $("#otApply");
 
-// Heures sup – historique (modal)
+// Heures sup – modal historique
 const otShowHistoryBtn = $("#otShowHistory");
 const otModal      = $("#otModal");
 const otModalClose = $("#otModalClose");
 const otHistoryBody  = $("#otHistoryBody");
 const otHistoryEmpty = $("#otHistoryEmpty");
 
-// Compte utilisateur (peut ne pas exister encore dans le HTML)
+// Compte utilisateur
 const accountBtn      = $("#accountBtn");
 const accountModal    = $("#accountModal");
 const accNameInput    = $("#accName");
@@ -210,13 +212,109 @@ let currentFilter   = "week";
 let periodAnchorKey = toDateKey(new Date());
 
 // =========================
-//  Cloud (ancienne clé)
+//  Cloud manuel (ancienne clé)
 // =========================
 function updateCloudKeyLabel() {
   if (!btnCloudKey) return;
   btnCloudKey.textContent = settings.cloudKey
     ? `Cloud : clé (${settings.cloudKey})`
     : "Cloud : clé";
+}
+
+// =========================
+//  Cloud auto (compte)
+// =========================
+let cloudSyncTimer = null;
+
+function scheduleCloudSync() {
+  // pas de compte → on ne fait rien
+  if (!settings.account || !settings.account.key) return;
+  if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(() => {
+    cloudSyncTimer = null;
+    syncToCloud().catch(console.error);
+  }, 800); // on regroupe les modifs
+}
+
+async function syncToCloud() {
+  if (!settings.account || !settings.account.key) return;
+  const key = settings.account.key;
+
+  const payload = {
+    entries,
+    settings: {
+      weeklyTarget: settings.weeklyTarget,
+      workDays: settings.workDays,
+    },
+    overtime: {
+      balanceMinutes: otState.balanceMinutes,
+      earnedMinutes : otState.earnedMinutes,
+      usedMinutes   : otState.usedMinutes,
+      events        : otState.events,
+    },
+  };
+
+  await fetch(`/api/data?key=${encodeURIComponent(key)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+async function loadFromCloudForCurrentAccount() {
+  if (!settings.account || !settings.account.key) return;
+  try {
+    const res = await fetch(
+      `/api/data?key=${encodeURIComponent(settings.account.key)}`
+    );
+    if (!res.ok) {
+      // pas encore de données pour ce compte → on laisse tel quel
+      return;
+    }
+    const data = await res.json();
+
+    // Entrées
+    if (Array.isArray(data.entries)) {
+      entries = data.entries.map(e => ({
+        status: "work",
+        ...e,
+        status: e.status || "work",
+        id: e.id || crypto.randomUUID(),
+      }));
+      saveEntries();
+    }
+
+    // Settings
+    if (data.settings) {
+      const s = data.settings;
+      if (typeof s.weeklyTarget === "number") settings.weeklyTarget = s.weeklyTarget;
+      if (typeof s.workDays    === "number") settings.workDays    = s.workDays;
+      saveSettings();
+    }
+
+    // Heures sup
+    if (data.overtime) {
+      const o = data.overtime;
+      otState = {
+        balanceMinutes: o.balanceMinutes || 0,
+        earnedMinutes : o.earnedMinutes  || 0,
+        usedMinutes   : o.usedMinutes    || 0,
+        events: Array.isArray(o.events) ? o.events : [],
+      };
+      saveOvertimeState();
+    }
+
+    // MAJ UI
+    weeklyTargetInput.value = settings.weeklyTarget;
+    workDaysInput.value     = settings.workDays;
+
+    render();
+    updateLiveStats();
+    renderOvertime();
+    refreshOtHistory();
+  } catch (err) {
+    console.error("Erreur chargement cloud compte", err);
+  }
 }
 
 // =========================
@@ -256,7 +354,6 @@ if (!dateInput.value) {
 weeklyTargetInput.value = settings.weeklyTarget;
 workDaysInput.value     = settings.workDays;
 
-// Date de récup par défaut
 if (otDateInput && !otDateInput.value) {
   otDateInput.valueAsNumber =
     Date.now() - new Date().getTimezoneOffset() * 60000;
@@ -355,7 +452,7 @@ btnExportCSV?.addEventListener("click", () =>
 fileImport?.addEventListener("change", importFile);
 
 // =========================
-//  Cloud manuel (ancienne clé)
+//  Cloud manuel (boutons clé)
 // =========================
 btnCloudKey?.addEventListener("click", () => {
   const current = settings.cloudKey || "";
@@ -612,7 +709,7 @@ function computeOvertimeEarned() {
       targetHours - v.absenceDays * dailyTarget
     );
     const targetMin = adjustedWeeklyHours * 60;
-    totalDelta += v.minutes - targetMin; // peut être négatif
+    totalDelta += v.minutes - targetMin;
   }
   return totalDelta;
 }
@@ -624,7 +721,6 @@ function render() {
   const anchor = periodAnchorKey || toDateKey(new Date());
   const { start: wStart, end: wEnd } = weekRangeOf(anchor);
 
-  // pastilles
   [weekLabel, monthLabel, yearLabel].forEach(el => el?.classList.remove("active"));
   (currentFilter === "week"
     ? weekLabel
@@ -640,7 +736,6 @@ function render() {
   if (yearPicker)
     yearPicker.style.display = currentFilter === "year" ? "inline-block" : "none";
 
-  // labels
   weekLabel.textContent  = `Semaine ${wStart} → ${wEnd}`;
   monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
   yearLabel.textContent  = `Année ${anchor.slice(0, 4)}`;
@@ -652,7 +747,6 @@ function render() {
       ? e.date.slice(0, 7) === anchor.slice(0, 7)
       : e.date.slice(0, 4) === anchor.slice(0, 4);
 
-  // tableau
   tbody.innerHTML = "";
   for (const e of entries.filter(inRange)) {
     const tr = document.createElement("tr");
@@ -697,7 +791,6 @@ function render() {
   const workDays    = parseInt(workDaysInput.value || "5", 10) || 5;
   const dailyTarget = targetHours / workDays;
 
-  // Semaine
   const absenceDaysWeek = entries.filter(
     e =>
       e.date >= wStart &&
@@ -726,7 +819,6 @@ function render() {
     deltaWeek.className = "delta";
   }
 
-  // Mois
   const monthTargetMin = monthTargetMinutes(anchor, targetHours, workDays);
   if (monthTargetMin > 0 && monthMin > monthTargetMin) {
     const diff = monthMin - monthTargetMin;
@@ -737,7 +829,6 @@ function render() {
     deltaMonth.className = "delta";
   }
 
-  // Année
   const yearTargetMin = yearTargetMinutes(anchor, targetHours, workDays);
   if (yearTargetMin > 0 && yearMin > yearTargetMin) {
     const diff = yearMin - yearTargetMin;
@@ -750,7 +841,6 @@ function render() {
 
   updateWeekProgress(weekMin, wStart, wEnd);
 
-  // Heures sup (earned)
   const earned = computeOvertimeEarned();
   otState.earnedMinutes  = earned;
   otState.balanceMinutes = earned - (otState.usedMinutes || 0);
@@ -874,15 +964,14 @@ function renderOvertime() {
   const workDays    = settings.workDays    || 5;
   const dailyTarget = targetHours / workDays;
 
-  const hoursPerDay   = dailyTarget;
-  const days          = hoursPerDay > 0 ? Math.trunc(bal / 60 / hoursPerDay) : 0;
-  const remainingMin  = bal - days * hoursPerDay * 60;
+  const hoursPerDay  = dailyTarget;
+  const days         = hoursPerDay > 0 ? Math.trunc(bal / 60 / hoursPerDay) : 0;
+  const remainingMin = bal - days * hoursPerDay * 60;
   otBalanceDays.textContent = `${days} jour${days > 1 ? "s" : ""} · ${minToHM(
     remainingMin
   )}`;
 }
 
-// Enregistrer une récupération
 otApplyBtn?.addEventListener("click", () => {
   const days  = parseInt(otDaysInput.value  || "0", 10) || 0;
   const hours = parseFloat(otHoursInput.value || "0")   || 0;
@@ -990,7 +1079,7 @@ function deleteOtEvent(id) {
 }
 
 // =========================
-//  Compte utilisateur (sans crash si HTML absent)
+//  Compte utilisateur
 // =========================
 function slugify(s) {
   return (s || "")
@@ -1016,7 +1105,6 @@ function updateAccountUI() {
     accountBtn.textContent = `${acc.name} · ${acc.company}`;
     accountBtn.classList.add("account-connected");
     if (accLogoutBtn) accLogoutBtn.style.display = "inline-block";
-    // on laisse les boutons cloud classiques pour l’instant
   } else {
     accountBtn.textContent = "Créer un compte";
     accountBtn.classList.remove("account-connected");
@@ -1051,10 +1139,12 @@ async function handleAccountSave() {
     return;
   }
   settings.account = { name, company, key };
-  settings.cloudKey = key; // réutilise la même clé côté backend
+  settings.cloudKey = key; // on réutilise la même clé si besoin
   saveSettings();
   updateAccountUI();
   closeAccountModal();
+
+  await loadFromCloudForCurrentAccount();
 }
 
 function handleLogout() {
@@ -1207,3 +1297,8 @@ render();
 updateLiveStats();
 renderOvertime();
 updateAccountUI();
+
+// si un compte existe déjà → on recharge depuis le cloud automatiquement
+if (settings.account && settings.account.key) {
+  loadFromCloudForCurrentAccount();
+}

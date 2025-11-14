@@ -656,6 +656,7 @@ function render() {
         e.status === "sick" ||
         e.status === "holiday")
   ).length;
+
   const adjustedWeeklyTarget = Math.max(
     0,
     targetHours - absenceDaysWeek * dailyTarget
@@ -665,31 +666,32 @@ function render() {
   if (absenceDaysWeek >= workDays && weekMin === 0) {
     deltaWeek.textContent = "Absent toute la semaine";
     deltaWeek.className = "delta";
-  } else if (weekTargetMin > 0) {
+  } else if (weekTargetMin > 0 && weekMin > weekTargetMin) {
     const diff = weekMin - weekTargetMin;
-    deltaWeek.textContent = diff === 0 ? "—" : `${diff > 0 ? "+" : ""}${minToHM(diff)} vs cible`;
-    deltaWeek.className = diff > 0 ? "delta plus" : diff < 0 ? "delta minus" : "delta";
+    deltaWeek.textContent = `+${minToHM(diff)} vs cible`;
+    deltaWeek.className = "delta plus";
   } else {
+    // on ne montre pas les manques ici
     deltaWeek.textContent = "—";
     deltaWeek.className = "delta";
   }
 
   // Mois & année : cibles globales en utilisant les mêmes règles
   const monthTargetMin = monthTargetMinutes(anchor, targetHours, workDays);
-  if (monthTargetMin > 0) {
+  if (monthTargetMin > 0 && monthMin > monthTargetMin) {
     const diff = monthMin - monthTargetMin;
-    deltaMonth.textContent = diff === 0 ? "—" : `${diff > 0 ? "+" : ""}${minToHM(diff)} vs cible`;
-    deltaMonth.className = diff > 0 ? "delta plus" : diff < 0 ? "delta minus" : "delta";
+    deltaMonth.textContent = `+${minToHM(diff)} vs cible`;
+    deltaMonth.className = "delta plus";
   } else {
     deltaMonth.textContent = "—";
     deltaMonth.className = "delta";
   }
 
   const yearTargetMin = yearTargetMinutes(anchor, targetHours, workDays);
-  if (yearTargetMin > 0) {
+  if (yearTargetMin > 0 && yearMin > yearTargetMin) {
     const diff = yearMin - yearTargetMin;
-    deltaYear.textContent = diff === 0 ? "—" : `${diff > 0 ? "+" : ""}${minToHM(diff)} vs cible`;
-    deltaYear.className = diff > 0 ? "delta plus" : diff < 0 ? "delta minus" : "delta";
+    deltaYear.textContent = `+${minToHM(diff)} vs cible`;
+    deltaYear.className = "delta plus";
   } else {
     deltaYear.textContent = "—";
     deltaYear.className = "delta";

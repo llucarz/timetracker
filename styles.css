@@ -334,3 +334,11 @@ tr:hover{
     grid-template-columns:1fr;
   }
 }
+
+.card-overtime {
+  margin-top: 4px;            /* il y a déjà le gap de la grille, ça reste léger */
+}
+
+.card-overtime .overtime {
+  margin-top: 0;
+}

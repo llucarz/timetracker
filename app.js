@@ -1,4 +1,4 @@
-// Utilitaires temps
+// ========= Utilitaires temps =========
 const pad = n => String(n).padStart(2, "0");
 
 function hmToMin(hm) {
@@ -21,7 +21,7 @@ function toDateKey(d) {
 
 function mondayOf(d) {
   const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = (x.getUTCDay() + 6) % 7;
+  const day = (x.getUTCDay() + 6) % 7; // lundi = 0
   x.setUTCDate(x.getUTCDate() - day);
   return x;
 }
@@ -35,9 +35,9 @@ function weekRangeOf(dateStr) {
   return { start: s, end: toDateKey(e) };
 }
 
-// Stockage
-const STORE_KEY = "tt_entries_v2"; // v2 pour le statut
-const SETTINGS_KEY = "tt_settings_v1";
+// ========= Stockage =========
+const STORE_KEY = "tt_entries_v2";  // version avec statut
+const SETTINGS_KEY = "tt_settings_v2";
 
 let entries = loadEntries();
 let editingId = null;
@@ -46,8 +46,12 @@ const settings = loadSettings();
 function loadEntries() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
-    // compat ancienne version : ajouter status=work si absent
-    return raw.map(e => ({ status: "work", ...e, status: e.status || "work" }));
+    return raw.map(e => ({
+      status: "work",
+      ...e,
+      status: e.status || "work",
+      id: e.id || crypto.randomUUID()
+    }));
   } catch {
     return [];
   }
@@ -69,10 +73,16 @@ function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
-// minutes effectives : 0 si journée non "Travail"
+// valeurs par défaut
+settings.weeklyTarget ??= 35;        // heures / semaine
+settings.workingDays ??= 5;          // jours travaillés / semaine
+settings.cloudKey ??= "";
+settings.overtimeUsedMin ??= 0;      // minutes déjà récupérées via le portefeuille
+
+// ========= Minutes de travail =========
 function computeMinutes(entry) {
   const status = entry.status || "work";
-  if (status !== "work") return 0;
+  if (status !== "work") return 0; // école, vacances, maladie, férié => 0h
 
   const a = hmToMin(entry.start);
   const b = hmToMin(entry.lunchStart);
@@ -94,80 +104,89 @@ function sumMinutes(filterFn) {
   return entries.filter(filterFn).reduce((acc, e) => acc + computeMinutes(e), 0);
 }
 
-// DOM
-const $ = s => document.querySelector(s);
-const dateInput = $("#date");
-const startInput = $("#start");
+// ========= DOM =========
+const $  = s => document.querySelector(s);
+const dateInput   = $("#date");
+const startInput  = $("#start");
 const lStartInput = $("#lunchStart");
-const lEndInput = $("#lunchEnd");
-const endInput = $("#end");
-const notesInput = $("#notes");
+const lEndInput   = $("#lunchEnd");
+const endInput    = $("#end");
+const notesInput  = $("#notes");
 const statusInput = $("#status");
 
-const btnToday = $("#btnToday");
-const btnSave = $("#btnSave");
-const btnClear = $("#btnClear");
+const btnToday     = $("#btnToday");
+const btnSave      = $("#btnSave");
+const btnClear     = $("#btnClear");
 const btnDuplicate = $("#btnDuplicate");
-const btnDelete = $("#btnDelete");
+const btnDelete    = $("#btnDelete");
 
 const weeklyTargetInput = $("#weeklyTarget");
-const workDaysInput = $("#workDays");
-const statDay = $("#statDay");
-const statWeek = $("#statWeek");
+const workingDaysInput  = $("#workingDays");
+
+const statDay   = $("#statDay");
+const statWeek  = $("#statWeek");
 const statMonth = $("#statMonth");
-const statYear = $("#statYear");
+const statYear  = $("#statYear");
 const weekProgress = $("#weekProgress");
 
-const tbody = $("#tbody");
-const sumWeek = $("#sumWeek");
-const sumMonth = $("#sumMonth");
-const sumYear = $("#sumYear");
-const sumAll = $("#sumAll");
-const deltaWeek = $("#deltaWeek");
-const deltaMonth = $("#deltaMonth");
-const deltaYear = $("#deltaYear");
+const tbody       = $("#tbody");
+const sumWeek     = $("#sumWeek");
+const sumMonth    = $("#sumMonth");
+const sumYear     = $("#sumYear");
+const sumAll      = $("#sumAll");
+const deltaWeek   = $("#deltaWeek");
+const deltaMonth  = $("#deltaMonth");
+const deltaYear   = $("#deltaYear");
 const entriesCount = $("#entriesCount");
 
-const weekLabel = $("#weekLabel");
+const weekLabel  = $("#weekLabel");
 const monthLabel = $("#monthLabel");
-const yearLabel = $("#yearLabel");
+const yearLabel  = $("#yearLabel");
 
-const prevPeriod = $("#prevPeriod");
-const nextPeriod = $("#nextPeriod");
-const weekPicker = $("#weekPicker");
+const prevPeriod  = $("#prevPeriod");
+const nextPeriod  = $("#nextPeriod");
+const weekPicker  = $("#weekPicker");
 const monthPicker = $("#monthPicker");
-const yearPicker = $("#yearPicker");
+const yearPicker  = $("#yearPicker");
 
 const btnExportCSV = $("#btnExportCSV");
-const fileImport = $("#fileImport");
+const fileImport   = $("#fileImport");
 
-const btnCloudKey = $("#btnCloudKey");
+const btnCloudKey  = $("#btnCloudKey");
 const btnCloudLoad = $("#btnCloudLoad");
 const btnCloudSave = $("#btnCloudSave");
 
-// Filtre période
-let currentFilter = "week";
+// DOM portefeuille d’heures sup
+const otBalanceHM   = $("#otBalanceHM");
+const otBalanceDays = $("#otBalanceDays");
+const otEarned      = $("#otEarned");
+const otUsed        = $("#otUsed");
+const otDaysInput   = $("#otDays");
+const otHoursInput  = $("#otHours");
+const otApply       = $("#otApply");
+
+// ========= Filtre période =========
+let currentFilter   = "week";
 let periodAnchorKey = toDateKey(new Date());
 
-// Cloud
-settings.cloudKey ??= "";
-updateCloudKeyLabel();
-
-// Init date et settings
+// ========= Init champs =========
 if (!dateInput.value) {
   dateInput.valueAsNumber =
     Date.now() - new Date().getTimezoneOffset() * 60000;
 }
-weeklyTargetInput.value = settings.weeklyTarget ?? 35;
-workDaysInput.value = settings.workDays ?? 5;
 
-// Init pickers
+weeklyTargetInput.value = settings.weeklyTarget;
+workingDaysInput.value  = settings.workingDays;
+
+// Pickers init
 (function initPickers() {
   const d = new Date(periodAnchorKey + "T12:00:00Z");
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+
   if (monthPicker) monthPicker.value = `${y}-${m}`;
-  if (yearPicker) yearPicker.value = String(y);
+  if (yearPicker) yearPicker.value  = String(y);
+
   if (weekPicker) {
     const onejan = new Date(Date.UTC(y, 0, 1));
     const week = Math.ceil(
@@ -177,10 +196,15 @@ workDaysInput.value = settings.workDays ?? 5;
   }
 })();
 
-// Events formulaire
-[startInput, lStartInput, lEndInput, endInput, dateInput, statusInput].forEach(
-  i => i.addEventListener("input", updateLiveStats)
-);
+// ========= Events formulaire =========
+[
+  startInput,
+  lStartInput,
+  lEndInput,
+  endInput,
+  dateInput,
+  statusInput
+].forEach(i => i.addEventListener("input", updateLiveStats));
 
 btnToday.addEventListener("click", () => {
   dateInput.valueAsNumber =
@@ -197,9 +221,14 @@ btnSave.addEventListener("click", () => {
     return;
   }
   if (!(e.start && e.end) && e.status === "work") {
-    if (!confirm("Heures d'arrivée et de départ non complètes. Enregistrer quand même ?"))
+    if (
+      !confirm(
+        "Heures d'arrivée et de départ non complètes. Enregistrer quand même ?"
+      )
+    )
       return;
   }
+
   if (editingId) {
     const idx = entries.findIndex(x => x.id === editingId);
     if (idx > -1) entries[idx] = { ...entries[idx], ...e };
@@ -208,6 +237,7 @@ btnSave.addEventListener("click", () => {
     if (existingIdx > -1) entries.splice(existingIdx, 1);
     entries.push({ id: crypto.randomUUID(), ...e });
   }
+
   entries.sort((a, b) => a.date.localeCompare(b.date));
   saveEntries();
   clearForm();
@@ -229,32 +259,34 @@ btnClear.addEventListener("click", clearForm);
 
 weeklyTargetInput.addEventListener("change", () => {
   const v = parseFloat(weeklyTargetInput.value || "35");
-  settings.weeklyTarget = isFinite(v) ? v : 35;
+  settings.weeklyTarget = isFinite(v) && v > 0 ? v : 35;
+  weeklyTargetInput.value = settings.weeklyTarget;
   saveSettings();
   render();
+  updateLiveStats();
 });
 
-workDaysInput.addEventListener("change", () => {
-  const v = parseInt(workDaysInput.value || "5", 10);
-  settings.workDays = Number.isFinite(v) && v > 0 ? v : 5;
-  workDaysInput.value = settings.workDays;
+workingDaysInput.addEventListener("change", () => {
+  let v = parseInt(workingDaysInput.value || "5", 10);
+  if (!isFinite(v) || v < 1) v = 1;
+  if (v > 7) v = 7;
+  settings.workingDays = v;
+  workingDaysInput.value = v;
   saveSettings();
   render();
+  updateLiveStats();
 });
 
-// Export / import
+// ========= Export / import =========
 btnExportCSV.addEventListener("click", () =>
   download("timetracker.csv", toCSV(entries))
 );
 fileImport.addEventListener("change", importFile);
 
-// Cloud
+// ========= Cloud =========
 btnCloudKey.addEventListener("click", () => {
   const current = settings.cloudKey || "";
-  const val = prompt(
-    "Clé de sauvegarde cloud (ex: prenom-35h) :",
-    current
-  );
+  const val = prompt("Clé de sauvegarde cloud (ex: prenom-35h) :", current);
   if (!val) return;
   settings.cloudKey = val.trim();
   saveSettings();
@@ -267,11 +299,14 @@ btnCloudSave.addEventListener("click", async () => {
     return;
   }
   try {
-    const res = await fetch(`/api/data?key=${encodeURIComponent(settings.cloudKey)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entries }),
-    });
+    const res = await fetch(
+      `/api/data?key=${encodeURIComponent(settings.cloudKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries })
+      }
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     alert("Sauvegarde cloud OK ✅");
   } catch (e) {
@@ -285,8 +320,11 @@ btnCloudLoad.addEventListener("click", async () => {
     return;
   }
   if (!confirm("Remplacer les données locales par celles du cloud ?")) return;
+
   try {
-    const res = await fetch(`/api/data?key=${encodeURIComponent(settings.cloudKey)}`);
+    const res = await fetch(
+      `/api/data?key=${encodeURIComponent(settings.cloudKey)}`
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (!Array.isArray(data.entries)) {
@@ -297,7 +335,7 @@ btnCloudLoad.addEventListener("click", async () => {
       status: "work",
       ...e,
       status: e.status || "work",
-      id: e.id || crypto.randomUUID(),
+      id: e.id || crypto.randomUUID()
     }));
     saveEntries();
     render();
@@ -308,12 +346,13 @@ btnCloudLoad.addEventListener("click", async () => {
 });
 
 function updateCloudKeyLabel() {
+  if (!btnCloudKey) return;
   btnCloudKey.textContent = settings.cloudKey
     ? `Cloud : clé (${settings.cloudKey})`
     : "Cloud : clé";
 }
 
-// Période
+// ========= Période / pickers =========
 function openPicker(el) {
   if (!el) return;
   if (el.showPicker) el.showPicker();
@@ -397,7 +436,7 @@ function shiftAnchor(delta) {
 prevPeriod.addEventListener("click", () => shiftAnchor(-1));
 nextPeriod.addEventListener("click", () => shiftAnchor(+1));
 
-// Form helpers
+// ========= Helpers formulaire =========
 function collectForm() {
   return {
     date: dateInput.value || null,
@@ -406,7 +445,7 @@ function collectForm() {
     lunchEnd: lEndInput.value || "",
     end: endInput.value || "",
     notes: (notesInput.value || "").trim(),
-    status: statusInput.value || "work",
+    status: statusInput.value || "work"
   };
 }
 
@@ -443,25 +482,40 @@ function duplicateYesterday() {
   updateLiveStats();
 }
 
+// ========= Live stats (zone gauche) =========
+function dailyTargetMinutes() {
+  const weekly = parseFloat(weeklyTargetInput.value || "35") || 35;
+  const wd =
+    parseInt(workingDaysInput.value || `${settings.workingDays || 5}`, 10) ||
+    5;
+  return (weekly * 60) / Math.max(1, wd);
+}
+
 function updateLiveStats() {
   const e = collectForm();
   const minutes = computeMinutes(e);
   statDay.textContent = minToHM(minutes);
+
   const today = e.date || toDateKey(new Date());
   const { start, end } = weekRangeOf(today);
   const weekMin = sumMinutes(x => x.date >= start && x.date <= end);
   const monthMin = sumMinutes(x => x.date.slice(0, 7) === today.slice(0, 7));
   const yearMin = sumMinutes(x => x.date.slice(0, 4) === today.slice(0, 4));
+
   statWeek.textContent = minToHM(weekMin);
   statMonth.textContent = minToHM(monthMin);
   statYear.textContent = minToHM(yearMin);
+
   updateWeekProgress(weekMin, start, end);
+  recomputeOvertime(); // pour voir l’impact direct sur le portefeuille
 }
 
 function updateWeekProgress(weekMin, wStart, wEnd) {
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const workDays = parseInt(workDaysInput.value || settings.workDays || "5", 10) || 5;
-  const dailyTarget = targetHours / workDays;
+  const workingDays =
+    parseInt(workingDaysInput.value || `${settings.workingDays || 5}`, 10) ||
+    5;
+  const dailyTarget = targetHours / Math.max(1, workingDays);
 
   const absenceDays = entries.filter(
     e =>
@@ -475,6 +529,7 @@ function updateWeekProgress(weekMin, wStart, wEnd) {
 
   const adjustedTarget = Math.max(0, targetHours - absenceDays * dailyTarget);
   const targetMin = adjustedTarget * 60;
+
   const p =
     targetMin > 0
       ? Math.max(0, Math.min(100, Math.round((weekMin * 100) / targetMin)))
@@ -482,12 +537,12 @@ function updateWeekProgress(weekMin, wStart, wEnd) {
   weekProgress.style.width = p + "%";
 }
 
-// Rendu global
+// ========= Rendu principal =========
 function render() {
   const anchor = periodAnchorKey || toDateKey(new Date());
   const { start: wStart, end: wEnd } = weekRangeOf(anchor);
 
-  // Pastilles actives
+  // pastilles
   [weekLabel, monthLabel, yearLabel].forEach(el =>
     el.classList.remove("active")
   );
@@ -499,16 +554,19 @@ function render() {
   ).classList.add("active");
 
   if (weekPicker)
-    weekPicker.style.display = currentFilter === "week" ? "inline-block" : "none";
+    weekPicker.style.display =
+      currentFilter === "week" ? "inline-block" : "none";
   if (monthPicker)
-    monthPicker.style.display = currentFilter === "month" ? "inline-block" : "none";
+    monthPicker.style.display =
+      currentFilter === "month" ? "inline-block" : "none";
   if (yearPicker)
-    yearPicker.style.display = currentFilter === "year" ? "inline-block" : "none";
+    yearPicker.style.display =
+      currentFilter === "year" ? "inline-block" : "none";
 
-  // Labels
-  weekLabel.textContent = `Semaine ${wStart} → ${wEnd}`;
+  // labels
+  weekLabel.textContent  = `Semaine ${wStart} → ${wEnd}`;
   monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
-  yearLabel.textContent = `Année ${anchor.slice(0, 4)}`;
+  yearLabel.textContent  = `Année ${anchor.slice(0, 4)}`;
 
   const inRange = e =>
     currentFilter === "week"
@@ -517,6 +575,7 @@ function render() {
       ? e.date.slice(0, 7) === anchor.slice(0, 7)
       : e.date.slice(0, 4) === anchor.slice(0, 4);
 
+  // tableau
   tbody.innerHTML = "";
   for (const e of entries.filter(inRange)) {
     const tr = document.createElement("tr");
@@ -546,6 +605,7 @@ function render() {
     tbody.appendChild(tr);
   }
 
+  // agrégats
   const weekMin  = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
   const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
   const yearMin  = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
@@ -555,14 +615,18 @@ function render() {
   sumMonth.textContent = minToHM(monthMin);
   sumYear.textContent  = minToHM(yearMin);
   sumAll.textContent   = minToHM(allMin);
-  entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
+  entriesCount.textContent = `${entries.length} saisie${
+    entries.length > 1 ? "s" : ""
+  }`;
 
-  // ---- Objectifs et deltas (semaine / mois / année) ----
+  // objectifs / deltas
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const workDays = parseInt(workDaysInput.value || settings.workDays || "5", 10) || 5;
-  const dailyTarget = targetHours / workDays;
+  const workingDays =
+    parseInt(workingDaysInput.value || `${settings.workingDays || 5}`, 10) ||
+    5;
+  const dailyTarget = targetHours / Math.max(1, workingDays);
 
-  // Semaine
+  // semaine
   const absenceDaysWeek = entries.filter(
     e =>
       e.date >= wStart &&
@@ -579,7 +643,7 @@ function render() {
   );
   const weekTargetMin = adjustedWeeklyTarget * 60;
 
-  if (absenceDaysWeek >= workDays && weekMin === 0) {
+  if (absenceDaysWeek >= workingDays && weekMin === 0) {
     deltaWeek.textContent = "Absent toute la semaine";
     deltaWeek.className = "delta";
   } else if (weekMin > weekTargetMin && weekTargetMin > 0) {
@@ -591,8 +655,8 @@ function render() {
     deltaWeek.className = "delta";
   }
 
-  // Mois
-  const monthTargetMin = monthTargetMinutes(anchor, targetHours, workDays);
+  // mois / année : cibles ajustées avec absences
+  const monthTargetMin = monthTargetMinutes(anchor, targetHours, workingDays);
   if (monthMin > monthTargetMin && monthTargetMin > 0) {
     const monthDelta = monthMin - monthTargetMin;
     deltaMonth.textContent = `+${minToHM(monthDelta)} vs cible`;
@@ -602,8 +666,7 @@ function render() {
     deltaMonth.className = "delta";
   }
 
-  // Année
-  const yearTargetMin = yearTargetMinutes(anchor, targetHours, workDays);
+  const yearTargetMin = yearTargetMinutes(anchor, targetHours, workingDays);
   if (yearMin > yearTargetMin && yearTargetMin > 0) {
     const yearDelta = yearMin - yearTargetMin;
     deltaYear.textContent = `+${minToHM(yearDelta)} vs cible`;
@@ -614,11 +677,12 @@ function render() {
   }
 
   updateWeekProgress(weekMin, wStart, wEnd);
+  recomputeOvertime();
 }
 
-// Objectif mensuel ajusté selon les absences
-function monthTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
-  const dailyTarget = weeklyTargetHours / workDays;
+// ========= Objectifs mensuels / annuels ajustés =========
+function monthTargetMinutes(anchorKey, weeklyTargetHours, workingDays) {
+  const dailyTarget = weeklyTargetHours / Math.max(1, workingDays);
   const y = +anchorKey.slice(0, 4);
   const m = +anchorKey.slice(5, 7) - 1;
 
@@ -633,7 +697,6 @@ function monthTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
     const weekEnd   = new Date(monday);
     weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
 
-    // on ne compte que les semaines qui coupent ce mois
     if (weekEnd < monthFirst || weekStart > monthLast) {
       monday.setUTCDate(monday.getUTCDate() + 7);
       continue;
@@ -648,9 +711,9 @@ function monthTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
         e.date >= weekStartKey &&
         e.date <= weekEndKey &&
         (e.status === "school" ||
-         e.status === "vacation" ||
-         e.status === "sick" ||
-         e.status === "holiday")
+          e.status === "vacation" ||
+          e.status === "sick" ||
+          e.status === "holiday")
       ) {
         absenceDays++;
       }
@@ -668,9 +731,8 @@ function monthTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
   return Math.round(totalHours * 60);
 }
 
-// Objectif annuel ajusté selon les absences
-function yearTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
-  const dailyTarget = weeklyTargetHours / workDays;
+function yearTargetMinutes(anchorKey, weeklyTargetHours, workingDays) {
+  const dailyTarget = weeklyTargetHours / Math.max(1, workingDays);
   const y = +anchorKey.slice(0, 4);
 
   const yearFirst = new Date(Date.UTC(y, 0, 1));
@@ -698,9 +760,9 @@ function yearTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
         e.date >= weekStartKey &&
         e.date <= weekEndKey &&
         (e.status === "school" ||
-         e.status === "vacation" ||
-         e.status === "sick" ||
-         e.status === "holiday")
+          e.status === "vacation" ||
+          e.status === "sick" ||
+          e.status === "holiday")
       ) {
         absenceDays++;
       }
@@ -718,7 +780,67 @@ function yearTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
   return Math.round(totalHours * 60);
 }
 
-// Divers
+// ========= Portefeuille d’heures sup =========
+// On calcule pour chaque jour :
+// diff = minutesTravaillées - objectifJour (0 pour absences)
+// Solde brut = somme de toutes les diff (peut être négatif)
+// Solde net = solde brut - minutes déjà récupérées (settings.overtimeUsedMin)
+
+function recomputeOvertime() {
+  if (!otBalanceHM) return; // section absente
+
+  const dayTargetMin = dailyTargetMinutes();
+  let earnedMin = 0;
+
+  for (const e of entries) {
+    const status = e.status || "work";
+    if (status !== "work") continue; // absences => pas d'obligation
+
+    const worked = computeMinutes(e);
+    earnedMin += worked - dayTargetMin;
+  }
+
+  const usedMin = settings.overtimeUsedMin || 0;
+  const balanceMin = earnedMin - usedMin;
+
+  otEarned.textContent    = minToHM(earnedMin);
+  otUsed.textContent      = minToHM(usedMin);
+  otBalanceHM.textContent = minToHM(balanceMin);
+
+  const sign = balanceMin < 0 ? "-" : "";
+  const abs  = Math.abs(balanceMin);
+  const dm   = dayTargetMin || 60 * 7;
+
+  const days = Math.floor(abs / dm);
+  const rest = abs - days * dm;
+  const h    = Math.floor(rest / 60);
+  const m    = rest % 60;
+
+  const labelDays = `${days} jour${days > 1 ? "s" : ""} · ${h}h${pad(m)}`;
+  otBalanceDays.textContent = sign ? `${sign}${labelDays}` : labelDays;
+}
+
+// user clique sur "Enregistrer la récup"
+if (otApply) {
+  otApply.addEventListener("click", () => {
+    const d = parseFloat(otDaysInput.value || "0") || 0;
+    const h = parseFloat(otHoursInput.value || "0") || 0;
+
+    const extraMin = d * dailyTargetMinutes() + h * 60;
+    if (extraMin <= 0) return;
+
+    settings.overtimeUsedMin =
+      (settings.overtimeUsedMin || 0) + Math.round(extraMin);
+
+    otDaysInput.value  = "0";
+    otHoursInput.value = "0";
+
+    saveSettings();
+    recomputeOvertime();
+  });
+}
+
+// ========= Divers =========
 function statusLabel(status) {
   switch (status) {
     case "school":
@@ -735,13 +857,15 @@ function statusLabel(status) {
 }
 
 function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, m => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[m]));
+  return s.replace(/[&<>"']/g, m =>
+    ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[m])
+  );
 }
 
 function download(filename, text) {
@@ -761,7 +885,7 @@ function toCSV(data) {
     "end",
     "minutes",
     "status",
-    "notes",
+    "notes"
   ];
   const rows = data.map(e => [
     e.date,
@@ -771,11 +895,11 @@ function toCSV(data) {
     e.end || "",
     computeMinutes(e),
     e.status || "work",
-    (e.notes || "").replaceAll('"', '""'),
+    (e.notes || "").replaceAll('"', '""')
   ]);
   const csv = [
     head.join(","),
-    ...rows.map(r => r.map(x => `"${x}"`).join(",")),
+    ...rows.map(r => r.map(x => `"${x}"`).join(","))
   ].join("\n");
   return csv;
 }
@@ -784,6 +908,7 @@ async function importFile(ev) {
   const f = ev.target.files[0];
   if (!f) return;
   const text = await f.text();
+
   if (f.name.endsWith(".json")) {
     try {
       const arr = JSON.parse(text);
@@ -795,7 +920,10 @@ async function importFile(ev) {
   } else if (f.name.endsWith(".csv")) {
     const arr = parseCSV(text);
     mergeEntries(arr);
-  } else alert("Format non supporté.");
+  } else {
+    alert("Format non supporté.");
+  }
+
   fileImport.value = "";
   render();
 }
@@ -812,7 +940,7 @@ function mergeEntries(arr) {
       lunchEnd: r.lunchEnd || "",
       end: r.end || "",
       notes: r.notes || "",
-      status: r.status || "work",
+      status: r.status || "work"
     };
     if (idx > -1) entries[idx] = obj;
     else entries.push(obj);
@@ -840,12 +968,14 @@ function parseCSV(csv) {
       lunchEnd: cols[idx("lunchEnd")] || "",
       end: cols[idx("end")] || "",
       notes: cols[idx("notes")] || "",
-      status: cols[idx("status")] || "work",
+      status: cols[idx("status")] || "work"
     });
   }
   return out;
 }
 
-// Premier rendu
+// ========= Premier rendu =========
+updateCloudKeyLabel();
 render();
 updateLiveStats();
+recomputeOvertime();

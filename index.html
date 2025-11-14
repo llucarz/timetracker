@@ -6,6 +6,16 @@
   <title>Time Tracker</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
+<header class="topbar">
+  <div class="topbar-left">
+    Time Tracker – 35h + Heures Sup
+  </div>
+  <div class="topbar-right">
+    <button class="btn secondary" id="accountBtn">
+      Créer un compte
+    </button>
+  </div>
+</header>
 <body>
   <div class="wrap">
     <div class="grid">
@@ -242,6 +252,30 @@
         <p class="modal-empty" id="otHistoryEmpty">
           Aucune récupération enregistrée pour l’instant.
         </p>
+      </div>
+    </div>
+  </div>
+  <div id="accountModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <h3>Compte Time Tracker</h3>
+      <p class="sub">
+        Crée un compte (ou connecte-toi) avec ton nom + ta société.
+        Aucune solution de mot de passe : toute personne connaissant ces infos peut voir/modifier tes heures.
+      </p>
+  
+      <label for="accName">Nom d’utilisateur</label>
+      <input type="text" id="accName" placeholder="Ex : Léo" />
+  
+      <label for="accCompany">Société / organisation</label>
+      <input type="text" id="accCompany" placeholder="Ex : Easyw3" />
+  
+      <div class="btns" style="margin-top:16px">
+        <button class="btn green" id="accSaveBtn">Se connecter / créer</button>
+        <button class="btn secondary" id="accCloseBtn">Fermer</button>
+        <button class="btn danger" id="accLogoutBtn" style="margin-left:auto;display:none">
+          Se déconnecter
+        </button>
       </div>
     </div>
   </div>

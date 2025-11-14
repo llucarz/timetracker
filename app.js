@@ -169,7 +169,7 @@ const weekPicker  = $("#weekPicker");
 const monthPicker = $("#monthPicker");
 const yearPicker  = $("#yearPicker");
 
-// Export / import / cloud manuel
+// Export / import
 const btnExportCSV = $("#btnExportCSV");
 const fileImport   = $("#fileImport");
 
@@ -214,13 +214,12 @@ let periodAnchorKey = toDateKey(new Date());
 let cloudSyncTimer = null;
 
 function scheduleCloudSync() {
-  // pas de compte → on ne fait rien
   if (!settings.account || !settings.account.key) return;
   if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
   cloudSyncTimer = setTimeout(() => {
     cloudSyncTimer = null;
     syncToCloud().catch(console.error);
-  }, 800); // on regroupe les modifs
+  }, 800);
 }
 
 async function syncToCloud() {
@@ -255,7 +254,6 @@ async function loadFromCloudForCurrentAccount() {
       `/api/data?key=${encodeURIComponent(settings.account.key)}`
     );
     if (!res.ok) {
-      // pas encore de données pour ce compte → on laisse tel quel
       return;
     }
     const data = await res.json();
@@ -291,7 +289,6 @@ async function loadFromCloudForCurrentAccount() {
       saveOvertimeState();
     }
 
-    // MAJ UI
     weeklyTargetInput.value = settings.weeklyTarget;
     workDaysInput.value     = settings.workDays;
 
@@ -647,7 +644,7 @@ function computeOvertimeEarned() {
 //  Rendu global
 // =========================
 function render() {
-  const anchor = periodAnchorKey || toDateKey(new Date());
+  const anchor = periodAnchorKey || toDateKey(new Date()));
   const { start: wStart, end: wEnd } = weekRangeOf(anchor);
 
   [weekLabel, monthLabel, yearLabel].forEach(el => el?.classList.remove("active"));
@@ -1025,6 +1022,11 @@ function makeAccountKey(name, company) {
   return `acct:${c}:${n}`;
 }
 
+// plus de boutons cloud → no-op pour éviter l’erreur au F5
+function updateCloudKeyLabel() {
+  // laissé volontairement vide
+}
+
 function updateAccountUI() {
   if (!accountBtn) return;
   const acc = settings.account;
@@ -1068,7 +1070,7 @@ async function handleAccountSave() {
     return;
   }
   settings.account = { name, company, key };
-  settings.cloudKey = key; // on réutilise la même clé si besoin
+  settings.cloudKey = key;
   saveSettings();
   updateAccountUI();
   closeAccountModal();
@@ -1227,7 +1229,6 @@ updateLiveStats();
 renderOvertime();
 updateAccountUI();
 
-// si un compte existe déjà → on recharge depuis le cloud automatiquement
 if (settings.account && settings.account.key) {
   loadFromCloudForCurrentAccount();
 }

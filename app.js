@@ -172,9 +172,6 @@ const yearPicker  = $("#yearPicker");
 // Export / import / cloud manuel
 const btnExportCSV = $("#btnExportCSV");
 const fileImport   = $("#fileImport");
-const btnCloudKey  = $("#btnCloudKey");
-const btnCloudLoad = $("#btnCloudLoad");
-const btnCloudSave = $("#btnCloudSave");
 
 // Heures sup – affichage
 const otBalanceHM   = $("#otBalanceHM");
@@ -210,16 +207,6 @@ const accLogoutBtn    = $("#accLogoutBtn");
 // =========================
 let currentFilter   = "week";
 let periodAnchorKey = toDateKey(new Date());
-
-// =========================
-//  Cloud manuel (ancienne clé)
-// =========================
-function updateCloudKeyLabel() {
-  if (!btnCloudKey) return;
-  btnCloudKey.textContent = settings.cloudKey
-    ? `Cloud : clé (${settings.cloudKey})`
-    : "Cloud : clé";
-}
 
 // =========================
 //  Cloud auto (compte)
@@ -450,64 +437,6 @@ btnExportCSV?.addEventListener("click", () =>
 );
 
 fileImport?.addEventListener("change", importFile);
-
-// =========================
-//  Cloud manuel (boutons clé)
-// =========================
-btnCloudKey?.addEventListener("click", () => {
-  const current = settings.cloudKey || "";
-  const val = prompt("Clé de sauvegarde cloud (ex: prenom-35h) :", current);
-  if (!val) return;
-  settings.cloudKey = val.trim();
-  saveSettings();
-  updateCloudKeyLabel();
-});
-
-btnCloudSave?.addEventListener("click", async () => {
-  if (!settings.cloudKey) {
-    alert("Définis d'abord une clé cloud.");
-    return;
-  }
-  try {
-    const res = await fetch(`/api/data?key=${encodeURIComponent(settings.cloudKey)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entries }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    alert("Sauvegarde cloud OK ✅");
-  } catch (e) {
-    alert(`Sauvegarde cloud impossible : ${e.message || e}`);
-  }
-});
-
-btnCloudLoad?.addEventListener("click", async () => {
-  if (!settings.cloudKey) {
-    alert("Définis d'abord une clé cloud.");
-    return;
-  }
-  if (!confirm("Remplacer les données locales par celles du cloud ?")) return;
-  try {
-    const res = await fetch(`/api/data?key=${encodeURIComponent(settings.cloudKey)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (!Array.isArray(data.entries)) {
-      alert("Aucune donnée trouvée pour cette clé.");
-      return;
-    }
-    entries = data.entries.map(e => ({
-      status: "work",
-      ...e,
-      status: e.status || "work",
-      id: e.id || crypto.randomUUID(),
-    }));
-    saveEntries();
-    render();
-    alert("Données cloud chargées ✅");
-  } catch (e) {
-    alert(`Chargement cloud impossible : ${e.message || e}`);
-  }
-});
 
 // =========================
 //  Gestion période

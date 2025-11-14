@@ -1,4 +1,4 @@
-// ========= Utilitaires temps =========
+// ---------- Utilitaires temps ----------
 const pad = n => String(n).padStart(2, "0");
 
 function hmToMin(hm) {
@@ -21,7 +21,7 @@ function toDateKey(d) {
 
 function mondayOf(d) {
   const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = (x.getUTCDay() + 6) % 7;
+  const day = (x.getUTCDay() + 6) % 7; // lundi = 0
   x.setUTCDate(x.getUTCDate() - day);
   return x;
 }
@@ -35,26 +35,24 @@ function weekRangeOf(dateStr) {
   return { start: s, end: toDateKey(e) };
 }
 
-// ========= Stockage =========
-const STORE_KEY = "tt_entries_v4";
-const SETTINGS_KEY = "tt_settings_v4";
+// ---------- Stockage ----------
+const STORE_KEY = "tt_entries_v2";       // entrées journalières
+const SETTINGS_KEY = "tt_settings_v1";   // paramètres (objectif, jours)
+const OT_STORE_KEY = "tt_overtime_v1";   // état heures sup (récupérations)
 
 let entries = loadEntries();
 let editingId = null;
 const settings = loadSettings();
+let otState = loadOvertimeState();
 
 function loadEntries() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
     return raw.map(e => ({
+      status: "work",
+      ...e,
+      status: e.status || "work",
       id: e.id || crypto.randomUUID(),
-      date: e.date || null,
-      start: e.start || "",
-      lunchStart: e.lunchStart || "",
-      lunchEnd: e.lunchEnd || "",
-      end: e.end || "",
-      notes: e.notes || "",
-      status: e.status || "work"
     }));
   } catch {
     return [];
@@ -68,19 +66,11 @@ function saveEntries() {
 function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
-    return {
-      weeklyTarget: s.weeklyTarget ?? 35,
-      workDays: s.workDays ?? 5,
-      cloudKey: s.cloudKey || "",
-      otUsedMinutes: s.otUsedMinutes || 0
-    };
+    if (typeof s.weeklyTarget !== "number") s.weeklyTarget = 35;
+    if (typeof s.workDays !== "number") s.workDays = 5;
+    return s;
   } catch {
-    return {
-      weeklyTarget: 35,
-      workDays: 5,
-      cloudKey: "",
-      otUsedMinutes: 0
-    };
+    return { weeklyTarget: 35, workDays: 5 };
   }
 }
 
@@ -88,20 +78,39 @@ function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
-// minutes effectives : 0 si journée non "Travail"
+function loadOvertimeState() {
+  try {
+    const o = JSON.parse(localStorage.getItem(OT_STORE_KEY) || "{}");
+    return {
+      balanceMinutes: o.balanceMinutes || 0,
+      earnedMinutes: o.earnedMinutes || 0,
+      usedMinutes: o.usedMinutes || 0,
+      events: Array.isArray(o.events) ? o.events : [],
+    };
+  } catch {
+    return { balanceMinutes: 0, earnedMinutes: 0, usedMinutes: 0, events: [] };
+  }
+}
+
+function saveOvertimeState() {
+  localStorage.setItem(OT_STORE_KEY, JSON.stringify(otState));
+}
+
+// ---------- Calcul temps travaillé ----------
 function computeMinutes(entry) {
-  if ((entry.status || "work") !== "work") return 0;
+  const status = entry.status || "work";
+  if (status !== "work") return 0; // pas de temps si pas "Travail"
 
   const a = hmToMin(entry.start);
   const b = hmToMin(entry.lunchStart);
   const c = hmToMin(entry.lunchEnd);
   const d = hmToMin(entry.end);
 
-  if (!entry.start || !entry.end) return 0;
-
   if (!entry.lunchStart || !entry.lunchEnd) {
+    if (!entry.start || !entry.end) return 0;
     return Math.max(0, d - a);
   }
+  if (!entry.start || !entry.end) return 0;
 
   const first = Math.max(0, b - a);
   const second = Math.max(0, d - c);
@@ -112,10 +121,10 @@ function sumMinutes(filterFn) {
   return entries.filter(filterFn).reduce((acc, e) => acc + computeMinutes(e), 0);
 }
 
-// ========= DOM =========
+// ---------- DOM ----------
 const $ = s => document.querySelector(s);
 
-// formulaire
+// Formulaire
 const dateInput = $("#date");
 const startInput = $("#start");
 const lStartInput = $("#lunchStart");
@@ -130,18 +139,16 @@ const btnClear = $("#btnClear");
 const btnDuplicate = $("#btnDuplicate");
 const btnDelete = $("#btnDelete");
 
-// objectifs
+// Stats rapides (form)
 const weeklyTargetInput = $("#weeklyTarget");
 const workDaysInput = $("#workDays");
-
-// stats live
 const statDay = $("#statDay");
 const statWeek = $("#statWeek");
 const statMonth = $("#statMonth");
 const statYear = $("#statYear");
 const weekProgress = $("#weekProgress");
 
-// tableau & récap
+// Tableau & stats globales
 const tbody = $("#tbody");
 const sumWeek = $("#sumWeek");
 const sumMonth = $("#sumMonth");
@@ -152,48 +159,63 @@ const deltaMonth = $("#deltaMonth");
 const deltaYear = $("#deltaYear");
 const entriesCount = $("#entriesCount");
 
-// filtres période
 const weekLabel = $("#weekLabel");
 const monthLabel = $("#monthLabel");
 const yearLabel = $("#yearLabel");
+
 const prevPeriod = $("#prevPeriod");
 const nextPeriod = $("#nextPeriod");
 const weekPicker = $("#weekPicker");
 const monthPicker = $("#monthPicker");
 const yearPicker = $("#yearPicker");
 
-// export / import / cloud
+// Export / import / cloud
 const btnExportCSV = $("#btnExportCSV");
 const fileImport = $("#fileImport");
+
 const btnCloudKey = $("#btnCloudKey");
 const btnCloudLoad = $("#btnCloudLoad");
 const btnCloudSave = $("#btnCloudSave");
 
-// heures sup
+// Heures sup (DOM)
 const otBalanceHM = $("#otBalanceHM");
 const otBalanceDays = $("#otBalanceDays");
-const otEarnedEl = $("#otEarned");
-const otUsedEl = $("#otUsed");
+const otEarned = $("#otEarned");
+const otUsed = $("#otUsed");
 const otDaysInput = $("#otDays");
 const otHoursInput = $("#otHours");
+const otDateInput = $("#otDate");
+const otNoteInput = $("#otNote");
 const otApplyBtn = $("#otApply");
+const otShowHistoryBtn = $("#otShowHistory");
 
-// ========= Période courante =========
+// Modale
+const otModal = $("#otModal");
+const otModalClose = $("#otModalClose");
+const otHistoryBody = $("#otHistoryBody");
+const otHistoryEmpty = $("#otHistoryEmpty");
+
+// ---------- Filtre période ----------
 let currentFilter = "week";
 let periodAnchorKey = toDateKey(new Date());
 
-// ========= Init =========
-if (!dateInput.value) {
-  dateInput.valueAsNumber =
-    Date.now() - new Date().getTimezoneOffset() * 60000;
-}
-
-weeklyTargetInput.value = settings.weeklyTarget;
-workDaysInput.value = settings.workDays;
-
+// ---------- Cloud : clé ----------
 settings.cloudKey ??= "";
 updateCloudKeyLabel();
 
+// ---------- Init formulaire ----------
+if (!dateInput.value) {
+  dateInput.valueAsNumber = Date.now() - new Date().getTimezoneOffset() * 60000;
+}
+weeklyTargetInput.value = settings.weeklyTarget ?? 35;
+workDaysInput.value = settings.workDays ?? 5;
+
+// Date de récup par défaut = aujourd’hui
+if (otDateInput && !otDateInput.value) {
+  otDateInput.valueAsNumber = Date.now() - new Date().getTimezoneOffset() * 60000;
+}
+
+// ---------- Init pickers période ----------
 (function initPickers() {
   const d = new Date(periodAnchorKey + "T12:00:00Z");
   const y = d.getUTCFullYear();
@@ -207,21 +229,13 @@ updateCloudKeyLabel();
   }
 })();
 
-// ========= Events formulaire =========
-[
-  startInput,
-  lStartInput,
-  lEndInput,
-  endInput,
-  dateInput,
-  statusInput,
-  weeklyTargetInput,
-  workDaysInput
-].forEach(i => i.addEventListener("input", updateLiveStats));
+// ---------- Events formulaire ----------
+[startInput, lStartInput, lEndInput, endInput, dateInput, statusInput].forEach(
+  i => i.addEventListener("input", updateLiveStats)
+);
 
 btnToday.addEventListener("click", () => {
-  dateInput.valueAsNumber =
-    Date.now() - new Date().getTimezoneOffset() * 60000;
+  dateInput.valueAsNumber = Date.now() - new Date().getTimezoneOffset() * 60000;
   updateLiveStats();
 });
 
@@ -234,18 +248,8 @@ btnSave.addEventListener("click", () => {
     return;
   }
   if (!(e.start && e.end) && e.status === "work") {
-    if (
-      !confirm(
-        "Heures d'arrivée et de départ non complètes. Enregistrer quand même ?"
-      )
-    )
-      return;
+    if (!confirm("Heures d'arrivée et de départ non complètes. Enregistrer quand même ?")) return;
   }
-
-  // on met à jour les réglages à chaque save
-  settings.weeklyTarget = parseFloat(weeklyTargetInput.value || "35") || 35;
-  settings.workDays = parseInt(workDaysInput.value || "5", 10) || 5;
-  saveSettings();
 
   if (editingId) {
     const idx = entries.findIndex(x => x.id === editingId);
@@ -275,19 +279,32 @@ btnDelete.addEventListener("click", () => {
 
 btnClear.addEventListener("click", clearForm);
 
-// ========= Export / import =========
+weeklyTargetInput.addEventListener("change", () => {
+  const v = parseFloat(weeklyTargetInput.value || "35");
+  settings.weeklyTarget = isFinite(v) ? v : 35;
+  saveSettings();
+  render();
+});
+
+workDaysInput.addEventListener("change", () => {
+  const v = parseInt(workDaysInput.value || "5", 10);
+  settings.workDays = isFinite(v) && v > 0 && v <= 7 ? v : 5;
+  workDaysInput.value = settings.workDays;
+  saveSettings();
+  render();
+});
+
+// ---------- Export / import ----------
 btnExportCSV.addEventListener("click", () =>
   download("timetracker.csv", toCSV(entries))
 );
+
 fileImport.addEventListener("change", importFile);
 
-// ========= Cloud =========
+// ---------- Cloud ----------
 btnCloudKey.addEventListener("click", () => {
   const current = settings.cloudKey || "";
-  const val = prompt(
-    "Clé de sauvegarde cloud (ex: prenom-35h) :",
-    current
-  );
+  const val = prompt("Clé de sauvegarde cloud (ex: prenom-35h) :", current);
   if (!val) return;
   settings.cloudKey = val.trim();
   saveSettings();
@@ -300,14 +317,11 @@ btnCloudSave.addEventListener("click", async () => {
     return;
   }
   try {
-    const res = await fetch(
-      `/api/data?key=${encodeURIComponent(settings.cloudKey)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries })
-      }
-    );
+    const res = await fetch(`/api/data?key=${encodeURIComponent(settings.cloudKey)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entries }),
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     alert("Sauvegarde cloud OK ✅");
   } catch (e) {
@@ -322,9 +336,7 @@ btnCloudLoad.addEventListener("click", async () => {
   }
   if (!confirm("Remplacer les données locales par celles du cloud ?")) return;
   try {
-    const res = await fetch(
-      `/api/data?key=${encodeURIComponent(settings.cloudKey)}`
-    );
+    const res = await fetch(`/api/data?key=${encodeURIComponent(settings.cloudKey)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (!Array.isArray(data.entries)) {
@@ -332,14 +344,10 @@ btnCloudLoad.addEventListener("click", async () => {
       return;
     }
     entries = data.entries.map(e => ({
+      status: "work",
+      ...e,
+      status: e.status || "work",
       id: e.id || crypto.randomUUID(),
-      date: e.date || null,
-      start: e.start || "",
-      lunchStart: e.lunchStart || "",
-      lunchEnd: e.lunchEnd || "",
-      end: e.end || "",
-      notes: e.notes || "",
-      status: e.status || "work"
     }));
     saveEntries();
     render();
@@ -355,7 +363,7 @@ function updateCloudKeyLabel() {
     : "Cloud : clé";
 }
 
-// ========= Période =========
+// ---------- Période ----------
 function openPicker(el) {
   if (!el) return;
   if (el.showPicker) el.showPicker();
@@ -404,7 +412,6 @@ if (weekPicker) {
     render();
   });
 }
-
 if (monthPicker) {
   monthPicker.addEventListener("change", () => {
     if (!monthPicker.value) return;
@@ -414,7 +421,6 @@ if (monthPicker) {
     render();
   });
 }
-
 if (yearPicker) {
   yearPicker.addEventListener("change", () => {
     const y = parseInt(yearPicker.value, 10);
@@ -433,11 +439,10 @@ function shiftAnchor(delta) {
   periodAnchorKey = toDateKey(d);
   render();
 }
-
 prevPeriod.addEventListener("click", () => shiftAnchor(-1));
 nextPeriod.addEventListener("click", () => shiftAnchor(+1));
 
-// ========= Helpers formulaire =========
+// ---------- Helpers formulaire ----------
 function collectForm() {
   return {
     date: dateInput.value || null,
@@ -446,7 +451,7 @@ function collectForm() {
     lunchEnd: lEndInput.value || "",
     end: endInput.value || "",
     notes: (notesInput.value || "").trim(),
-    status: statusInput.value || "work"
+    status: statusInput.value || "work",
   };
 }
 
@@ -483,31 +488,25 @@ function duplicateYesterday() {
   updateLiveStats();
 }
 
-// ========= Stats live =========
 function updateLiveStats() {
   const e = collectForm();
   const minutes = computeMinutes(e);
   statDay.textContent = minToHM(minutes);
-
   const today = e.date || toDateKey(new Date());
   const { start, end } = weekRangeOf(today);
-
   const weekMin = sumMinutes(x => x.date >= start && x.date <= end);
   const monthMin = sumMinutes(x => x.date.slice(0, 7) === today.slice(0, 7));
   const yearMin = sumMinutes(x => x.date.slice(0, 4) === today.slice(0, 4));
-
   statWeek.textContent = minToHM(weekMin);
   statMonth.textContent = minToHM(monthMin);
   statYear.textContent = minToHM(yearMin);
-
   updateWeekProgress(weekMin, start, end);
 }
 
-// progression de la barre
 function updateWeekProgress(weekMin, wStart, wEnd) {
-  const weeklyTarget = parseFloat(weeklyTargetInput.value || "35") || 35;
+  const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
   const workDays = parseInt(workDaysInput.value || "5", 10) || 5;
-  const dailyTarget = weeklyTarget / workDays;
+  const dailyTarget = targetHours / workDays;
 
   const absenceDays = entries.filter(
     e =>
@@ -519,9 +518,8 @@ function updateWeekProgress(weekMin, wStart, wEnd) {
         e.status === "holiday")
   ).length;
 
-  const adjustedTarget = Math.max(0, weeklyTarget - absenceDays * dailyTarget);
+  const adjustedTarget = Math.max(0, targetHours - absenceDays * dailyTarget);
   const targetMin = adjustedTarget * 60;
-
   const p =
     targetMin > 0
       ? Math.max(0, Math.min(100, Math.round((weekMin * 100) / targetMin)))
@@ -529,7 +527,185 @@ function updateWeekProgress(weekMin, wStart, wEnd) {
   weekProgress.style.width = p + "%";
 }
 
-// ========= Objectifs mensuels / annuels (ajustés) =========
+// ---------- Overtime : calcul des heures sup gagnées ----------
+function computeOvertimeEarned() {
+  const targetHours = settings.weeklyTarget || 35;
+  const workDays = settings.workDays || 5;
+  const dailyTarget = targetHours / workDays;
+
+  // Regrouper par semaine (clé = lundi de la semaine)
+  const map = new Map();
+  for (const e of entries) {
+    if (!e.date) continue;
+    const { start } = weekRangeOf(e.date);
+    const key = start;
+    const obj = map.get(key) || { minutes: 0, absenceDays: 0 };
+    obj.minutes += computeMinutes(e);
+    if (
+      e.status === "school" ||
+      e.status === "vacation" ||
+      e.status === "sick" ||
+      e.status === "holiday"
+    ) {
+      obj.absenceDays += 1;
+    }
+    map.set(key, obj);
+  }
+
+  let totalDelta = 0;
+  for (const [, v] of map) {
+    const adjustedWeeklyHours = Math.max(
+      0,
+      targetHours - v.absenceDays * dailyTarget
+    );
+    const targetMin = adjustedWeeklyHours * 60;
+    totalDelta += v.minutes - targetMin; // peut être négatif (manque d'heures)
+  }
+  return totalDelta;
+}
+
+// ---------- Rendu global ----------
+function render() {
+  const anchor = periodAnchorKey || toDateKey(new Date());
+  const { start: wStart, end: wEnd } = weekRangeOf(anchor);
+
+  // Pastilles actives
+  [weekLabel, monthLabel, yearLabel].forEach(el =>
+    el.classList.remove("active")
+  );
+  (currentFilter === "week"
+    ? weekLabel
+    : currentFilter === "month"
+    ? monthLabel
+    : yearLabel
+  ).classList.add("active");
+
+  if (weekPicker)
+    weekPicker.style.display = currentFilter === "week" ? "inline-block" : "none";
+  if (monthPicker)
+    monthPicker.style.display = currentFilter === "month" ? "inline-block" : "none";
+  if (yearPicker)
+    yearPicker.style.display = currentFilter === "year" ? "inline-block" : "none";
+
+  // Labels
+  weekLabel.textContent = `Semaine ${wStart} → ${wEnd}`;
+  monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
+  yearLabel.textContent = `Année ${anchor.slice(0, 4)}`;
+
+  const inRange = e =>
+    currentFilter === "week"
+      ? e.date >= wStart && e.date <= wEnd
+      : currentFilter === "month"
+      ? e.date.slice(0, 7) === anchor.slice(0, 7)
+      : e.date.slice(0, 4) === anchor.slice(0, 4);
+
+  // Tableau
+  tbody.innerHTML = "";
+  for (const e of entries.filter(inRange)) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${e.date}</td>
+      <td>${e.start || ""}</td>
+      <td>${e.lunchStart || ""}</td>
+      <td>${e.lunchEnd || ""}</td>
+      <td>${e.end || ""}</td>
+      <td>${minToHM(computeMinutes(e))}</td>
+      <td>${statusLabel(e.status)}</td>
+      <td>${escapeHtml(e.notes || "")}</td>
+    `;
+    tr.addEventListener("click", () => {
+      editingId = e.id;
+      dateInput.value = e.date;
+      startInput.value = e.start || "";
+      lStartInput.value = e.lunchStart || "";
+      lEndInput.value = e.lunchEnd || "";
+      endInput.value = e.end || "";
+      notesInput.value = e.notes || "";
+      statusInput.value = e.status || "work";
+      btnDelete.style.display = "inline-block";
+      updateLiveStats();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    tbody.appendChild(tr);
+  }
+
+  const weekMin = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
+  const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
+  const yearMin = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
+  const allMin = sumMinutes(() => true);
+
+  sumWeek.textContent = minToHM(weekMin);
+  sumMonth.textContent = minToHM(monthMin);
+  sumYear.textContent = minToHM(yearMin);
+  sumAll.textContent = minToHM(allMin);
+  entriesCount.textContent = `${entries.length} saisie${
+    entries.length > 1 ? "s" : ""
+  }`;
+
+  const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
+  const workDays = parseInt(workDaysInput.value || "5", 10) || 5;
+  const dailyTarget = targetHours / workDays;
+
+  // Semaine
+  const absenceDaysWeek = entries.filter(
+    e =>
+      e.date >= wStart &&
+      e.date <= wEnd &&
+      (e.status === "school" ||
+        e.status === "vacation" ||
+        e.status === "sick" ||
+        e.status === "holiday")
+  ).length;
+  const adjustedWeeklyTarget = Math.max(
+    0,
+    targetHours - absenceDaysWeek * dailyTarget
+  );
+  const weekTargetMin = adjustedWeeklyTarget * 60;
+
+  if (absenceDaysWeek >= workDays && weekMin === 0) {
+    deltaWeek.textContent = "Absent toute la semaine";
+    deltaWeek.className = "delta";
+  } else if (weekTargetMin > 0) {
+    const diff = weekMin - weekTargetMin;
+    deltaWeek.textContent = diff === 0 ? "—" : `${diff > 0 ? "+" : ""}${minToHM(diff)} vs cible`;
+    deltaWeek.className = diff > 0 ? "delta plus" : diff < 0 ? "delta minus" : "delta";
+  } else {
+    deltaWeek.textContent = "—";
+    deltaWeek.className = "delta";
+  }
+
+  // Mois & année : cibles globales en utilisant les mêmes règles
+  const monthTargetMin = monthTargetMinutes(anchor, targetHours, workDays);
+  if (monthTargetMin > 0) {
+    const diff = monthMin - monthTargetMin;
+    deltaMonth.textContent = diff === 0 ? "—" : `${diff > 0 ? "+" : ""}${minToHM(diff)} vs cible`;
+    deltaMonth.className = diff > 0 ? "delta plus" : diff < 0 ? "delta minus" : "delta";
+  } else {
+    deltaMonth.textContent = "—";
+    deltaMonth.className = "delta";
+  }
+
+  const yearTargetMin = yearTargetMinutes(anchor, targetHours, workDays);
+  if (yearTargetMin > 0) {
+    const diff = yearMin - yearTargetMin;
+    deltaYear.textContent = diff === 0 ? "—" : `${diff > 0 ? "+" : ""}${minToHM(diff)} vs cible`;
+    deltaYear.className = diff > 0 ? "delta plus" : diff < 0 ? "delta minus" : "delta";
+  } else {
+    deltaYear.textContent = "—";
+    deltaYear.className = "delta";
+  }
+
+  updateWeekProgress(weekMin, wStart, wEnd);
+
+  // Heures sup (earned) recalculées à chaque render
+  const earned = computeOvertimeEarned();
+  otState.earnedMinutes = earned;
+  otState.balanceMinutes = earned - (otState.usedMinutes || 0);
+  saveOvertimeState();
+  renderOvertime();
+}
+
+// Objectif mensuel ajusté
 function monthTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
   const dailyTarget = weeklyTargetHours / workDays;
   const y = +anchorKey.slice(0, 4);
@@ -580,6 +756,7 @@ function monthTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
   return Math.round(totalHours * 60);
 }
 
+// Objectif annuel ajusté
 function yearTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
   const dailyTarget = weeklyTargetHours / workDays;
   const y = +anchorKey.slice(0, 4);
@@ -629,198 +806,138 @@ function yearTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
   return Math.round(totalHours * 60);
 }
 
-// ========= Heures sup =========
-function formatDaysFromMinutes(totalMinutes, minutesPerDay) {
-  if (minutesPerDay <= 0) return `0 jour · ${minToHM(totalMinutes)}`;
-  const sign = totalMinutes < 0 ? "-" : "";
-  const abs = Math.abs(totalMinutes);
-  const d = Math.floor(abs / minutesPerDay);
-  const r = abs % minutesPerDay;
-  const label = d === 1 ? "jour" : "jours";
-  return `${sign}${d} ${label} · ${minToHM(r)}`;
+// ---------- Affichage heures sup + récup ----------
+function renderOvertime() {
+  const bal = otState.balanceMinutes || 0;
+  const earned = otState.earnedMinutes || 0;
+  const used = otState.usedMinutes || 0;
+
+  otBalanceHM.textContent = minToHM(bal);
+  otEarned.textContent = minToHM(earned);
+  otUsed.textContent = minToHM(used);
+
+  const targetHours = settings.weeklyTarget || 35;
+  const workDays = settings.workDays || 5;
+  const dailyTarget = targetHours / workDays;
+
+  const hoursPerDay = dailyTarget;
+  const days = hoursPerDay > 0 ? Math.trunc(bal / 60 / hoursPerDay) : 0;
+  const remainingMin = bal - days * hoursPerDay * 60;
+  otBalanceDays.textContent = `${days} jour${days > 1 ? "s" : ""} · ${minToHM(
+    remainingMin
+  )}`;
 }
 
-function computeOvertime() {
-  const weeklyTarget = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const workDays = parseInt(workDaysInput.value || "5", 10) || 5;
-  const minutesPerDay = (weeklyTarget / workDays) * 60;
+// Enregistrer une récupération (formulaire)
+otApplyBtn.addEventListener("click", () => {
+  const days = parseInt(otDaysInput.value || "0", 10) || 0;
+  const hours = parseFloat(otHoursInput.value || "0") || 0;
+  const date = otDateInput.value || toDateKey(new Date());
+  const note = (otNoteInput.value || "").trim();
 
-  let raw = 0;
-  for (const e of entries) {
-    if (e.status !== "work") continue;
-    if (!e.date) continue;
-    const worked = computeMinutes(e);
-    if (worked === 0) continue;
-    raw += worked - minutesPerDay;
+  const targetHours = settings.weeklyTarget || 35;
+  const workDays = settings.workDays || 5;
+  const dailyTarget = targetHours / workDays;
+
+  const totalHours = days * dailyTarget + hours;
+  const minutes = Math.round(totalHours * 60);
+
+  if (minutes <= 0) {
+    alert("Indique au moins quelques heures ou jours à récupérer.");
+    return;
   }
 
-  const used = settings.otUsedMinutes || 0;
-  const balance = raw - used;
+  if (minutes > otState.balanceMinutes) {
+    if (
+      !confirm(
+        "Tu récupères plus que ton solde d'heures sup. Continuer quand même ?"
+      )
+    )
+      return;
+  }
 
-  otEarnedEl.textContent = minToHM(raw);
-  otUsedEl.textContent = minToHM(used);
-  otBalanceHM.textContent = minToHM(balance);
-  otBalanceDays.textContent = formatDaysFromMinutes(balance, minutesPerDay);
-}
+  otState.usedMinutes += minutes;
+  otState.balanceMinutes = otState.earnedMinutes - otState.usedMinutes;
 
-if (otApplyBtn) {
-  otApplyBtn.addEventListener("click", () => {
-    const weeklyTarget = parseFloat(weeklyTargetInput.value || "35") || 35;
-    const workDays = parseInt(workDaysInput.value || "5", 10) || 5;
-    const minutesPerDay = (weeklyTarget / workDays) * 60;
-
-    const days = parseFloat(otDaysInput.value || "0") || 0;
-    const hours = parseFloat(otHoursInput.value || "0") || 0;
-
-    const addedMinutes =
-      Math.max(0, days) * minutesPerDay + Math.max(0, hours) * 60;
-
-    settings.otUsedMinutes =
-      (settings.otUsedMinutes || 0) + Math.round(addedMinutes);
-    saveSettings();
-
-    otDaysInput.value = "0";
-    otHoursInput.value = "0";
-
-    render();
+  otState.events.push({
+    id: crypto.randomUUID(),
+    date,
+    minutes,
+    note,
   });
+
+  saveOvertimeState();
+  renderOvertime();
+  refreshOtHistory();
+
+  otDaysInput.value = "0";
+  otHoursInput.value = "0";
+  otNoteInput.value = "";
+});
+
+// ---------- Modale historique ----------
+function openOtModal() {
+  otModal.classList.remove("hidden");
+  refreshOtHistory();
 }
 
-// ========= Rendu global =========
-function render() {
-  const anchor = periodAnchorKey || toDateKey(new Date());
-  const { start: wStart, end: wEnd } = weekRangeOf(anchor);
+function closeOtModal() {
+  otModal.classList.add("hidden");
+}
 
-  [weekLabel, monthLabel, yearLabel].forEach(el =>
-    el.classList.remove("active")
-  );
-  (currentFilter === "week"
-    ? weekLabel
-    : currentFilter === "month"
-    ? monthLabel
-    : yearLabel
-  ).classList.add("active");
+otShowHistoryBtn.addEventListener("click", openOtModal);
+otModalClose.addEventListener("click", closeOtModal);
+otModal.addEventListener("click", e => {
+  if (e.target === otModal || e.target === otModal.querySelector(".modal-backdrop")) {
+    closeOtModal();
+  }
+});
 
-  if (weekPicker)
-    weekPicker.style.display =
-      currentFilter === "week" ? "inline-block" : "none";
-  if (monthPicker)
-    monthPicker.style.display =
-      currentFilter === "month" ? "inline-block" : "none";
-  if (yearPicker)
-    yearPicker.style.display =
-      currentFilter === "year" ? "inline-block" : "none";
+function refreshOtHistory() {
+  const events = otState.events || [];
+  otHistoryBody.innerHTML = "";
 
-  weekLabel.textContent = `Semaine ${wStart} → ${wEnd}`;
-  monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
-  yearLabel.textContent = `Année ${anchor.slice(0, 4)}`;
+  if (!events.length) {
+    otHistoryEmpty.style.display = "block";
+    return;
+  }
+  otHistoryEmpty.style.display = "none";
 
-  const inRange = e =>
-    currentFilter === "week"
-      ? e.date >= wStart && e.date <= wEnd
-      : currentFilter === "month"
-      ? e.date.slice(0, 7) === anchor.slice(0, 7)
-      : e.date.slice(0, 4) === anchor.slice(0, 4);
-
-  tbody.innerHTML = "";
-  for (const e of entries.filter(inRange)) {
+  for (const ev of events) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${e.date}</td>
-      <td>${e.start || ""}</td>
-      <td>${e.lunchStart || ""}</td>
-      <td>${e.lunchEnd || ""}</td>
-      <td>${e.end || ""}</td>
-      <td>${minToHM(computeMinutes(e))}</td>
-      <td>${statusLabel(e.status)}</td>
-      <td>${escapeHtml(e.notes || "")}</td>
+      <td>${ev.date}</td>
+      <td>${minToHM(ev.minutes)}</td>
+      <td>${escapeHtml(ev.note || "")}</td>
+      <td>
+        <button class="icon-btn danger" data-id="${ev.id}" title="Supprimer">
+          <span>🗑</span>
+        </button>
+      </td>
     `;
-    tr.addEventListener("click", () => {
-      editingId = e.id;
-      dateInput.value = e.date;
-      startInput.value = e.start || "";
-      lStartInput.value = e.lunchStart || "";
-      lEndInput.value = e.lunchEnd || "";
-      endInput.value = e.end || "";
-      notesInput.value = e.notes || "";
-      statusInput.value = e.status || "work";
-      btnDelete.style.display = "inline-block";
-      updateLiveStats();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    tr.querySelector("button").addEventListener("click", () => {
+      deleteOtEvent(ev.id);
     });
-    tbody.appendChild(tr);
+    otHistoryBody.appendChild(tr);
   }
-
-  const weekMin = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
-  const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
-  const yearMin = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
-  const allMin = sumMinutes(() => true);
-
-  sumWeek.textContent = minToHM(weekMin);
-  sumMonth.textContent = minToHM(monthMin);
-  sumYear.textContent = minToHM(yearMin);
-  sumAll.textContent = minToHM(allMin);
-  entriesCount.textContent = `${entries.length} saisie${
-    entries.length > 1 ? "s" : ""
-  }`;
-
-  const weeklyTarget = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const workDays = parseInt(workDaysInput.value || "5", 10) || 5;
-  const dailyTarget = weeklyTarget / workDays;
-
-  // semaine
-  const absenceDaysWeek = entries.filter(
-    e =>
-      e.date >= wStart &&
-      e.date <= wEnd &&
-      (e.status === "school" ||
-        e.status === "vacation" ||
-        e.status === "sick" ||
-        e.status === "holiday")
-  ).length;
-  const adjustedWeeklyTarget = Math.max(
-    0,
-    weeklyTarget - absenceDaysWeek * dailyTarget
-  );
-  const weekTargetMin = adjustedWeeklyTarget * 60;
-
-  if (absenceDaysWeek >= workDays && weekMin === 0) {
-    deltaWeek.textContent = "Absent toute la semaine";
-    deltaWeek.className = "delta";
-  } else if (weekMin > weekTargetMin && weekTargetMin > 0) {
-    const weekDelta = weekMin - weekTargetMin;
-    deltaWeek.textContent = `+${minToHM(weekDelta)} vs cible`;
-    deltaWeek.className = "delta plus";
-  } else {
-    deltaWeek.textContent = "—";
-    deltaWeek.className = "delta";
-  }
-
-  const monthTargetMin = monthTargetMinutes(anchor, weeklyTarget, workDays);
-  if (monthMin > monthTargetMin && monthTargetMin > 0) {
-    const monthDelta = monthMin - monthTargetMin;
-    deltaMonth.textContent = `+${minToHM(monthDelta)} vs cible`;
-    deltaMonth.className = "delta plus";
-  } else {
-    deltaMonth.textContent = "—";
-    deltaMonth.className = "delta";
-  }
-
-  const yearTargetMin = yearTargetMinutes(anchor, weeklyTarget, workDays);
-  if (yearMin > yearTargetMin && yearTargetMin > 0) {
-    const yearDelta = yearMin - yearTargetMin;
-    deltaYear.textContent = `+${minToHM(yearDelta)} vs cible`;
-    deltaYear.className = "delta plus";
-  } else {
-    deltaYear.textContent = "—";
-    deltaYear.className = "delta";
-  }
-
-  updateWeekProgress(weekMin, wStart, wEnd);
-  computeOvertime();
 }
 
-// ========= Divers =========
+function deleteOtEvent(id) {
+  const idx = otState.events.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  const ev = otState.events[idx];
+
+  if (!confirm("Supprimer cette récupération ?")) return;
+
+  otState.events.splice(idx, 1);
+  otState.usedMinutes = Math.max(0, otState.usedMinutes - ev.minutes);
+  otState.balanceMinutes = otState.earnedMinutes - otState.usedMinutes;
+  saveOvertimeState();
+  renderOvertime();
+  refreshOtHistory();
+}
+
+// ---------- Divers ----------
 function statusLabel(status) {
   switch (status) {
     case "school":
@@ -837,15 +954,13 @@ function statusLabel(status) {
 }
 
 function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, m =>
-    ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    }[m])
-  );
+  return s.replace(/[&<>"']/g, m => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[m]);
 }
 
 function download(filename, text) {
@@ -865,7 +980,7 @@ function toCSV(data) {
     "end",
     "minutes",
     "status",
-    "notes"
+    "notes",
   ];
   const rows = data.map(e => [
     e.date,
@@ -875,11 +990,13 @@ function toCSV(data) {
     e.end || "",
     computeMinutes(e),
     e.status || "work",
-    (e.notes || "").replaceAll('"', '""')
+    (e.notes || "").replaceAll('"', '""'),
   ]);
-  return [head.join(","), ...rows.map(r => r.map(x => `"${x}"`).join(","))].join(
-    "\n"
-  );
+  const csv = [
+    head.join(","),
+    ...rows.map(r => r.map(x => `"${x}"`).join(",")),
+  ].join("\n");
+  return csv;
 }
 
 async function importFile(ev) {
@@ -914,7 +1031,7 @@ function mergeEntries(arr) {
       lunchEnd: r.lunchEnd || "",
       end: r.end || "",
       notes: r.notes || "",
-      status: r.status || "work"
+      status: r.status || "work",
     };
     if (idx > -1) entries[idx] = obj;
     else entries.push(obj);
@@ -942,12 +1059,12 @@ function parseCSV(csv) {
       lunchEnd: cols[idx("lunchEnd")] || "",
       end: cols[idx("end")] || "",
       notes: cols[idx("notes")] || "",
-      status: cols[idx("status")] || "work"
+      status: cols[idx("status")] || "work",
     });
   }
   return out;
 }
 
-// ========= Premier rendu =========
+// ---------- Premier rendu ----------
 render();
 updateLiveStats();

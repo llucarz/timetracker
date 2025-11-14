@@ -1,4 +1,4 @@
-// ========= Utilitaires temps =========
+// ---------- Utilitaires temps ----------
 const pad = n => String(n).padStart(2, "0");
 
 function hmToMin(hm) {
@@ -21,7 +21,7 @@ function toDateKey(d) {
 
 function mondayOf(d) {
   const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const day = (x.getUTCDay() + 6) % 7; // lundi = 0
+  const day = (x.getUTCDay() + 6) % 7;
   x.setUTCDate(x.getUTCDate() - day);
   return x;
 }
@@ -35,10 +35,11 @@ function weekRangeOf(dateStr) {
   return { start: s, end: toDateKey(e) };
 }
 
-// ========= Stockage =========
-const STORE_KEY = "tt_entries_v2";
-const SETTINGS_KEY = "tt_settings_v2";
+// ---------- Clés de stockage ----------
+const STORE_KEY = "tt_entries_v3";
+const SETTINGS_KEY = "tt_settings_v3";
 
+// ---------- Modèle ----------
 let entries = loadEntries();
 let editingId = null;
 const settings = loadSettings();
@@ -47,10 +48,14 @@ function loadEntries() {
   try {
     const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
     return raw.map(e => ({
-      status: "work",
-      ...e,
-      status: e.status || "work",
-      id: e.id || crypto.randomUUID()
+      id: e.id || crypto.randomUUID(),
+      date: e.date || null,
+      start: e.start || "",
+      lunchStart: e.lunchStart || "",
+      lunchEnd: e.lunchEnd || "",
+      end: e.end || "",
+      notes: e.notes || "",
+      status: e.status || "work"
     }));
   } catch {
     return [];
@@ -63,19 +68,28 @@ function saveEntries() {
 
 function loadSettings() {
   try {
-    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+    return {
+      weeklyTarget: s.weeklyTarget ?? 35,
+      daysTarget: s.daysTarget ?? 5,
+      cloudKey: s.cloudKey || "",
+      otRecoveredMinutes: s.otRecoveredMinutes || 0
+    };
   } catch {
-    return {};
+    return {
+      weeklyTarget: 35,
+      daysTarget: 5,
+      cloudKey: "",
+      otRecoveredMinutes: 0
+    };
   }
 }
 
-// valeurs par défaut
-settings.weeklyTarget ??= 35;       // heures / semaine
-settings.workingDays ??= 5;         // jours travaillés
-settings.cloudKey ??= "";
-settings.overtimeUsedMin ??= 0;     // minutes d'heures sup déjà récupérées
+function saveSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
 
-// ========= Minutes de travail =========
+// minutes effectives : 0 si journée non Travail
 function computeMinutes(entry) {
   const status = entry.status || "work";
   if (status !== "work") return 0;
@@ -85,12 +99,14 @@ function computeMinutes(entry) {
   const c = hmToMin(entry.lunchEnd);
   const d = hmToMin(entry.end);
 
-  if (!entry.lunchStart || !entry.lunchEnd) {
-    if (!entry.start || !entry.end) return 0;
-    return Math.max(0, d - a);
-  }
   if (!entry.start || !entry.end) return 0;
 
+  // sans pause
+  if (!entry.lunchStart || !entry.lunchEnd) {
+    return Math.max(0, d - a);
+  }
+
+  // avec pause
   const first = Math.max(0, b - a);
   const second = Math.max(0, d - c);
   return first + second;
@@ -100,89 +116,91 @@ function sumMinutes(filterFn) {
   return entries.filter(filterFn).reduce((acc, e) => acc + computeMinutes(e), 0);
 }
 
-// ========= DOM =========
-const $  = s => document.querySelector(s);
-const dateInput   = $("#date");
-const startInput  = $("#start");
+// ---------- DOM ----------
+const $ = s => document.querySelector(s);
+
+const dateInput = $("#date");
+const startInput = $("#start");
 const lStartInput = $("#lunchStart");
-const lEndInput   = $("#lunchEnd");
-const endInput    = $("#end");
-const notesInput  = $("#notes");
+const lEndInput = $("#lunchEnd");
+const endInput = $("#end");
+const notesInput = $("#notes");
 const statusInput = $("#status");
 
-const btnToday     = $("#btnToday");
-const btnSave      = $("#btnSave");
-const btnClear     = $("#btnClear");
+const btnToday = $("#btnToday");
+const btnSave = $("#btnSave");
+const btnClear = $("#btnClear");
 const btnDuplicate = $("#btnDuplicate");
-const btnDelete    = $("#btnDelete");
+const btnDelete = $("#btnDelete");
 
 const weeklyTargetInput = $("#weeklyTarget");
-const workingDaysInput  = $("#workingDays");         // peut ne pas exister
+const daysTargetInput = $("#daysTarget");
 
-const statDay   = $("#statDay");
-const statWeek  = $("#statWeek");
+const statDay = $("#statDay");
+const statWeek = $("#statWeek");
 const statMonth = $("#statMonth");
-const statYear  = $("#statYear");
+const statYear = $("#statYear");
 const weekProgress = $("#weekProgress");
 
-const tbody       = $("#tbody");
-const sumWeek     = $("#sumWeek");
-const sumMonth    = $("#sumMonth");
-const sumYear     = $("#sumYear");
-const sumAll      = $("#sumAll");
-const deltaWeek   = $("#deltaWeek");
-const deltaMonth  = $("#deltaMonth");
-const deltaYear   = $("#deltaYear");
+const tbody = $("#tbody");
+const sumWeek = $("#sumWeek");
+const sumMonth = $("#sumMonth");
+const sumYear = $("#sumYear");
+const sumAll = $("#sumAll");
+const deltaWeek = $("#deltaWeek");
+const deltaMonth = $("#deltaMonth");
+const deltaYear = $("#deltaYear");
 const entriesCount = $("#entriesCount");
 
-const weekLabel  = $("#weekLabel");
+const weekLabel = $("#weekLabel");
 const monthLabel = $("#monthLabel");
-const yearLabel  = $("#yearLabel");
+const yearLabel = $("#yearLabel");
 
-const prevPeriod  = $("#prevPeriod");
-const nextPeriod  = $("#nextPeriod");
-const weekPicker  = $("#weekPicker");
+const prevPeriod = $("#prevPeriod");
+const nextPeriod = $("#nextPeriod");
+const weekPicker = $("#weekPicker");
 const monthPicker = $("#monthPicker");
-const yearPicker  = $("#yearPicker");
+const yearPicker = $("#yearPicker");
 
 const btnExportCSV = $("#btnExportCSV");
-const fileImport   = $("#fileImport");
+const fileImport = $("#fileImport");
 
-const btnCloudKey  = $("#btnCloudKey");
+const btnCloudKey = $("#btnCloudKey");
 const btnCloudLoad = $("#btnCloudLoad");
 const btnCloudSave = $("#btnCloudSave");
 
-// DOM portefeuille d’heures sup (peut ne pas exister encore)
-const otBalanceHM   = $("#otBalanceHM");
-const otBalanceDays = $("#otBalanceDays");
-const otEarned      = $("#otEarned");
-const otUsed        = $("#otUsed");
-const otDaysInput   = $("#otDays");
-const otHoursInput  = $("#otHours");
-const otApply       = $("#otApply");
+// Overtime DOM
+const otBalanceEl = $("#otBalance");
+const otBalanceDetailEl = $("#otBalanceDetail");
+const otEarnedEl = $("#otEarned");
+const otRecoveredDisplayEl = $("#otRecoveredDisplay");
+const otDaysRecoveredInput = $("#otDaysRecovered");
+const otHoursRecoveredInput = $("#otHoursRecovered");
+const btnSaveRecovery = $("#btnSaveRecovery");
 
-// ========= Filtre période =========
-let currentFilter   = "week";
+// ---------- Filtre période ----------
+let currentFilter = "week";
 let periodAnchorKey = toDateKey(new Date());
 
-// ========= Init champs =========
-if (dateInput && !dateInput.value) {
+// ---------- Init champs ----------
+if (!dateInput.value) {
   dateInput.valueAsNumber =
     Date.now() - new Date().getTimezoneOffset() * 60000;
 }
 
-if (weeklyTargetInput) weeklyTargetInput.value = settings.weeklyTarget;
-if (workingDaysInput)  workingDaysInput.value  = settings.workingDays;
+weeklyTargetInput.value = settings.weeklyTarget;
+daysTargetInput.value = settings.daysTarget;
 
-// Pickers init
+settings.cloudKey ??= "";
+updateCloudKeyLabel();
+
+// Init pickers
 (function initPickers() {
   const d = new Date(periodAnchorKey + "T12:00:00Z");
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-
   if (monthPicker) monthPicker.value = `${y}-${m}`;
-  if (yearPicker)  yearPicker.value  = String(y);
-
+  if (yearPicker) yearPicker.value = String(y);
   if (weekPicker) {
     const onejan = new Date(Date.UTC(y, 0, 1));
     const week = Math.ceil(
@@ -192,201 +210,157 @@ if (workingDaysInput)  workingDaysInput.value  = settings.workingDays;
   }
 })();
 
-// ========= Helpers jours travaillés / objectif jour =========
-function getWorkingDays() {
-  const fromSettings = settings.workingDays ?? 5;
-  if (!workingDaysInput) return fromSettings;
-  let v = parseInt(workingDaysInput.value || `${fromSettings}`, 10);
-  if (!isFinite(v) || v < 1) v = 1;
-  if (v > 7) v = 7;
-  return v;
-}
+// ---------- Events formulaire ----------
+[
+  startInput,
+  lStartInput,
+  lEndInput,
+  endInput,
+  dateInput,
+  statusInput,
+  weeklyTargetInput,
+  daysTargetInput
+].forEach(i => i.addEventListener("input", updateLiveStats));
 
-function dailyTargetMinutes() {
-  const weekly = weeklyTargetInput
-    ? parseFloat(weeklyTargetInput.value || `${settings.weeklyTarget || 35}`) || 35
-    : settings.weeklyTarget || 35;
-  const wd = getWorkingDays();
-  return (weekly * 60) / Math.max(1, wd);
-}
+btnToday.addEventListener("click", () => {
+  dateInput.valueAsNumber =
+    Date.now() - new Date().getTimezoneOffset() * 60000;
+  updateLiveStats();
+});
 
-// ========= Events formulaire =========
-if (startInput && lStartInput && lEndInput && endInput && dateInput && statusInput) {
-  [
-    startInput,
-    lStartInput,
-    lEndInput,
-    endInput,
-    dateInput,
-    statusInput
-  ].forEach(i => i.addEventListener("input", updateLiveStats));
-}
+btnDuplicate.addEventListener("click", duplicateYesterday);
 
-if (btnToday && dateInput) {
-  btnToday.addEventListener("click", () => {
-    dateInput.valueAsNumber =
-      Date.now() - new Date().getTimezoneOffset() * 60000;
-    updateLiveStats();
-  });
-}
-
-if (btnDuplicate) btnDuplicate.addEventListener("click", duplicateYesterday);
-
-if (btnSave) {
-  btnSave.addEventListener("click", () => {
-    const e = collectForm();
-    if (!e.date) {
-      alert("Choisis une date.");
-      return;
-    }
-    if (!(e.start && e.end) && e.status === "work") {
-      if (
-        !confirm(
-          "Heures d'arrivée et de départ non complètes. Enregistrer quand même ?"
-        )
+btnSave.addEventListener("click", () => {
+  const e = collectForm();
+  if (!e.date) {
+    alert("Choisis une date.");
+    return;
+  }
+  if (!(e.start && e.end) && e.status === "work") {
+    if (
+      !confirm(
+        "Heures d'arrivée et de départ non complètes. Enregistrer quand même ?"
       )
-        return;
-    }
+    )
+      return;
+  }
 
-    if (editingId) {
-      const idx = entries.findIndex(x => x.id === editingId);
-      if (idx > -1) entries[idx] = { ...entries[idx], ...e };
-    } else {
-      const existingIdx = entries.findIndex(x => x.date === e.date);
-      if (existingIdx > -1) entries.splice(existingIdx, 1);
-      entries.push({ id: crypto.randomUUID(), ...e });
-    }
+  // sync settings à chaque save (pratique)
+  settings.weeklyTarget =
+    parseFloat(weeklyTargetInput.value || "35") || 35;
+  settings.daysTarget =
+    parseInt(daysTargetInput.value || "5", 10) || 5;
+  saveSettings();
 
-    entries.sort((a, b) => a.date.localeCompare(b.date));
-    saveEntries();
-    clearForm();
-    render();
-  });
-}
-
-if (btnDelete) {
-  btnDelete.addEventListener("click", () => {
-    if (!editingId) return;
+  if (editingId) {
     const idx = entries.findIndex(x => x.id === editingId);
-    if (idx > -1) {
-      entries.splice(idx, 1);
-      saveEntries();
-    }
-    clearForm();
-    render();
-  });
-}
+    if (idx > -1) entries[idx] = { ...entries[idx], ...e };
+  } else {
+    const existingIdx = entries.findIndex(x => x.date === e.date);
+    if (existingIdx > -1) entries.splice(existingIdx, 1);
+    entries.push({ id: crypto.randomUUID(), ...e });
+  }
 
-if (btnClear) btnClear.addEventListener("click", clearForm);
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  saveEntries();
+  clearForm();
+  render();
+});
 
-if (weeklyTargetInput) {
-  weeklyTargetInput.addEventListener("change", () => {
-    const v = parseFloat(weeklyTargetInput.value || "35");
-    settings.weeklyTarget = isFinite(v) && v > 0 ? v : 35;
-    weeklyTargetInput.value = settings.weeklyTarget;
-    saveSettings();
-    render();
-    updateLiveStats();
-  });
-}
+btnDelete.addEventListener("click", () => {
+  if (!editingId) return;
+  const idx = entries.findIndex(x => x.id === editingId);
+  if (idx > -1) {
+    entries.splice(idx, 1);
+    saveEntries();
+  }
+  clearForm();
+  render();
+});
 
-if (workingDaysInput) {
-  workingDaysInput.addEventListener("change", () => {
-    let v = parseInt(workingDaysInput.value || "5", 10);
-    if (!isFinite(v) || v < 1) v = 1;
-    if (v > 7) v = 7;
-    settings.workingDays = v;
-    workingDaysInput.value = v;
-    saveSettings();
-    render();
-    updateLiveStats();
-  });
-}
+btnClear.addEventListener("click", clearForm);
 
-// ========= Export / import =========
-if (btnExportCSV) {
-  btnExportCSV.addEventListener("click", () =>
-    download("timetracker.csv", toCSV(entries))
+// ---------- Export / import ----------
+btnExportCSV.addEventListener("click", () =>
+  download("timetracker.csv", toCSV(entries))
+);
+fileImport.addEventListener("change", importFile);
+
+// ---------- Cloud ----------
+btnCloudKey.addEventListener("click", () => {
+  const current = settings.cloudKey || "";
+  const val = prompt(
+    "Clé de sauvegarde cloud (ex: prenom-35h) :",
+    current
   );
-}
-if (fileImport) fileImport.addEventListener("change", importFile);
+  if (!val) return;
+  settings.cloudKey = val.trim();
+  saveSettings();
+  updateCloudKeyLabel();
+});
 
-// ========= Cloud =========
-if (btnCloudKey) {
-  btnCloudKey.addEventListener("click", () => {
-    const current = settings.cloudKey || "";
-    const val = prompt("Clé de sauvegarde cloud (ex: prenom-35h) :", current);
-    if (!val) return;
-    settings.cloudKey = val.trim();
-    saveSettings();
-    updateCloudKeyLabel();
-  });
-}
-
-if (btnCloudSave) {
-  btnCloudSave.addEventListener("click", async () => {
-    if (!settings.cloudKey) {
-      alert("Définis d'abord une clé cloud.");
-      return;
-    }
-    try {
-      const res = await fetch(
-        `/api/data?key=${encodeURIComponent(settings.cloudKey)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ entries })
-        }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      alert("Sauvegarde cloud OK ✅");
-    } catch (e) {
-      alert(`Sauvegarde cloud impossible : ${e.message || e}`);
-    }
-  });
-}
-
-if (btnCloudLoad) {
-  btnCloudLoad.addEventListener("click", async () => {
-    if (!settings.cloudKey) {
-      alert("Définis d'abord une clé cloud.");
-      return;
-    }
-    if (!confirm("Remplacer les données locales par celles du cloud ?")) return;
-
-    try {
-      const res = await fetch(
-        `/api/data?key=${encodeURIComponent(settings.cloudKey)}`
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (!Array.isArray(data.entries)) {
-        alert("Aucune donnée trouvée pour cette clé.");
-        return;
+btnCloudSave.addEventListener("click", async () => {
+  if (!settings.cloudKey) {
+    alert("Définis d'abord une clé cloud.");
+    return;
+  }
+  try {
+    const res = await fetch(
+      `/api/data?key=${encodeURIComponent(settings.cloudKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries })
       }
-      entries = data.entries.map(e => ({
-        status: "work",
-        ...e,
-        status: e.status || "work",
-        id: e.id || crypto.randomUUID()
-      }));
-      saveEntries();
-      render();
-      alert("Données cloud chargées ✅");
-    } catch (e) {
-      alert(`Chargement cloud impossible : ${e.message || e}`);
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    alert("Sauvegarde cloud OK ✅");
+  } catch (e) {
+    alert(`Sauvegarde cloud impossible : ${e.message || e}`);
+  }
+});
+
+btnCloudLoad.addEventListener("click", async () => {
+  if (!settings.cloudKey) {
+    alert("Définis d'abord une clé cloud.");
+    return;
+  }
+  if (!confirm("Remplacer les données locales par celles du cloud ?")) return;
+  try {
+    const res = await fetch(
+      `/api/data?key=${encodeURIComponent(settings.cloudKey)}`
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data.entries)) {
+      alert("Aucune donnée trouvée pour cette clé.");
+      return;
     }
-  });
-}
+    entries = data.entries.map(e => ({
+      id: e.id || crypto.randomUUID(),
+      date: e.date || null,
+      start: e.start || "",
+      lunchStart: e.lunchStart || "",
+      lunchEnd: e.lunchEnd || "",
+      end: e.end || "",
+      notes: e.notes || "",
+      status: e.status || "work"
+    }));
+    saveEntries();
+    render();
+    alert("Données cloud chargées ✅");
+  } catch (e) {
+    alert(`Chargement cloud impossible : ${e.message || e}`);
+  }
+});
 
 function updateCloudKeyLabel() {
-  if (!btnCloudKey) return;
   btnCloudKey.textContent = settings.cloudKey
     ? `Cloud : clé (${settings.cloudKey})`
     : "Cloud : clé";
 }
 
-// ========= Période / pickers =========
+// ---------- Période ----------
 function openPicker(el) {
   if (!el) return;
   if (el.showPicker) el.showPicker();
@@ -397,32 +371,22 @@ function openPicker(el) {
   }
 }
 
-if (weekLabel) {
-  weekLabel.addEventListener("click", () => {
-    currentFilter = "week";
-    render();
-    openPicker(weekPicker);
-  });
-}
-
-if (monthLabel) {
-  monthLabel.addEventListener("click", () => {
-    currentFilter = "month";
-    render();
-    openPicker(monthPicker);
-  });
-}
-
-if (yearLabel) {
-  yearLabel.addEventListener("click", () => {
-    currentFilter = "year";
-    render();
-    if (yearPicker) {
-      yearPicker.style.display = "inline-block";
-      yearPicker.focus();
-    }
-  });
-}
+weekLabel.addEventListener("click", () => {
+  currentFilter = "week";
+  render();
+  openPicker(weekPicker);
+});
+monthLabel.addEventListener("click", () => {
+  currentFilter = "month";
+  render();
+  openPicker(monthPicker);
+});
+yearLabel.addEventListener("click", () => {
+  currentFilter = "year";
+  render();
+  yearPicker.style.display = "inline-block";
+  yearPicker.focus();
+});
 
 function isoWeekStart(value) {
   const [y, wStr] = value.split("-W");
@@ -445,7 +409,6 @@ if (weekPicker) {
     render();
   });
 }
-
 if (monthPicker) {
   monthPicker.addEventListener("change", () => {
     if (!monthPicker.value) return;
@@ -455,7 +418,6 @@ if (monthPicker) {
     render();
   });
 }
-
 if (yearPicker) {
   yearPicker.addEventListener("change", () => {
     const y = parseInt(yearPicker.value, 10);
@@ -475,36 +437,36 @@ function shiftAnchor(delta) {
   render();
 }
 
-if (prevPeriod) prevPeriod.addEventListener("click", () => shiftAnchor(-1));
-if (nextPeriod) nextPeriod.addEventListener("click", () => shiftAnchor(+1));
+prevPeriod.addEventListener("click", () => shiftAnchor(-1));
+nextPeriod.addEventListener("click", () => shiftAnchor(+1));
 
-// ========= Helpers formulaire =========
+// ---------- Helpers formulaire ----------
 function collectForm() {
   return {
-    date: dateInput ? dateInput.value || null : null,
-    start: startInput ? startInput.value || "" : "",
-    lunchStart: lStartInput ? lStartInput.value || "" : "",
-    lunchEnd: lEndInput ? lEndInput.value || "" : "",
-    end: endInput ? endInput.value || "" : "",
-    notes: (notesInput && notesInput.value ? notesInput.value : "").trim(),
-    status: statusInput ? statusInput.value || "work" : "work"
+    date: dateInput.value || null,
+    start: startInput.value || "",
+    lunchStart: lStartInput.value || "",
+    lunchEnd: lEndInput.value || "",
+    end: endInput.value || "",
+    notes: (notesInput.value || "").trim(),
+    status: statusInput.value || "work"
   };
 }
 
 function clearForm() {
   editingId = null;
-  if (startInput)  startInput.value  = "";
-  if (lStartInput) lStartInput.value = "";
-  if (lEndInput)   lEndInput.value   = "";
-  if (endInput)    endInput.value    = "";
-  if (notesInput)  notesInput.value  = "";
-  if (statusInput) statusInput.value = "work";
-  if (btnDelete)   btnDelete.style.display = "none";
+  startInput.value =
+    lStartInput.value =
+    lEndInput.value =
+    endInput.value =
+    notesInput.value =
+      "";
+  statusInput.value = "work";
+  btnDelete.style.display = "none";
   updateLiveStats();
 }
 
 function duplicateYesterday() {
-  if (!dateInput) return;
   const d = dateInput.value
     ? new Date(dateInput.value + "T12:00:00")
     : new Date();
@@ -515,45 +477,46 @@ function duplicateYesterday() {
     alert("Aucune saisie la veille.");
     return;
   }
-  if (startInput)  startInput.value  = y.start || "";
-  if (lStartInput) lStartInput.value = y.lunchStart || "";
-  if (lEndInput)   lEndInput.value   = y.lunchEnd || "";
-  if (endInput)    endInput.value    = y.end || "";
-  if (notesInput)  notesInput.value  = y.notes || "";
-  if (statusInput) statusInput.value = y.status || "work";
+  startInput.value = y.start || "";
+  lStartInput.value = y.lunchStart || "";
+  lEndInput.value = y.lunchEnd || "";
+  endInput.value = y.end || "";
+  notesInput.value = y.notes || "";
+  statusInput.value = y.status || "work";
   updateLiveStats();
 }
 
-// ========= Live stats (card gauche) =========
+// ---------- Stats live (jour + cumuls) ----------
 function updateLiveStats() {
-  if (!statDay || !statWeek || !statMonth || !statYear) return;
-
   const e = collectForm();
   const minutes = computeMinutes(e);
   statDay.textContent = minToHM(minutes);
 
   const today = e.date || toDateKey(new Date());
   const { start, end } = weekRangeOf(today);
-  const weekMin  = sumMinutes(x => x.date >= start && x.date <= end);
-  const monthMin = sumMinutes(x => x.date.slice(0, 7) === today.slice(0, 7));
-  const yearMin  = sumMinutes(x => x.date.slice(0, 4) === today.slice(0, 4));
 
-  statWeek.textContent  = minToHM(weekMin);
+  const weekMin = sumMinutes(x => x.date >= start && x.date <= end);
+  const monthMin = sumMinutes(
+    x => x.date.slice(0, 7) === today.slice(0, 7)
+  );
+  const yearMin = sumMinutes(
+    x => x.date.slice(0, 4) === today.slice(0, 4)
+  );
+
+  statWeek.textContent = minToHM(weekMin);
   statMonth.textContent = minToHM(monthMin);
-  statYear.textContent  = minToHM(yearMin);
+  statYear.textContent = minToHM(yearMin);
 
   updateWeekProgress(weekMin, start, end);
-  recomputeOvertime();
 }
 
+// cible hebdo ajustée pour la progression
 function updateWeekProgress(weekMin, wStart, wEnd) {
-  if (!weekProgress) return;
-  const targetHours = weeklyTargetInput
-    ? parseFloat(weeklyTargetInput.value || "35") || 35
-    : settings.weeklyTarget || 35;
-
-  const workingDays = getWorkingDays();
-  const dailyTarget = targetHours / Math.max(1, workingDays);
+  const weeklyTarget =
+    parseFloat(weeklyTargetInput.value || "35") || 35;
+  const daysTarget =
+    parseInt(daysTargetInput.value || "5", 10) || 5;
+  const dailyTarget = weeklyTarget / daysTarget;
 
   const absenceDays = entries.filter(
     e =>
@@ -565,7 +528,10 @@ function updateWeekProgress(weekMin, wStart, wEnd) {
         e.status === "holiday")
   ).length;
 
-  const adjustedTarget = Math.max(0, targetHours - absenceDays * dailyTarget);
+  const adjustedTarget = Math.max(
+    0,
+    weeklyTarget - absenceDays * dailyTarget
+  );
   const targetMin = adjustedTarget * 60;
 
   const p =
@@ -575,19 +541,189 @@ function updateWeekProgress(weekMin, wStart, wEnd) {
   weekProgress.style.width = p + "%";
 }
 
-// ========= Rendu principal =========
+// ---------- Objectifs mensuel / annuel ajustés ----------
+function monthTargetMinutes(anchorKey, weeklyTargetHours, daysTarget) {
+  const dailyTarget = weeklyTargetHours / daysTarget;
+  const y = +anchorKey.slice(0, 4);
+  const m = +anchorKey.slice(5, 7) - 1;
+
+  const monthFirst = new Date(Date.UTC(y, m, 1));
+  const monthLast = new Date(Date.UTC(y, m + 1, 0));
+
+  let monday = mondayOf(monthFirst);
+  let totalHours = 0;
+
+  while (monday <= monthLast) {
+    const weekStart = new Date(monday);
+    const weekEnd = new Date(monday);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+
+    if (weekEnd < monthFirst || weekStart > monthLast) {
+      monday.setUTCDate(monday.getUTCDate() + 7);
+      continue;
+    }
+
+    const weekStartKey = toDateKey(weekStart);
+    const weekEndKey = toDateKey(weekEnd);
+
+    let absenceDays = 0;
+    for (const e of entries) {
+      if (
+        e.date >= weekStartKey &&
+        e.date <= weekEndKey &&
+        (e.status === "school" ||
+          e.status === "vacation" ||
+          e.status === "sick" ||
+          e.status === "holiday")
+      ) {
+        absenceDays++;
+      }
+    }
+
+    const adjustedWeekly = Math.max(
+      0,
+      weeklyTargetHours - absenceDays * dailyTarget
+    );
+    totalHours += adjustedWeekly;
+
+    monday.setUTCDate(monday.getUTCDate() + 7);
+  }
+
+  return Math.round(totalHours * 60);
+}
+
+function yearTargetMinutes(anchorKey, weeklyTargetHours, daysTarget) {
+  const dailyTarget = weeklyTargetHours / daysTarget;
+  const y = +anchorKey.slice(0, 4);
+
+  const yearFirst = new Date(Date.UTC(y, 0, 1));
+  const yearLast = new Date(Date.UTC(y, 11, 31));
+
+  let monday = mondayOf(yearFirst);
+  let totalHours = 0;
+
+  while (monday <= yearLast) {
+    const weekStart = new Date(monday);
+    const weekEnd = new Date(monday);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+
+    if (weekEnd < yearFirst || weekStart > yearLast) {
+      monday.setUTCDate(monday.getUTCDate() + 7);
+      continue;
+    }
+
+    const weekStartKey = toDateKey(weekStart);
+    const weekEndKey = toDateKey(weekEnd);
+
+    let absenceDays = 0;
+    for (const e of entries) {
+      if (
+        e.date >= weekStartKey &&
+        e.date <= weekEndKey &&
+        (e.status === "school" ||
+          e.status === "vacation" ||
+          e.status === "sick" ||
+          e.status === "holiday")
+      ) {
+        absenceDays++;
+      }
+    }
+
+    const adjustedWeekly = Math.max(
+      0,
+      weeklyTargetHours - absenceDays * dailyTarget
+    );
+    totalHours += adjustedWeekly;
+
+    monday.setUTCDate(monday.getUTCDate() + 7);
+  }
+
+  return Math.round(totalHours * 60);
+}
+
+// ---------- Compte d'heures supplémentaires ----------
+
+function formatDaysFromMinutes(totalMinutes, minutesPerDay) {
+  if (minutesPerDay <= 0) return `0 jour · ${minToHM(totalMinutes)}`;
+  const sign = totalMinutes < 0 ? "-" : "";
+  const abs = Math.abs(totalMinutes);
+  const d = Math.floor(abs / minutesPerDay);
+  const r = abs % minutesPerDay;
+  const label = d === 1 ? "jour" : "jours";
+  return `${sign}${d} ${label} · ${minToHM(r)}`;
+}
+
+function computeOvertime() {
+  const weeklyTarget =
+    parseFloat(weeklyTargetInput.value || "35") || 35;
+  const daysTarget =
+    parseInt(daysTargetInput.value || "5", 10) || 5;
+  const dailyTargetMin = (weeklyTarget / daysTarget) * 60;
+
+  // Somme de tous les deltas (jour de travail uniquement)
+  let raw = 0;
+  for (const e of entries) {
+    if (e.status !== "work") continue;
+    if (!e.date) continue;
+    const worked = computeMinutes(e);
+    if (worked === 0) continue;
+    raw += worked - dailyTargetMin;
+  }
+
+  const recovered = settings.otRecoveredMinutes || 0;
+  const balance = raw - recovered;
+
+  // Mise à jour UI
+  otEarnedEl.textContent = minToHM(raw);
+  otRecoveredDisplayEl.textContent = minToHM(recovered);
+  otBalanceEl.textContent = minToHM(balance);
+  otBalanceDetailEl.textContent = formatDaysFromMinutes(
+    balance,
+    dailyTargetMin
+  );
+}
+
+// bouton "Enregistrer la récup"
+if (btnSaveRecovery) {
+  btnSaveRecovery.addEventListener("click", () => {
+    const weeklyTarget =
+      parseFloat(weeklyTargetInput.value || "35") || 35;
+    const daysTarget =
+      parseInt(daysTargetInput.value || "5", 10) || 5;
+    const minutesPerDay = (weeklyTarget / daysTarget) * 60;
+
+    const days = parseFloat(otDaysRecoveredInput.value || "0") || 0;
+    const hours = parseFloat(otHoursRecoveredInput.value || "0") || 0;
+
+    const addedMinutes =
+      Math.max(0, days) * minutesPerDay + Math.max(0, hours) * 60;
+
+    settings.otRecoveredMinutes =
+      (settings.otRecoveredMinutes || 0) + Math.round(addedMinutes);
+    saveSettings();
+
+    otDaysRecoveredInput.value = "0";
+    otHoursRecoveredInput.value = "0";
+
+    render();
+  });
+}
+
+// ---------- Rendu global ----------
 function render() {
   const anchor = periodAnchorKey || toDateKey(new Date());
   const { start: wStart, end: wEnd } = weekRangeOf(anchor);
 
   // pastilles
-  [weekLabel, monthLabel, yearLabel].forEach(el => el && el.classList.remove("active"));
+  [weekLabel, monthLabel, yearLabel].forEach(el =>
+    el.classList.remove("active")
+  );
   (currentFilter === "week"
     ? weekLabel
     : currentFilter === "month"
     ? monthLabel
     : yearLabel
-  )?.classList.add("active");
+  ).classList.add("active");
 
   if (weekPicker)
     weekPicker.style.display =
@@ -599,9 +735,10 @@ function render() {
     yearPicker.style.display =
       currentFilter === "year" ? "inline-block" : "none";
 
-  if (weekLabel)  weekLabel.textContent  = `Semaine ${wStart} → ${wEnd}`;
-  if (monthLabel) monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
-  if (yearLabel)  yearLabel.textContent  = `Année ${anchor.slice(0, 4)}`;
+  // labels
+  weekLabel.textContent = `Semaine ${wStart} → ${wEnd}`;
+  monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
+  yearLabel.textContent = `Année ${anchor.slice(0, 4)}`;
 
   const inRange = e =>
     currentFilter === "week"
@@ -611,59 +748,61 @@ function render() {
       : e.date.slice(0, 4) === anchor.slice(0, 4);
 
   // tableau
-  if (tbody) {
-    tbody.innerHTML = "";
-    for (const e of entries.filter(inRange)) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${e.date}</td>
-        <td>${e.start || ""}</td>
-        <td>${e.lunchStart || ""}</td>
-        <td>${e.lunchEnd || ""}</td>
-        <td>${e.end || ""}</td>
-        <td>${minToHM(computeMinutes(e))}</td>
-        <td>${statusLabel(e.status)}</td>
-        <td>${escapeHtml(e.notes || "")}</td>
-      `;
-      tr.addEventListener("click", () => {
-        editingId = e.id;
-        if (dateInput)   dateInput.value   = e.date;
-        if (startInput)  startInput.value  = e.start || "";
-        if (lStartInput) lStartInput.value = e.lunchStart || "";
-        if (lEndInput)   lEndInput.value   = e.lunchEnd || "";
-        if (endInput)    endInput.value    = e.end || "";
-        if (notesInput)  notesInput.value  = e.notes || "";
-        if (statusInput) statusInput.value = e.status || "work";
-        if (btnDelete)   btnDelete.style.display = "inline-block";
-        updateLiveStats();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      });
-      tbody.appendChild(tr);
-    }
+  tbody.innerHTML = "";
+  for (const e of entries.filter(inRange)) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${e.date}</td>
+      <td>${e.start || ""}</td>
+      <td>${e.lunchStart || ""}</td>
+      <td>${e.lunchEnd || ""}</td>
+      <td>${e.end || ""}</td>
+      <td>${minToHM(computeMinutes(e))}</td>
+      <td>${statusLabel(e.status)}</td>
+      <td>${escapeHtml(e.notes || "")}</td>
+    `;
+    tr.addEventListener("click", () => {
+      editingId = e.id;
+      dateInput.value = e.date;
+      startInput.value = e.start || "";
+      lStartInput.value = e.lunchStart || "";
+      lEndInput.value = e.lunchEnd || "";
+      endInput.value = e.end || "";
+      notesInput.value = e.notes || "";
+      statusInput.value = e.status || "work";
+      btnDelete.style.display = "inline-block";
+      updateLiveStats();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    tbody.appendChild(tr);
   }
 
-  // agrégats
-  const weekMin  = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
-  const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
-  const yearMin  = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
-  const allMin   = sumMinutes(() => true);
+  const weekMin = sumMinutes(
+    x => x.date >= wStart && x.date <= wEnd
+  );
+  const monthMin = sumMinutes(
+    x => x.date.slice(0, 7) === anchor.slice(0, 7)
+  );
+  const yearMin = sumMinutes(
+    x => x.date.slice(0, 4) === anchor.slice(0, 4)
+  );
+  const allMin = sumMinutes(() => true);
 
-  if (sumWeek)  sumWeek.textContent  = minToHM(weekMin);
-  if (sumMonth) sumMonth.textContent = minToHM(monthMin);
-  if (sumYear)  sumYear.textContent  = minToHM(yearMin);
-  if (sumAll)   sumAll.textContent   = minToHM(allMin);
-  if (entriesCount)
-    entriesCount.textContent = `${entries.length} saisie${
-      entries.length > 1 ? "s" : ""
-    }`;
+  sumWeek.textContent = minToHM(weekMin);
+  sumMonth.textContent = minToHM(monthMin);
+  sumYear.textContent = minToHM(yearMin);
+  sumAll.textContent = minToHM(allMin);
+  entriesCount.textContent = `${entries.length} saisie${
+    entries.length > 1 ? "s" : ""
+  }`;
 
-  const targetHours = weeklyTargetInput
-    ? parseFloat(weeklyTargetInput.value || "35") || 35
-    : settings.weeklyTarget || 35;
-  const workingDays = getWorkingDays();
-  const dailyTarget = targetHours / Math.max(1, workingDays);
+  const weeklyTarget =
+    parseFloat(weeklyTargetInput.value || "35") || 35;
+  const daysTarget =
+    parseInt(daysTargetInput.value || "5", 10) || 5;
+  const dailyTarget = weeklyTarget / daysTarget;
 
-  // semaine
+  // --- semaine ---
   const absenceDaysWeek = entries.filter(
     e =>
       e.date >= wStart &&
@@ -673,213 +812,59 @@ function render() {
         e.status === "sick" ||
         e.status === "holiday")
   ).length;
-
   const adjustedWeeklyTarget = Math.max(
     0,
-    targetHours - absenceDaysWeek * dailyTarget
+    weeklyTarget - absenceDaysWeek * dailyTarget
   );
   const weekTargetMin = adjustedWeeklyTarget * 60;
 
-  if (deltaWeek) {
-    if (absenceDaysWeek >= workingDays && weekMin === 0) {
-      deltaWeek.textContent = "Absent toute la semaine";
-      deltaWeek.className = "delta";
-    } else if (weekMin > weekTargetMin && weekTargetMin > 0) {
-      const weekDelta = weekMin - weekTargetMin;
-      deltaWeek.textContent = `+${minToHM(weekDelta)} vs cible`;
-      deltaWeek.className = "delta plus";
-    } else {
-      deltaWeek.textContent = "—";
-      deltaWeek.className = "delta";
-    }
+  if (absenceDaysWeek >= daysTarget && weekMin === 0) {
+    deltaWeek.textContent = "Absent toute la semaine";
+    deltaWeek.className = "delta";
+  } else if (weekMin > weekTargetMin && weekTargetMin > 0) {
+    const weekDelta = weekMin - weekTargetMin;
+    deltaWeek.textContent = `+${minToHM(weekDelta)} vs cible`;
+    deltaWeek.className = "delta plus";
+  } else {
+    deltaWeek.textContent = "—";
+    deltaWeek.className = "delta";
   }
 
-  // mois / année
-  const monthTargetMin = monthTargetMinutes(anchor, targetHours);
-  if (deltaMonth) {
-    if (monthMin > monthTargetMin && monthTargetMin > 0) {
-      const monthDelta = monthMin - monthTargetMin;
-      deltaMonth.textContent = `+${minToHM(monthDelta)} vs cible`;
-      deltaMonth.className = "delta plus";
-    } else {
-      deltaMonth.textContent = "—";
-      deltaMonth.className = "delta";
-    }
+  // --- mois ---
+  const monthTargetMin = monthTargetMinutes(
+    anchor,
+    weeklyTarget,
+    daysTarget
+  );
+  if (monthMin > monthTargetMin && monthTargetMin > 0) {
+    const monthDelta = monthMin - monthTargetMin;
+    deltaMonth.textContent = `+${minToHM(monthDelta)} vs cible`;
+    deltaMonth.className = "delta plus";
+  } else {
+    deltaMonth.textContent = "—";
+    deltaMonth.className = "delta";
   }
 
-  const yearTargetMin = yearTargetMinutes(anchor, targetHours);
-  if (deltaYear) {
-    if (yearMin > yearTargetMin && yearTargetMin > 0) {
-      const yearDelta = yearMin - yearTargetMin;
-      deltaYear.textContent = `+${minToHM(yearDelta)} vs cible`;
-      deltaYear.className = "delta plus";
-    } else {
-      deltaYear.textContent = "—";
-      deltaYear.className = "delta";
-    }
+  // --- année ---
+  const yearTargetMin = yearTargetMinutes(
+    anchor,
+    weeklyTarget,
+    daysTarget
+  );
+  if (yearMin > yearTargetMin && yearTargetMin > 0) {
+    const yearDelta = yearMin - yearTargetMin;
+    deltaYear.textContent = `+${minToHM(yearDelta)} vs cible`;
+    deltaYear.className = "delta plus";
+  } else {
+    deltaYear.textContent = "—";
+    deltaYear.className = "delta";
   }
 
   updateWeekProgress(weekMin, wStart, wEnd);
-  recomputeOvertime();
+  computeOvertime();
 }
 
-// ========= Objectifs mensuels / annuels =========
-function monthTargetMinutes(anchorKey, weeklyTargetHours) {
-  const workingDays = getWorkingDays();
-  const dailyTarget = weeklyTargetHours / Math.max(1, workingDays);
-
-  const y = +anchorKey.slice(0, 4);
-  const m = +anchorKey.slice(5, 7) - 1;
-
-  const monthFirst = new Date(Date.UTC(y, m, 1));
-  const monthLast  = new Date(Date.UTC(y, m + 1, 0));
-
-  let monday = mondayOf(monthFirst);
-  let totalHours = 0;
-
-  while (monday <= monthLast) {
-    const weekStart = new Date(monday);
-    const weekEnd   = new Date(monday);
-    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
-
-    if (weekEnd < monthFirst || weekStart > monthLast) {
-      monday.setUTCDate(monday.getUTCDate() + 7);
-      continue;
-    }
-
-    const weekStartKey = toDateKey(weekStart);
-    const weekEndKey   = toDateKey(weekEnd);
-
-    let absenceDays = 0;
-    for (const e of entries) {
-      if (
-        e.date >= weekStartKey &&
-        e.date <= weekEndKey &&
-        (e.status === "school" ||
-          e.status === "vacation" ||
-          e.status === "sick" ||
-          e.status === "holiday")
-      ) {
-        absenceDays++;
-      }
-    }
-
-    const adjustedWeekly = Math.max(
-      0,
-      weeklyTargetHours - absenceDays * dailyTarget
-    );
-    totalHours += adjustedWeekly;
-
-    monday.setUTCDate(monday.getUTCDate() + 7);
-  }
-
-  return Math.round(totalHours * 60);
-}
-
-function yearTargetMinutes(anchorKey, weeklyTargetHours) {
-  const workingDays = getWorkingDays();
-  const dailyTarget = weeklyTargetHours / Math.max(1, workingDays);
-  const y = +anchorKey.slice(0, 4);
-
-  const yearFirst = new Date(Date.UTC(y, 0, 1));
-  const yearLast  = new Date(Date.UTC(y, 11, 31));
-
-  let monday = mondayOf(yearFirst);
-  let totalHours = 0;
-
-  while (monday <= yearLast) {
-    const weekStart = new Date(monday);
-    const weekEnd   = new Date(monday);
-    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
-
-    if (weekEnd < yearFirst || weekStart > yearLast) {
-      monday.setUTCDate(monday.getUTCDate() + 7);
-      continue;
-    }
-
-    const weekStartKey = toDateKey(weekStart);
-    const weekEndKey   = toDateKey(weekEnd);
-
-    let absenceDays = 0;
-    for (const e of entries) {
-      if (
-        e.date >= weekStartKey &&
-        e.date <= weekEndKey &&
-        (e.status === "school" ||
-          e.status === "vacation" ||
-          e.status === "sick" ||
-          e.status === "holiday")
-      ) {
-        absenceDays++;
-      }
-    }
-
-    const adjustedWeekly = Math.max(
-      0,
-      weeklyTargetHours - absenceDays * dailyTarget
-    );
-    totalHours += adjustedWeekly;
-
-    monday.setUTCDate(monday.getUTCDate() + 7);
-  }
-
-  return Math.round(totalHours * 60);
-}
-
-// ========= Portefeuille d’heures sup =========
-function recomputeOvertime() {
-  if (!otBalanceHM || !otBalanceDays || !otEarned || !otUsed) return;
-
-  const dayTargetMin = dailyTargetMinutes();
-  let earnedMin = 0;
-
-  for (const e of entries) {
-    const status = e.status || "work";
-    if (status !== "work") continue;
-    const worked = computeMinutes(e);
-    earnedMin += worked - dayTargetMin;
-  }
-
-  const usedMin = settings.overtimeUsedMin || 0;
-  const balanceMin = earnedMin - usedMin;
-
-  otEarned.textContent    = minToHM(earnedMin);
-  otUsed.textContent      = minToHM(usedMin);
-  otBalanceHM.textContent = minToHM(balanceMin);
-
-  const sign = balanceMin < 0 ? "-" : "";
-  const abs  = Math.abs(balanceMin);
-  const dm   = dayTargetMin || 60 * 7;
-
-  const days = Math.floor(abs / dm);
-  const rest = abs - days * dm;
-  const h    = Math.floor(rest / 60);
-  const m    = rest % 60;
-
-  const labelDays = `${days} jour${days > 1 ? "s" : ""} · ${h}h${pad(m)}`;
-  otBalanceDays.textContent = sign ? `${sign}${labelDays}` : labelDays;
-}
-
-if (otApply && otDaysInput && otHoursInput) {
-  otApply.addEventListener("click", () => {
-    const d = parseFloat(otDaysInput.value || "0") || 0;
-    const h = parseFloat(otHoursInput.value || "0") || 0;
-
-    const extraMin = d * dailyTargetMinutes() + h * 60;
-    if (extraMin <= 0) return;
-
-    settings.overtimeUsedMin =
-      (settings.overtimeUsedMin || 0) + Math.round(extraMin);
-
-    otDaysInput.value  = "0";
-    otHoursInput.value = "0";
-
-    saveSettings();
-    recomputeOvertime();
-  });
-}
-
-// ========= Divers =========
+// ---------- Divers ----------
 function statusLabel(status) {
   switch (status) {
     case "school":
@@ -947,7 +932,6 @@ async function importFile(ev) {
   const f = ev.target.files[0];
   if (!f) return;
   const text = await f.text();
-
   if (f.name.endsWith(".json")) {
     try {
       const arr = JSON.parse(text);
@@ -959,11 +943,8 @@ async function importFile(ev) {
   } else if (f.name.endsWith(".csv")) {
     const arr = parseCSV(text);
     mergeEntries(arr);
-  } else {
-    alert("Format non supporté.");
-  }
-
-  ev.target.value = "";
+  } else alert("Format non supporté.");
+  fileImport.value = "";
   render();
 }
 
@@ -1013,8 +994,6 @@ function parseCSV(csv) {
   return out;
 }
 
-// ========= Premier rendu =========
-updateCloudKeyLabel();
+// ---------- Premier rendu ----------
 render();
 updateLiveStats();
-recomputeOvertime();

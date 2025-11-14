@@ -155,30 +155,35 @@
             <div class="delta" id="entriesCount">0 saisies</div>
           </div>
         </div>
-        <!-- NOUVELLE SECTION : COMPTE D’HEURES SUP -->
+                <!-- SECTION : COMPTE D’HEURES SUP -->
         <div class="overtime">
           <h3 class="overtime-title">Compte d’heures supplémentaires</h3>
           <p class="overtime-sub">
             Solde cumulé : les jours de travail se basent sur “objectif hebdo / jours travaillés”.
           </p>
-        
-          <div class="overtime-grid">
-            <div class="overtime-box">
-              <div class="k">Solde actuel</div>
-              <div class="v" id="otBalanceHM">0h00</div>
-              <div class="overtime-small" id="otBalanceDays">0 jour · 0h</div>
-            </div>
-            <div class="overtime-box">
-              <div class="k">Heures sup gagnées</div>
-              <div class="v" id="otEarned">0h00</div>
-            </div>
-            <div class="overtime-box">
-              <div class="k">Déjà récupéré</div>
-              <div class="v" id="otUsed">0h00</div>
+
+          <!-- Encadré 1 : affichage des soldes -->
+          <div class="overtime-main">
+            <div class="overtime-grid">
+              <div class="overtime-box">
+                <div class="k">Solde actuel</div>
+                <div class="v" id="otBalanceHM">0h00</div>
+                <div class="overtime-small" id="otBalanceDays">0 jour · 0h</div>
+              </div>
+              <div class="overtime-box">
+                <div class="k">Heures sup gagnées</div>
+                <div class="v" id="otEarned">0h00</div>
+              </div>
+              <div class="overtime-box">
+                <div class="k">Déjà récupéré</div>
+                <div class="v" id="otUsed">0h00</div>
+              </div>
             </div>
           </div>
-        
-          <div class="overtime-form">
+
+          <!-- Encadré 2 : formulaire de déduction -->
+          <div class="overtime-deduct">
+            <h4 class="overtime-deduct-title">Récupération d’heures</h4>
             <div class="row">
               <div>
                 <label for="otDays">Jours récupérés</label>

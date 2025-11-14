@@ -272,3 +272,68 @@ tr:hover{
   font-size:12px;
   color:var(--muted);
 }
+
+/* ----- COMPTE D'HEURES SUP ----- */
+
+.overtime{
+  margin-top:18px;
+  padding-top:12px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+
+.overtime-title{
+  margin:0 0 4px;
+  font-size:16px;
+}
+
+.overtime-sub{
+  margin:0 0 10px;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.overtime-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:12px;
+}
+
+@media (max-width:900px){
+  .overtime-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.overtime-box{
+  background:#0f1628;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.08);
+  padding:10px 12px;
+  min-width:0;
+}
+
+.overtime-box .k{
+  font-size:12px;
+  color:var(--muted);
+}
+
+.overtime-box .v{
+  font-size:20px;
+  font-weight:700;
+  margin-top:4px;
+}
+
+.overtime-small{
+  margin-top:2px;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.overtime-form{
+  margin-top:8px;
+}
+
+.overtime-form .row{
+  margin-bottom:8px;
+}

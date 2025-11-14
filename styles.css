@@ -342,3 +342,135 @@ tr:hover{
 .card-overtime .overtime {
   margin-top: 0;
 }
+
+
+/* --- Carte heures sup : petits ajustements --- */
+.card-overtime .overtime {
+  margin-top: 0;
+}
+
+.overtime-main {
+  margin-bottom: 16px;
+}
+
+.overtime-deduct-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+/* Bouton secondaire "ghost" */
+.btn.ghost {
+  background: transparent;
+}
+
+/* --- Modale historique heures sup --- */
+.modal.hidden {
+  display: none;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.modal-dialog {
+  position: relative;
+  z-index: 41;
+  width: min(640px, 94vw);
+  max-height: 80vh;
+  background: linear-gradient(180deg, #101728, #0b1020);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .7);
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal-close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+.modal-close:hover {
+  background: rgba(255, 255, 255, .06);
+  color: var(--text);
+}
+
+.modal-body {
+  overflow: auto;
+  margin-top: 4px;
+}
+
+.modal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.modal-table th,
+.modal-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  text-align: left;
+}
+
+.modal-table th {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.modal-empty {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Bouton icône poubelle */
+.icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn span {
+  font-size: 15px;
+}
+
+.icon-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+}

@@ -644,7 +644,7 @@ function computeOvertimeEarned() {
 //  Rendu global
 // =========================
 function render() {
-  const anchor = periodAnchorKey || toDateKey(new Date()));
+  const anchor = periodAnchorKey || toDateKey(new Date());
   const { start: wStart, end: wEnd } = weekRangeOf(anchor);
 
   [weekLabel, monthLabel, yearLabel].forEach(el => el?.classList.remove("active"));
@@ -1024,7 +1024,7 @@ function makeAccountKey(name, company) {
 
 // plus de boutons cloud → no-op pour éviter l’erreur au F5
 function updateCloudKeyLabel() {
-  // laissé volontairement vide
+  // volontairement vide
 }
 
 function updateAccountUI() {
@@ -1229,6 +1229,7 @@ updateLiveStats();
 renderOvertime();
 updateAccountUI();
 
+// si un compte existe déjà → on recharge depuis le cloud automatiquement
 if (settings.account && settings.account.key) {
   loadFromCloudForCurrentAccount();
 }

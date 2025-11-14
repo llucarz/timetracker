@@ -157,7 +157,7 @@
         </div>
       </section>
 
-      <!-- CARTE SÉPARÉE : COMPTE D’HEURES SUPPLÉMENTAIRES -->
+            <!-- CARTE SÉPARÉE : COMPTE D’HEURES SUPPLÉMENTAIRES -->
       <section class="card card-overtime">
         <div class="overtime">
           <h3 class="overtime-title">Compte d’heures supplémentaires</h3>
@@ -187,6 +187,7 @@
           <!-- Encadré 2 : formulaire de déduction -->
           <div class="overtime-deduct">
             <h4 class="overtime-deduct-title">Récupération d’heures</h4>
+
             <div class="row">
               <div>
                 <label for="otDays">Jours récupérés</label>
@@ -197,13 +198,55 @@
                 <input type="number" id="otHours" min="0" step="0.5" value="0">
               </div>
             </div>
-            <button class="btn secondary" id="otApply">Enregistrer la récup</button>
+
+            <div class="row">
+              <div>
+                <label for="otDate">Date de la récup</label>
+                <input type="date" id="otDate">
+              </div>
+              <div>
+                <label for="otNote">Commentaire</label>
+                <input type="text" id="otNote" placeholder="Ex.: RTT, récup astreinte…">
+              </div>
+            </div>
+
+            <div class="overtime-actions">
+              <button class="btn secondary" id="otApply">Enregistrer la récup</button>
+              <button class="btn secondary ghost" id="otShowHistory">Voir les récupérations</button>
+            </div>
           </div>
         </div>
       </section>
+    </div>
+  </div>
+  <!-- MODALE : historique des récupérations -->
+  <div id="otModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Historique des récupérations</h3>
+        <button class="modal-close" id="otModalClose" title="Fermer">✕</button>
+      </div>
+      <div class="modal-body">
+        <table class="modal-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Quantité</th>
+              <th>Commentaire</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="otHistoryBody"></tbody>
+        </table>
+        <p class="modal-empty" id="otHistoryEmpty">
+          Aucune récupération enregistrée pour l’instant.
+        </p>
+      </div>
     </div>
   </div>
 
   <script src="app.js" defer></script>
 </body>
 </html>
+

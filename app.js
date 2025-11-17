@@ -596,15 +596,23 @@ function shiftAnchor(delta) {
   render();
 }
 
-prevPeriod?.addEventListener("click", (e) => {
-  console.log("prevPeriod cliqué");
-  e.preventDefault();
-  shiftAnchor(-1);
-});
+// Listener global sur tout le document
+document.addEventListener("click", (e) => {
+  const prevBtn = e.target.closest("#prevPeriod");
+  const nextBtn = e.target.closest("#nextPeriod");
 
-nextPeriod?.addEventListener("click", (e) => {
-  e.preventDefault();
-  shiftAnchor(+1);
+  if (prevBtn) {
+    e.preventDefault();
+    console.log("prevPeriod cliqué (delegation)");
+    shiftAnchor(-1);
+    return;
+  }
+
+  if (nextBtn) {
+    e.preventDefault();
+    shiftAnchor(+1);
+    return;
+  }
 });
 
 // =========================

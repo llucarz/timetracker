@@ -1064,7 +1064,7 @@ function updateAccountUI() {
       accMenuLogout.style.display = "block";
   } else {
     if (accountBtn){
-      accountBtn.textContent = "Créer un compte";
+      accountBtn.textContent = "Menu";
       accountBtn.classList.remove("account-connected");
     }
 

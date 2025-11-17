@@ -123,6 +123,25 @@
           </button>
         </div>
 
+        <div class="stats">
+          <div class="stat">
+            <div class="k">Temps travaillé (jour)</div>
+            <div class="v" id="statDay">0h00</div>
+          </div>
+          <div class="stat">
+            <div class="k">Cumul semaine</div>
+            <div class="v" id="statWeek">0h00</div>
+          </div>
+          <div class="stat">
+            <div class="k">Cumul mois</div>
+            <div class="v" id="statMonth">0h00</div>
+          </div>
+          <div class="stat">
+            <div class="k">Cumul année</div>
+            <div class="v" id="statYear">0h00</div>
+          </div>
+        </div>
+
         <div style="margin-top:12px">
           <div class="k" style="font-size:12px;color:var(--muted)">
             Objectif hebdo (h) & jours travaillés
@@ -150,13 +169,16 @@
               <span class="pill" id="monthLabel">Mois —</span>
               <span class="pill" id="yearLabel">Année —</span>
             </div>
-        
             <div class="right">
-              <button class="btn secondary" id="prevPeriod" title="Période précédente">
+              <button
+                class="btn secondary"
+                id="prevPeriod"
+                title="Période précédente"
+              >
                 ◀
               </button>
-        
-              <!-- Pickers natifs -->
+            
+              <!-- Pickers natifs, affichés selon le filtre -->
               <input type="week"  id="weekPicker"  class="picker" />
               <input type="month" id="monthPicker" class="picker" />
               <input
@@ -169,13 +191,16 @@
                 style="width:100px"
                 placeholder="Année"
               />
-        
-              <button class="btn secondary" id="nextPeriod" title="Période suivante">
+            
+              <button
+                class="btn secondary"
+                id="nextPeriod"
+                title="Période suivante"
+              >
                 ▶
               </button>
             </div>
-          </div>
-        
+
           <table id="tbl">
             <thead>
               <tr>
@@ -191,29 +216,27 @@
             </thead>
             <tbody id="tbody"></tbody>
           </table>
-        
+
           <div class="stats" style="margin-top:14px">
-            <div class="stat">
-              <div class="k">Temps travaillé (jour)</div>
-              <div class="v" id="statDay">0h00</div>
-            </div>
-        
             <div class="stat">
               <div class="k">Heures semaine</div>
               <div class="v" id="sumWeek">0h00</div>
               <div class="delta" id="deltaWeek">—</div>
             </div>
-        
             <div class="stat">
               <div class="k">Heures mois</div>
               <div class="v" id="sumMonth">0h00</div>
               <div class="delta" id="deltaMonth">—</div>
             </div>
-        
             <div class="stat">
               <div class="k">Heures année</div>
               <div class="v" id="sumYear">0h00</div>
               <div class="delta" id="deltaYear">—</div>
+            </div>
+            <div class="stat">
+              <div class="k">Total global</div>
+              <div class="v" id="sumAll">0h00</div>
+              <div class="delta" id="entriesCount">0 saisies</div>
             </div>
           </div>
         </section>
@@ -246,9 +269,6 @@
                   <div class="v" id="otUsed">0h00</div>
                 </div>
               </div>
-
-              <!-- Texte dynamique de synthèse heures sup -->
-              <p class="overtime-sub" id="otSummaryText"></p>
             </div>
 
             <!-- Encadré 2 : formulaire de déduction -->

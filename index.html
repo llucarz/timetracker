@@ -340,16 +340,21 @@
       <label for="accCompany">Société / organisation</label>
       <input type="text" id="accCompany" placeholder="Ex : Easyw3" />
 
-      <div class="btns" style="margin-top:16px">
+      <div class="btns account-actions" style="margin-top:16px">
+        <!-- Bouton utilisé uniquement quand on n'est PAS connecté -->
         <button class="btn green" id="accSaveBtn">
           Se connecter / créer
         </button>
+      
+        <!-- Bouton visible seulement quand on est connecté -->
+        <button class="btn secondary" id="accProfileBtn" style="display:none">
+          Profil
+        </button>
+      
         <button class="btn secondary" id="accCloseBtn">Fermer</button>
-        <button
-          class="btn danger"
-          id="accLogoutBtn"
-          style="margin-left:auto;display:none"
-        >
+      
+        <!-- Bouton visible seulement quand on est connecté -->
+        <button class="btn danger" id="accLogoutBtn" style="margin-left:auto;display:none">
           Se déconnecter
         </button>
       </div>

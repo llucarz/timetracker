@@ -145,11 +145,6 @@
         <section class="card" id="summaryCard">
           <div class="toolbar">
             <div class="left">
-              <span class="pill" id="weekLabel">Semaine —</span>
-              <span class="pill" id="monthLabel">Mois —</span>
-              <span class="pill" id="yearLabel">Année —</span>
-            </div>
-            <div class="right">
               <button
                 class="btn secondary"
                 id="prevPeriod"
@@ -157,8 +152,22 @@
               >
                 ◀
               </button>
-            
-              <!-- Pickers natifs, affichés selon le filtre -->
+          
+              <span class="pill" id="weekLabel">Semaine —</span>
+              <span class="pill" id="monthLabel">Mois —</span>
+              <span class="pill" id="yearLabel">Année —</span>
+          
+              <button
+                class="btn secondary"
+                id="nextPeriod"
+                title="Période suivante"
+              >
+                ▶
+              </button>
+            </div>
+          
+            <div class="right">
+              <!-- Pickers natifs, désormais invisibles mais toujours présents -->
               <input type="week"  id="weekPicker"  class="picker" />
               <input type="month" id="monthPicker" class="picker" />
               <input
@@ -168,9 +177,10 @@
                 min="1970"
                 max="2100"
                 step="1"
-                style="width:100px"
                 placeholder="Année"
               />
+            </div>
+          </div>
             
               <button
                 class="btn secondary"

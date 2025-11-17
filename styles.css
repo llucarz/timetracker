@@ -39,9 +39,10 @@ h1{
   font-size:13px;
 }
 
+/* Pour éviter que le contenu passe sous la topbar fixe */
 .wrap{
   max-width:1150px;
-  margin:0 auto;
+  margin:80px auto 0;      /* ✅ on laisse 80px de marge en haut */
   padding:16px 20px 40px;
 }
 

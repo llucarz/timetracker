@@ -789,3 +789,55 @@ body.modal-open {
 .base-hidden {
   display:none;
 }
+
+.bh-tabs{
+  display:flex;
+  gap:6px;
+  margin-bottom:12px;
+}
+
+.bh-tab{
+  flex:1;
+  padding:6px 8px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.02);
+  color:var(--muted);
+  font-size:13px;
+  cursor:pointer;
+}
+
+.bh-tab.active{
+  border-color:var(--accent);
+  color:var(--text);
+  background:rgba(79,140,255,0.18);
+  box-shadow:0 0 0 2px var(--ring) inset;
+}
+
+.bh-day-cards{
+  margin-top:8px;
+}
+
+.bh-day-card{
+  display:none;
+  background:#0b1020;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.08);
+  padding:12px 12px 14px;
+}
+
+.bh-day-card.active{
+  display:block;
+}
+
+.bh-day-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+}
+
+.bh-day-title label{
+  margin-left:6px;
+  font-weight:500;
+}

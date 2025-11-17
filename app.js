@@ -589,8 +589,19 @@ function shiftAnchor(delta) {
   periodAnchorKey = toDateKey(d);
   render();
 }
-prevPeriod?.addEventListener("click", () => shiftAnchor(-1));
-nextPeriod?.addEventListener("click", () => shiftAnchor(+1));
+
+const toolbar = document.querySelector("#summaryCard .toolbar");
+
+toolbar?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+
+  if (btn.id === "prevPeriod") {
+    shiftAnchor(-1);
+  } else if (btn.id === "nextPeriod") {
+    shiftAnchor(+1);
+  }
+});
 
 // =========================
 //  Helpers formulaire

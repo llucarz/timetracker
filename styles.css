@@ -477,14 +477,16 @@ tr:hover{
 
 /* --- Topbar compte --- */
 /* Barre totalement large */
-.topbar {
-  width: 100%;
-  padding: 12px 20px;
-  display: flex;
-  justify-content: flex-end; /* pousse tout à droite */
-  position: relative;
-  z-index: 50;
+.topbar{
+  width:100%;
+  padding:12px 20px 0;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  color:var(--muted);
+  font-size:14px;
 }
+
 
 /* Contenu interne centré mais extensible */
 .topbar-inner {

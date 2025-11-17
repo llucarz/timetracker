@@ -599,6 +599,7 @@ tr:hover{
 }
 
 /* --- Modale profil de travail --- */
+
 #profileModal {
   position: fixed;
   inset: 0;
@@ -606,16 +607,21 @@ tr:hover{
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
 }
 
 #profileModal.hidden {
   display: none;
 }
 
-/* le contenu de la modale (la carte "Profil de travail") */
-#profileModal .profile-panel {
+#profileModal .modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+#profileModal .modal-dialog {
+  position: relative;
   background: linear-gradient(180deg, #101728, #0b1020);
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, .08);
@@ -625,9 +631,10 @@ tr:hover{
   width: 94vw;
   max-height: 90vh;
   overflow-y: auto;
+  z-index: 61;
 }
 
-/* désactiver le scroll de la page quand une modale est ouverte */
+/* bloque le scroll quand la modale est ouverte */
 body.modal-open {
   overflow: hidden;
 }

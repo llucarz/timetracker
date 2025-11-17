@@ -593,7 +593,7 @@ tr:hover{
   margin-bottom: 2px;
 }
 
-.account-menu-stats .ams-sub .ams-title {
+.account-menu-stats .ams-sub {
   color: var(--muted);
   font-size: 13px;
 }

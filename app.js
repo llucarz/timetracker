@@ -139,29 +139,24 @@ const btnClear     = $("#btnClear");
 const btnDuplicate = $("#btnDuplicate");
 const btnDelete    = $("#btnDelete");
 
-// Stats rapides
+// Stats rapides (formulaire)
 const weeklyTargetInput = $("#weeklyTarget");
 const workDaysInput     = $("#workDays");
-const statDay   = $("#statDay");
-const statWeek  = $("#statWeek");
-const statMonth = $("#statMonth");
-const statYear  = $("#statYear");
-const weekProgress = $("#weekProgress");
+const statDay           = $("#statDay");
+const weekProgress      = $("#weekProgress");
 
 // Tableau & récap global
-const tbody      = $("#tbody");
-const sumWeek    = $("#sumWeek");
-const sumMonth   = $("#sumMonth");
-const sumYear    = $("#sumYear");
-const sumAll     = $("#sumAll");
-const deltaWeek  = $("#deltaWeek");
-const deltaMonth = $("#deltaMonth");
-const deltaYear  = $("#deltaYear");
+const tbody        = $("#tbody");
+const sumWeek      = $("#sumWeek");
+const sumMonth     = $("#sumMonth");
+const sumYear      = $("#sumYear");
+const deltaWeek    = $("#deltaWeek");
+const deltaMonth   = $("#deltaMonth");
+const deltaYear    = $("#deltaYear");
 const entriesCount = $("#entriesCount");
-
-const weekLabel  = $("#weekLabel");
-const monthLabel = $("#monthLabel");
-const yearLabel  = $("#yearLabel");
+const weekLabel    = $("#weekLabel");
+const monthLabel   = $("#monthLabel");
+const yearLabel    = $("#yearLabel");
 
 const prevPeriod  = $("#prevPeriod");
 const nextPeriod  = $("#nextPeriod");
@@ -184,27 +179,27 @@ const otApplyBtn   = $("#otApply");
 
 // Heures sup – modal historique
 const otShowHistoryBtn = $("#otShowHistory");
-const otModal      = $("#otModal");
-const otModalClose = $("#otModalClose");
-const otHistoryBody  = $("#otHistoryBody");
-const otHistoryEmpty = $("#otHistoryEmpty");
+const otModal          = $("#otModal");
+const otModalClose     = $("#otModalClose");
+const otHistoryBody    = $("#otHistoryBody");
+const otHistoryEmpty   = $("#otHistoryEmpty");
 
-// Compte utilisateur
-const accountBtn      = $("#accountBtn");
-const accountModal    = $("#accountModal");
-const accNameInput    = $("#accName");
-const accCompanyInput = $("#accCompany");
-const accSaveBtn      = $("#accSaveBtn");
-const accCloseBtn     = $("#accCloseBtn");
-const accLogoutBtn    = $("#accLogoutBtn");
-const accProfileBtn   = $("#accProfileBtn");
-const fileImport       = $("#fileImport");
+// Compte utilisateur + menu
+const accountBtn        = $("#accountBtn");
+const accountModal      = $("#accountModal");
+const accNameInput      = $("#accName");
+const accCompanyInput   = $("#accCompany");
+const accSaveBtn        = $("#accSaveBtn");
+const accCloseBtn       = $("#accCloseBtn");
+const accLogoutBtn      = $("#accLogoutBtn");
+const fileImport        = $("#fileImport");
+
 const accountMenu       = $("#accountMenu");
 const accMenuHeader     = $("#accMenuHeader");
 const accMenuLogin      = $("#accMenuLogin");
 const accMenuEditProfile= $("#accMenuEditProfile");
-const accMenuExport    = $("#accMenuExport");
-const accMenuImport    = $("#accMenuImport");
+const accMenuExport     = $("#accMenuExport");
+const accMenuImport     = $("#accMenuImport");
 const accMenuLogout     = $("#accMenuLogout");
 
 // =========================
@@ -434,20 +429,16 @@ workDaysInput?.addEventListener("change", () => {
 // =========================
 //  Export / import via menu compte
 // =========================
-
-// Exporter les données en CSV
 accMenuExport?.addEventListener("click", () => {
   accountMenu?.classList.add("hidden");
   download("timetracker.csv", toCSV(entries));
 });
 
-// Importer des données (ouvre le sélecteur de fichier)
 accMenuImport?.addEventListener("click", () => {
   accountMenu?.classList.add("hidden");
   fileImport?.click();
 });
 
-// Quand un fichier est sélectionné → on importe
 fileImport?.addEventListener("change", importFile);
 
 // =========================
@@ -582,7 +573,7 @@ function updateLiveStats() {
   const e = collectForm();
   const minutes = computeMinutes(e);
 
-  // Temps du jour – maintenant affiché dans la carte de droite
+  // Temps du jour – juste affiché
   if (statDay) statDay.textContent = minToHM(minutes);
 
   // Pour la barre de progression hebdo
@@ -591,7 +582,6 @@ function updateLiveStats() {
   const weekMin  = sumMinutes(x => x.date >= start && x.date <= end);
   updateWeekProgress(weekMin, start, end);
 }
-
 
 function updateWeekProgress(weekMin, wStart, wEnd) {
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
@@ -720,11 +710,12 @@ function render() {
   const weekMin  = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
   const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
   const yearMin  = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
+  const allMin   = sumMinutes(() => true);
 
-  // Cartes de stats à droite (semaine / mois / année)
   sumWeek.textContent  = minToHM(weekMin);
   sumMonth.textContent = minToHM(monthMin);
   sumYear.textContent  = minToHM(yearMin);
+  entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
 
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
   const workDays    = parseInt(workDaysInput.value || "5", 10) || 5;
@@ -789,79 +780,6 @@ function render() {
   // Met à jour le total global dans le menu à chaque render
   updateMenuStats();
 }
-
-
-  const weekMin  = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
-  const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
-  const yearMin  = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
-  const allMin   = sumMinutes(() => true);
-
-  sumWeek.textContent  = minToHM(weekMin);
-  sumMonth.textContent = minToHM(monthMin);
-  sumYear.textContent  = minToHM(yearMin);
-  sumAll.textContent   = minToHM(allMin);
-  entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
-
-  const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const workDays    = parseInt(workDaysInput.value || "5", 10) || 5;
-  const dailyTarget = targetHours / workDays;
-
-  const absenceDaysWeek = entries.filter(
-    e =>
-      e.date >= wStart &&
-      e.date <= wEnd &&
-      (e.status === "school" ||
-       e.status === "vacation" ||
-       e.status === "sick" ||
-       e.status === "holiday")
-  ).length;
-
-  const adjustedWeeklyTarget = Math.max(
-    0,
-    targetHours - absenceDaysWeek * dailyTarget
-  );
-  const weekTargetMin = adjustedWeeklyTarget * 60;
-
-  if (absenceDaysWeek >= workDays && weekMin === 0) {
-    deltaWeek.textContent = "Absent toute la semaine";
-    deltaWeek.className = "delta";
-  } else if (weekTargetMin > 0 && weekMin > weekTargetMin) {
-    const diff = weekMin - weekTargetMin;
-    deltaWeek.textContent = `+${minToHM(diff)} vs cible`;
-    deltaWeek.className = "delta plus";
-  } else {
-    deltaWeek.textContent = "—";
-    deltaWeek.className = "delta";
-  }
-
-  const monthTargetMin = monthTargetMinutes(anchor, targetHours, workDays);
-  if (monthTargetMin > 0 && monthMin > monthTargetMin) {
-    const diff = monthMin - monthTargetMin;
-    deltaMonth.textContent = `+${minToHM(diff)} vs cible`;
-    deltaMonth.className = "delta plus";
-  } else {
-    deltaMonth.textContent = "—";
-    deltaMonth.className = "delta";
-  }
-
-  const yearTargetMin = yearTargetMinutes(anchor, targetHours, workDays);
-  if (yearTargetMin > 0 && yearMin > yearTargetMin) {
-    const diff = yearMin - yearTargetMin;
-    deltaYear.textContent = `+${minToHM(diff)} vs cible`;
-    deltaYear.className = "delta plus";
-  } else {
-    deltaYear.textContent = "—";
-    deltaYear.className = "delta";
-  }
-
-  updateWeekProgress(weekMin, wStart, wEnd);
-
-  const earned = computeOvertimeEarned();
-  otState.earnedMinutes  = earned;
-  otState.balanceMinutes = earned - (otState.usedMinutes || 0);
-  saveOvertimeState();
-  renderOvertime();
-  updateMenuStats();
 
 // =========================
 //  Objectifs mois / année
@@ -1121,13 +1039,11 @@ function updateAccountUI() {
   const connected = acc && acc.key;
 
   if (connected) {
-    // Bouton en haut
     if (accountBtn){
       accountBtn.textContent = `${acc.name} · ${acc.company}`;
       accountBtn.classList.add("account-connected");
     }
 
-    // Menu déroulant
     if (accMenuHeader)
       accMenuHeader.textContent = `Connecté en tant que ${acc.name} · ${acc.company}`;
     if (accMenuLogin)
@@ -1196,52 +1112,41 @@ function handleLogout() {
   closeAccountModal();
 }
 
-// === Listeurs pour la MODALE de compte ===
 if (accountModal) {
   accCloseBtn?.addEventListener("click", closeAccountModal);
   accSaveBtn?.addEventListener("click", handleAccountSave);
   accLogoutBtn?.addEventListener("click", handleLogout);
 }
 
-// === Ouverture / fermeture du MENU de compte ===
+// Menu déroulant compte
 if (accountBtn && accountMenu) {
   accountBtn.addEventListener("click", (e) => {
-    // Empêche le click de remonter jusqu'au document
     e.stopPropagation();
     accountMenu.classList.toggle("hidden");
   });
 }
 
-// Fermer le menu si on clique ailleurs sur la page
 document.addEventListener("click", (e) => {
   if (!accountMenu || accountMenu.classList.contains("hidden")) return;
-
-  // Si on clique dans le menu OU sur le bouton, on ne ferme pas
   if (accountMenu.contains(e.target) || e.target === accountBtn) return;
-
   accountMenu.classList.add("hidden");
 });
 
-// === Boutons internes du menu de compte ===
-
-// Non connecté : ouvrir la modale pour se connecter / créer
+// Boutons menu
 accMenuLogin?.addEventListener("click", () => {
   accountMenu?.classList.add("hidden");
   openAccountModal();
 });
 
-// Connecté : modifier le profil (même modale)
 accMenuEditProfile?.addEventListener("click", () => {
   accountMenu?.classList.add("hidden");
   openAccountModal();
 });
 
-// Connecté : se déconnecter
 accMenuLogout?.addEventListener("click", () => {
   accountMenu?.classList.add("hidden");
   handleLogout();
 });
-
 
 // =========================
 //  Divers
@@ -1346,8 +1251,6 @@ function mergeEntries(arr) {
 }
 
 function updateMenuStats() {
-  // Total global calculé directement à partir des entrées,
-  // sans dépendre d'une carte "Total global" dans la page.
   const totalMin = sumMinutes(() => true);
   const totalText = minToHM(totalMin);
 
@@ -1359,7 +1262,6 @@ function updateMenuStats() {
   if (hEl) hEl.textContent = totalText;
   if (eEl) eEl.textContent = label;
 }
-
 
 function parseCSV(csv) {
   const lines = csv.split(/\r?\n/).filter(Boolean);
@@ -1396,7 +1298,6 @@ renderOvertime();
 updateAccountUI();
 updateMenuStats();
 
-// si un compte existe déjà → on recharge depuis le cloud automatiquement
 if (settings.account && settings.account.key) {
   loadFromCloudForCurrentAccount();
 }

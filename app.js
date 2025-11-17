@@ -787,6 +787,7 @@ function render() {
   otState.balanceMinutes = earned - (otState.usedMinutes || 0);
   saveOvertimeState();
   renderOvertime();
+  updateMenuStats();
 }
 
 // =========================

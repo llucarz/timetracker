@@ -1240,11 +1240,13 @@ function openProfileModal() {
   if (workDaysInput)     workDaysInput.value     = settings.workDays ?? 5;
 
   profileModal.classList.remove("hidden");
+  document.body.classList.add("modal-open");   // 🔹 bloque le scroll
 }
 
 function closeProfileModal() {
   if (!profileModal) return;
   profileModal.classList.add("hidden");
+  document.body.classList.remove("modal-open"); // 🔹 réactive le scroll
 }
 
 function handleProfileSave() {

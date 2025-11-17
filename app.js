@@ -1272,14 +1272,21 @@ function mergeEntries(arr) {
 }
 
 function updateMenuStats() {
-  const totalText = document.querySelector(".stat-total .v")?.textContent || "0h00";
-  const entriesText = document.querySelector(".stat-total .k2")?.textContent || "0";
+  // Total minutes globales depuis toutes les entrées
+  const totalMinutes = sumMinutes(() => true);
 
-  document.getElementById("menuTotalHours").textContent = totalText;
+  // Format hh:mm
+  const totalHM = minToHM(totalMinutes);
 
-  const clean = entriesText.replace(/\D+/g, "");
-  document.getElementById("menuTotalEntries").textContent =
-    clean + " saisie" + (clean > 1 ? "s" : "");
+  // Nombre d'entrées
+  const count = entries.length;
+
+  // Mise à jour du menu
+  const h = document.getElementById("menuTotalHours");
+  const c = document.getElementById("menuTotalEntries");
+
+  if (h) h.textContent = totalHM;
+  if (c) c.textContent = `${count} saisie${count > 1 ? "s" : ""}`;
 }
 
 function parseCSV(csv) {

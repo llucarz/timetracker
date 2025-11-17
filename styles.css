@@ -476,16 +476,30 @@ tr:hover{
 }
 
 /* --- Topbar compte --- */
-.topbar {
-  width: 100%;
-  padding: 12px 25px;
-  display: flex;
-  justify-content: flex-end;  /* colle tout à droite */
-  align-items: center;
-  position: sticky;
-  top: 0;
-  z-index: 50;
+.topbar{
+  width:100%;                 /* prend toute la largeur de l’écran */
+  padding:12px 24px 0;        /* un peu d’espace au bord */
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;   /* colle le contenu complètement à droite */
+  color:var(--muted);
+  font-size:14px;
+  position:sticky;            /* optionnel : reste en haut au scroll */
+  top:0;
+  z-index:50;
 }
+
+.topbar-right .btn{
+  padding:8px 12px;
+  font-size:13px;
+}
+
+/* Bouton compte connecté : on ne touche pas */
+.account-connected{
+  border-color:var(--accent-2);
+  box-shadow:0 0 0 2px rgba(34,197,94,.4);
+}
+
 
 /* --- Modal compte --- */
 .modal{

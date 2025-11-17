@@ -699,3 +699,93 @@ body.modal-open {
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.15) transparent;
 }
+
+/* --- Toggle horaires par jour --- */
+.toggle-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin:8px 0 10px;
+  font-size:13px;
+  color:var(--muted);
+}
+
+/* petit switch */
+.switch {
+  position:relative;
+  display:inline-block;
+  width:44px;
+  height:24px;
+}
+.switch input {
+  opacity:0;
+  width:0;
+  height:0;
+}
+.switch-slider {
+  position:absolute;
+  inset:0;
+  background:#0f1628;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.2);
+  transition:.2s;
+}
+.switch-slider:before {
+  content:"";
+  position:absolute;
+  height:18px;
+  width:18px;
+  left:3px;
+  top:2px;
+  border-radius:999px;
+  background:rgba(255,255,255,.8);
+  transition:.2s;
+}
+.switch input:checked + .switch-slider {
+  background:linear-gradient(90deg, var(--accent-2), #4ade80);
+  border-color:transparent;
+}
+.switch input:checked + .switch-slider:before {
+  transform:translateX(18px);
+}
+
+/* blocs mode */
+#basePerDayBlock {
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:#0f1628;
+  border:1px solid rgba(255,255,255,.08);
+}
+
+.base-day-row {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:6px;
+  flex-wrap:wrap;
+}
+
+.base-day-label {
+  min-width:90px;
+  font-size:13px;
+}
+
+.base-day-times {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:6px;
+  flex:1;
+}
+
+@media (max-width:600px){
+  .base-day-times{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+/* caché quand on est en mode "mêmes horaires" */
+.base-hidden {
+  display:none;
+}

@@ -292,7 +292,6 @@ async function loadFromCloudForCurrentAccount() {
     // Entrées
     if (Array.isArray(data.entries)) {
       entries = data.entries.map(e => ({
-        status: "work",
         ...e,
         status: e.status || "work",
         id: e.id || crypto.randomUUID(),
@@ -336,38 +335,6 @@ async function loadFromCloudForCurrentAccount() {
     renderOvertime();
     refreshOtHistory();
     updateBaseHoursButtonState();
-  } catch (err) {
-    console.error("Erreur chargement cloud compte", err);
-  }
-}
-
-    // Settings
-    if (data.settings) {
-      const s = data.settings;
-      if (typeof s.weeklyTarget === "number") settings.weeklyTarget = s.weeklyTarget;
-      if (typeof s.workDays    === "number") settings.workDays    = s.workDays;
-      saveSettings();
-    }
-
-    // Heures sup
-    if (data.overtime) {
-      const o = data.overtime;
-      otState = {
-        balanceMinutes: o.balanceMinutes || 0,
-        earnedMinutes : o.earnedMinutes  || 0,
-        usedMinutes   : o.usedMinutes    || 0,
-        events: Array.isArray(o.events) ? o.events : [],
-      };
-      saveOvertimeState();
-    }
-
-    weeklyTargetInput.value = settings.weeklyTarget;
-    workDaysInput.value     = settings.workDays;
-
-    render();
-    updateLiveStats();
-    renderOvertime();
-    refreshOtHistory();
   } catch (err) {
     console.error("Erreur chargement cloud compte", err);
   }

@@ -39,10 +39,9 @@ h1{
   font-size:13px;
 }
 
-/* Pour éviter que le contenu passe sous la topbar fixe */
 .wrap{
   max-width:1150px;
-  margin:80px auto 0;      /* ✅ on laisse 80px de marge en haut */
+  margin:0 auto;
   padding:16px 20px 40px;
 }
 
@@ -478,6 +477,7 @@ tr:hover{
 
 /* --- Topbar compte --- */
 .topbar{
+  pointer-events: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -493,6 +493,10 @@ tr:hover{
 
   /* fond transparent pour ne pas créer de bande */
   background: transparent;
+}
+
+.topbar * {
+  pointer-events: auto;
 }
 
 /* Pour éviter que le contenu passe sous la topbar fixe */

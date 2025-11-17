@@ -722,7 +722,10 @@ function render() {
   // Suppression de l’ancien bug sumAll
   // (plus de sumAll ici)
 
-  entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
+  if (entriesCount) {
+    entriesCount.textContent =
+      `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
+  }
 
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
   const workDays    = parseInt(workDaysInput.value || "5", 10) || 5;

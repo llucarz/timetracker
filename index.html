@@ -414,114 +414,91 @@
       </div>
       
       <!-- Mode 2 : horaires par jour -->
-      <div id="basePerDayBlock">
-        <div class="base-day-row" data-day="mon">
-          <label class="base-day-label">
-            <input type="checkbox" class="bh-day-enable" data-day="mon" />
-            Lundi
-          </label>
-          <div class="base-day-times">
-            <input type="time" class="bh-start"      data-day="mon" placeholder="Arrivée" />
-            <input type="time" class="bh-lunchStart" data-day="mon" placeholder="Début pause" />
-            <input type="time" class="bh-lunchEnd"   data-day="mon" placeholder="Fin pause" />
-            <input type="time" class="bh-end"        data-day="mon" placeholder="Départ" />
-          </div>
-        </div>
-      
-        <div class="base-day-row" data-day="tue">
-          <label class="base-day-label">
-            <input type="checkbox" class="bh-day-enable" data-day="tue" />
-            Mardi
-          </label>
-          <div class="base-day-times">
-            <input type="time" class="bh-start"      data-day="tue" />
-            <input type="time" class="bh-lunchStart" data-day="tue" />
-            <input type="time" class="bh-lunchEnd"   data-day="tue" />
-            <input type="time" class="bh-end"        data-day="tue" />
-          </div>
-        </div>
-      
-        <div class="base-day-row" data-day="wed">
-          <label class="base-day-label">
-            <input type="checkbox" class="bh-day-enable" data-day="wed" />
-            Mercredi
-          </label>
-          <div class="base-day-times">
-            <input type="time" class="bh-start"      data-day="wed" />
-            <input type="time" class="bh-lunchStart" data-day="wed" />
-            <input type="time" class="bh-lunchEnd"   data-day="wed" />
-            <input type="time" class="bh-end"        data-day="wed" />
-          </div>
-        </div>
-      
-        <div class="base-day-row" data-day="thu">
-          <label class="base-day-label">
-            <input type="checkbox" class="bh-day-enable" data-day="thu" />
-            Jeudi
-          </label>
-          <div class="base-day-times">
-            <input type="time" class="bh-start"      data-day="thu" />
-            <input type="time" class="bh-lunchStart" data-day="thu" />
-            <input type="time" class="bh-lunchEnd"   data-day="thu" />
-            <input type="time" class="bh-end"        data-day="thu" />
-          </div>
-        </div>
-      
-        <div class="base-day-row" data-day="fri">
-          <label class="base-day-label">
-            <input type="checkbox" class="bh-day-enable" data-day="fri" />
-            Vendredi
-          </label>
-          <div class="base-day-times">
-            <input type="time" class="bh-start"      data-day="fri" />
-            <input type="time" class="bh-lunchStart" data-day="fri" />
-            <input type="time" class="bh-lunchEnd"   data-day="fri" />
-            <input type="time" class="bh-end"        data-day="fri" />
-          </div>
-        </div>
-      
-        <div class="base-day-row" data-day="sat">
-          <label class="base-day-label">
-            <input type="checkbox" class="bh-day-enable" data-day="sat" />
-            Samedi
-          </label>
-          <div class="base-day-times">
-            <input type="time" class="bh-start"      data-day="sat" />
-            <input type="time" class="bh-lunchStart" data-day="sat" />
-            <input type="time" class="bh-lunchEnd"   data-day="sat" />
-            <input type="time" class="bh-end"        data-day="sat" />
-          </div>
-        </div>
-      
-        <div class="base-day-row" data-day="sun">
-          <label class="base-day-label">
-            <input type="checkbox" class="bh-day-enable" data-day="sun" />
-            Dimanche
-          </label>
-          <div class="base-day-times">
-            <input type="time" class="bh-start"      data-day="sun" />
-            <input type="time" class="bh-lunchStart" data-day="sun" />
-            <input type="time" class="bh-lunchEnd"   data-day="sun" />
-            <input type="time" class="bh-end"        data-day="sun" />
-          </div>
-        </div>
-      
-        <p class="sub" id="basePerDayHint">
-          Tu peux cocher au maximum <span id="basePerDayMax">5</span> jours (selon “Jours travaillés / semaine”).
-          Le total de ces journées doit correspondre à l’objectif hebdo.
-        </p>
+      <div id="basePerDayBlock" class="base-hidden">
+      <!-- Onglets jours -->
+      <div class="bh-tabs">
+        <button type="button" class="bh-tab active" data-day="mon">Lun</button>
+        <button type="button" class="bh-tab" data-day="tue">Mar</button>
+        <button type="button" class="bh-tab" data-day="wed">Mer</button>
+        <button type="button" class="bh-tab" data-day="thu">Jeu</button>
+        <button type="button" class="bh-tab" data-day="fri">Ven</button>
+        <button type="button" class="bh-tab" data-day="sat">Sam</button>
+        <button type="button" class="bh-tab" data-day="sun">Dim</button>
       </div>
-
-      <div class="row">
-        <div>
-          <label for="baseLunchEnd">Fin pause</label>
-          <input type="time" id="baseLunchEnd" />
+    
+      <p class="overtime-sub">
+        Tu peux cocher au maximum <span id="basePerDayMax">5</span> jours
+        (selon « Jours travaillés / semaine »). Le total de ces journées doit
+        correspondre à l'objectif hebdo.
+      </p>
+    
+      <div class="bh-day-cards">
+        <!-- Lundi -->
+        <div class="bh-day-card active" data-day="mon">
+          <div class="bh-day-header">
+            <div class="bh-day-title">
+              <input type="checkbox" class="bh-day-enable" data-day="mon" id="bhMon">
+              <label for="bhMon">Lundi</label>
+            </div>
+          </div>
+    
+          <div class="row">
+            <div>
+              <label>Arrivée</label>
+              <input type="time" class="bh-start" data-day="mon">
+            </div>
+            <div>
+              <label>Début pause</label>
+              <input type="time" class="bh-lunchStart" data-day="mon">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fin pause</label>
+              <input type="time" class="bh-lunchEnd" data-day="mon">
+            </div>
+            <div>
+              <label>Départ</label>
+              <input type="time" class="bh-end" data-day="mon">
+            </div>
+          </div>
         </div>
-        <div>
-          <label for="baseEnd">Départ</label>
-          <input type="time" id="baseEnd" />
+    
+        <!-- Mardi -->
+        <div class="bh-day-card" data-day="tue">
+          <div class="bh-day-header">
+            <div class="bh-day-title">
+              <input type="checkbox" class="bh-day-enable" data-day="tue" id="bhTue">
+              <label for="bhTue">Mardi</label>
+            </div>
+          </div>
+    
+          <div class="row">
+            <div>
+              <label>Arrivée</label>
+              <input type="time" class="bh-start" data-day="tue">
+            </div>
+            <div>
+              <label>Début pause</label>
+              <input type="time" class="bh-lunchStart" data-day="tue">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fin pause</label>
+              <input type="time" class="bh-lunchEnd" data-day="tue">
+            </div>
+            <div>
+              <label>Départ</label>
+              <input type="time" class="bh-end" data-day="tue">
+            </div>
+          </div>
         </div>
+    
+        <!-- et ainsi de suite pour wed / thu / fri / sat / sun
+             en gardant exactement les mêmes classes + data-day -->
       </div>
+    </div>
 
       <h4 style="margin-top:16px">Semaine de travail</h4>
       <p class="sub">

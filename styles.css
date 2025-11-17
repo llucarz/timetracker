@@ -242,8 +242,13 @@ tr:hover{
 }
 
 /* Picker (week / month / year inputs) */
-.picker{
-  display:none;
+/* Picker (week / month / year inputs) */
+.picker {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
 }
 
 /* ----- PROGRESS BAR ----- */

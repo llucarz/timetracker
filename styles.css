@@ -476,24 +476,35 @@ tr:hover{
 }
 
 /* --- Topbar compte --- */
-.topbar{
-  max-width:1150px;
-  margin:0 auto;
-  padding:12px 20px 0;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  color:var(--muted);
-  font-size:14px;
+.topbar-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end; /* pousse tout à droite */
+  padding: 12px 20px 0;
 }
-.topbar-left{font-weight:600;color:var(--text)}
-.topbar-right .btn{padding:8px 12px;font-size:13px}
+
+.topbar {
+  max-width: 1150px;
+  width: 100%;
+  display: flex;
+  justify-content: flex-end; /* bouton à droite même dans le conteneur centré */
+  align-items: center;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.topbar-right .btn {
+  padding: 8px 12px;
+  font-size: 13px;
+}
 
 /* Bouton compte connecté */
-.account-connected{
-  border-color:var(--accent-2);
-  box-shadow:0 0 0 2px rgba(34,197,94,.4);
+.account-connected {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(34,197,94,.4);
 }
+
 
 /* --- Modal compte --- */
 .modal{

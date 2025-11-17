@@ -583,9 +583,15 @@ yearPicker?.addEventListener("change", () => {
 
 function shiftAnchor(delta) {
   const d = new Date(periodAnchorKey + "T12:00:00Z");
-  if (currentFilter === "week") d.setUTCDate(d.getUTCDate() + 7 * delta);
-  else if (currentFilter === "month") d.setUTCMonth(d.getUTCMonth() + delta);
-  else d.setUTCFullYear(d.getUTCFullYear() + delta);
+
+  if (currentFilter === "week") {
+    d.setUTCDate(d.getUTCDate() + 7 * delta);
+  } else if (currentFilter === "month") {
+    d.setUTCMonth(d.getUTCMonth() + delta);
+  } else {
+    d.setUTCFullYear(d.getUTCFullYear() + delta);
+  }
+
   periodAnchorKey = toDateKey(d);
   render();
 }

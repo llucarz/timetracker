@@ -72,6 +72,12 @@ function loadSettings() {
     if (typeof s.workDays    !== "number") s.workDays    = 5;
     s.cloudKey ??= "";
     s.account  ??= null;   // { name, company, key }
+    s.baseHours ??= {
+      start: "",
+      lunchStart: "",
+      lunchEnd: "",
+      end: ""
+    };
     return s;
   } catch {
     return {
@@ -79,6 +85,12 @@ function loadSettings() {
       workDays: 5,
       cloudKey: "",
       account: null,
+      baseHours: {
+        start: "",
+        lunchStart: "",
+        lunchEnd: "",
+        end: ""
+      }
     };
   }
 }
@@ -145,6 +157,18 @@ const workDaysInput     = $("#workDays");
 const statDay           = $("#statDay");
 const deltaDay          = $("#deltaDay");
 const weekProgress      = $("#weekProgress");
+
+// Profil de travail
+const profileModal        = $("#profileModal");
+const profileSaveBtn      = $("#profileSaveBtn");
+const profileCloseBtn     = $("#profileCloseBtn");
+const baseStartInput      = $("#baseStart");
+const baseLunchStartInput = $("#baseLunchStart");
+const baseLunchEndInput   = $("#baseLunchEnd");
+const baseEndInput        = $("#baseEnd");
+
+// Bouton horaires habituels
+const baseHoursBtn = $("#btnBaseHours");
 
 // Tableau & récap global
 const tbody        = $("#tbody");
@@ -232,6 +256,12 @@ async function syncToCloud() {
     settings: {
       weeklyTarget: settings.weeklyTarget,
       workDays: settings.workDays,
+      baseHours: settings.baseHours || {
+        start: "",
+        lunchStart: "",
+        lunchEnd: "",
+        end: ""
+      },
     },
     overtime: {
       balanceMinutes: otState.balanceMinutes,
@@ -240,6 +270,13 @@ async function syncToCloud() {
       events        : otState.events,
     },
   };
+
+  await fetch(`/api/data?key=${encodeURIComponent(key)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
 
   await fetch(`/api/data?key=${encodeURIComponent(key)}`, {
     method: "POST",
@@ -269,6 +306,47 @@ async function loadFromCloudForCurrentAccount() {
       }));
       saveEntries();
     }
+
+    // Settings
+    if (data.settings) {
+      const s = data.settings;
+      if (typeof s.weeklyTarget === "number") settings.weeklyTarget = s.weeklyTarget;
+      if (typeof s.workDays    === "number") settings.workDays    = s.workDays;
+      if (s.baseHours) {
+        settings.baseHours = {
+          start: s.baseHours.start || "",
+          lunchStart: s.baseHours.lunchStart || "",
+          lunchEnd: s.baseHours.lunchEnd || "",
+          end: s.baseHours.end || ""
+        };
+      }
+      saveSettings();
+    }
+
+    // Heures sup
+    if (data.overtime) {
+      const o = data.overtime;
+      otState = {
+        balanceMinutes: o.balanceMinutes || 0,
+        earnedMinutes : o.earnedMinutes  || 0,
+        usedMinutes   : o.usedMinutes    || 0,
+        events: Array.isArray(o.events) ? o.events : [],
+      };
+      saveOvertimeState();
+    }
+
+    weeklyTargetInput.value = settings.weeklyTarget;
+    workDaysInput.value     = settings.workDays;
+
+    render();
+    updateLiveStats();
+    renderOvertime();
+    refreshOtHistory();
+    updateBaseHoursButtonState();
+  } catch (err) {
+    console.error("Erreur chargement cloud compte", err);
+  }
+}
 
     // Settings
     if (data.settings) {
@@ -373,6 +451,29 @@ btnToday?.addEventListener("click", () => {
 });
 
 btnDuplicate?.addEventListener("click", duplicateYesterday);
+
+baseHoursBtn?.addEventListener("click", () => {
+  const bh = settings.baseHours || {};
+  const hasAll =
+    bh.start &&
+    bh.lunchStart &&
+    bh.lunchEnd &&
+    bh.end;
+
+  if (!hasAll) {
+    alert(
+      "Merci de renseigner vos horaires dans ton profil pour activer la saisie automatique."
+    );
+    return;
+  }
+
+  startInput.value  = bh.start;
+  lStartInput.value = bh.lunchStart;
+  lEndInput.value   = bh.lunchEnd;
+  endInput.value    = bh.end;
+
+  updateLiveStats();
+});
 
 btnSave?.addEventListener("click", () => {
   const e = collectForm();
@@ -1166,6 +1267,49 @@ function closeAccountModal() {
   accountModal.classList.add("hidden");
 }
 
+function openProfileModal() {
+  if (!profileModal) return;
+
+  const bh = settings.baseHours || {};
+  if (baseStartInput)      baseStartInput.value      = bh.start || "";
+  if (baseLunchStartInput) baseLunchStartInput.value = bh.lunchStart || "";
+  if (baseLunchEndInput)   baseLunchEndInput.value   = bh.lunchEnd || "";
+  if (baseEndInput)        baseEndInput.value        = bh.end || "";
+
+  if (weeklyTargetInput) weeklyTargetInput.value = settings.weeklyTarget ?? 35;
+  if (workDaysInput)     workDaysInput.value     = settings.workDays ?? 5;
+
+  profileModal.classList.remove("hidden");
+}
+
+function closeProfileModal() {
+  if (!profileModal) return;
+  profileModal.classList.add("hidden");
+}
+
+function handleProfileSave() {
+  const bh = {
+    start: baseStartInput?.value || "",
+    lunchStart: baseLunchStartInput?.value || "",
+    lunchEnd: baseLunchEndInput?.value || "",
+    end: baseEndInput?.value || "",
+  };
+
+  settings.baseHours = bh;
+
+  const v = parseFloat(weeklyTargetInput?.value || "35");
+  settings.weeklyTarget = isFinite(v) ? v : 35;
+
+  const d = parseInt(workDaysInput?.value || "5", 10);
+  settings.workDays = isFinite(d) && d > 0 && d <= 7 ? d : 5;
+  if (workDaysInput) workDaysInput.value = settings.workDays;
+
+  saveSettings();
+  updateBaseHoursButtonState();
+  closeProfileModal();
+  render(); // met à jour les deltas / progression
+}
+
 async function handleAccountSave() {
   const name    = accNameInput.value.trim();
   const company = accCompanyInput.value.trim();
@@ -1197,6 +1341,9 @@ if (accountModal) {
   accLogoutBtn?.addEventListener("click", handleLogout);
 }
 
+profileSaveBtn?.addEventListener("click", handleProfileSave);
+profileCloseBtn?.addEventListener("click", closeProfileModal);
+
 // Menu déroulant compte
 if (accountBtn && accountMenu) {
   accountBtn.addEventListener("click", (e) => {
@@ -1219,7 +1366,7 @@ accMenuLogin?.addEventListener("click", () => {
 
 accMenuEditProfile?.addEventListener("click", () => {
   accountMenu?.classList.add("hidden");
-  openAccountModal();
+  openProfileModal();
 });
 
 accMenuLogout?.addEventListener("click", () => {
@@ -1230,6 +1377,26 @@ accMenuLogout?.addEventListener("click", () => {
 // =========================
 //  Divers
 // =========================
+
+function updateBaseHoursButtonState() {
+  if (!baseHoursBtn) return;
+  const bh = settings.baseHours || {};
+  const hasAll =
+    bh.start &&
+    bh.lunchStart &&
+    bh.lunchEnd &&
+    bh.end;
+
+  if (hasAll) {
+    baseHoursBtn.disabled = false;
+    baseHoursBtn.title = "Remplir avec mes horaires habituels";
+  } else {
+    baseHoursBtn.disabled = true;
+    baseHoursBtn.title =
+      "Merci de renseigner vos horaires dans votre profil pour activer la saisie automatique.";
+  }
+}
+
 function statusLabel(status) {
   switch (status) {
     case "school":  return "École / formation";
@@ -1376,6 +1543,7 @@ updateLiveStats();
 renderOvertime();
 updateAccountUI();
 updateMenuStats();
+updateBaseHoursButtonState();
 
 if (settings.account && settings.account.key) {
   loadFromCloudForCurrentAccount();

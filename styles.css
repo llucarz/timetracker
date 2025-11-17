@@ -659,3 +659,19 @@ body.modal-open {
   line-height: 16px;
   min-width: 36px;   /* garde une taille clickable */
 }
+
+
+/* Conteneur scrollable pour le tableau des saisies */
+.table-wrap {
+  margin-top: 8px;
+  max-height: 260px;    /* hauteur ≈ 5 lignes + header, ajuste si besoin */
+  overflow-y: auto;
+}
+
+/* Garder l’en-tête visible quand on scrolle */
+.table-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: #0f1628;  /* même fond que tes lignes */
+  z-index: 1;
+}

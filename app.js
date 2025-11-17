@@ -596,17 +596,15 @@ function shiftAnchor(delta) {
   render();
 }
 
-const toolbar = document.querySelector("#summaryCard .toolbar");
+prevPeriod?.addEventListener("click", (e) => {
+  console.log("prevPeriod cliqué");
+  e.preventDefault();
+  shiftAnchor(-1);
+});
 
-toolbar?.addEventListener("click", (e) => {
-  const btn = e.target.closest("button");
-  if (!btn) return;
-
-  if (btn.id === "prevPeriod") {
-    shiftAnchor(-1);
-  } else if (btn.id === "nextPeriod") {
-    shiftAnchor(+1);
-  }
+nextPeriod?.addEventListener("click", (e) => {
+  e.preventDefault();
+  shiftAnchor(+1);
 });
 
 // =========================

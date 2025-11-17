@@ -73,11 +73,23 @@ function loadSettings() {
     if (typeof s.workDays    !== "number") s.workDays    = 5;
     s.cloudKey ??= "";
     s.account  ??= null;   // { name, company, key }
-    s.baseHours ??= {
-      start: "",
-      lunchStart: "",
-      lunchEnd: "",
-      end: ""
+        s.baseHours ??= {
+      mode: "same",           // "same" ou "per-day"
+      same: {
+        start: "",
+        lunchStart: "",
+        lunchEnd: "",
+        end: ""
+      },
+      days: {
+        mon: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        tue: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        wed: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        thu: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        fri: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        sat: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+        sun: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+      }
     };
     return s;
   } catch {
@@ -85,12 +97,24 @@ function loadSettings() {
       weeklyTarget: 35,
       workDays: 5,
       cloudKey: "",
-      account: null,
+      account: null,      
       baseHours: {
-        start: "",
-        lunchStart: "",
-        lunchEnd: "",
-        end: ""
+        mode: "same",
+        same: {
+          start: "",
+          lunchStart: "",
+          lunchEnd: "",
+          end: ""
+        },
+        days: {
+          mon: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+          tue: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+          wed: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+          thu: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+          fri: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+          sat: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+          sun: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+        }
       }
     };
   }
@@ -230,6 +254,17 @@ const accMenuExport     = $("#accMenuExport");
 const accMenuImport     = $("#accMenuImport");
 const accMenuLogout     = $("#accMenuLogout");
 
+const basePerDayToggle = $("#basePerDayToggle");
+const baseSameBlock    = $("#baseSameBlock");
+const basePerDayBlock  = $("#basePerDayBlock");
+const basePerDayMax    = $("#basePerDayMax");
+
+const dayEnableInputs  = document.querySelectorAll(".bh-day-enable");
+const dayStartInputs   = document.querySelectorAll(".bh-start");
+const dayLunchStartInputs = document.querySelectorAll(".bh-lunchStart");
+const dayLunchEndInputs   = document.querySelectorAll(".bh-lunchEnd");
+const dayEndInputs        = document.querySelectorAll(".bh-end");
+
 // =========================
 //  Filtre de période
 // =========================
@@ -259,12 +294,7 @@ async function syncToCloud() {
     settings: {
       weeklyTarget: settings.weeklyTarget,
       workDays: settings.workDays,
-      baseHours: settings.baseHours || {
-        start: "",
-        lunchStart: "",
-        lunchEnd: "",
-        end: ""
-      },
+      baseHours: settings.baseHours,
     },
     overtime: {
       balanceMinutes: otState.balanceMinutes,
@@ -308,12 +338,7 @@ async function loadFromCloudForCurrentAccount() {
       if (typeof s.weeklyTarget === "number") settings.weeklyTarget = s.weeklyTarget;
       if (typeof s.workDays    === "number") settings.workDays    = s.workDays;
       if (s.baseHours) {
-        settings.baseHours = {
-          start: s.baseHours.start || "",
-          lunchStart: s.baseHours.lunchStart || "",
-          lunchEnd: s.baseHours.lunchEnd || "",
-          end: s.baseHours.end || ""
-        };
+        settings.baseHours = s.baseHours; // on garde la structure complète
       }
       saveSettings();
     }
@@ -361,6 +386,23 @@ function computeMinutes(entry) {
   }
   if (!entry.start || !entry.end) return 0;
 
+  const first  = Math.max(0, b - a);
+  const second = Math.max(0, d - c);
+  return first + second;
+}
+
+function computeMinutesFromTimes(obj) {
+  if (!obj) return 0;
+  const a = hmToMin(obj.start || "");
+  const b = hmToMin(obj.lunchStart || "");
+  const c = hmToMin(obj.lunchEnd || "");
+  const d = hmToMin(obj.end || "");
+
+  if (!obj.start || !obj.end) return 0;
+
+  if (!obj.lunchStart || !obj.lunchEnd) {
+    return Math.max(0, d - a);
+  }
   const first  = Math.max(0, b - a);
   const second = Math.max(0, d - c);
   return first + second;
@@ -415,25 +457,59 @@ btnToday?.addEventListener("click", () => {
 
 btnDuplicate?.addEventListener("click", duplicateYesterday);
 
+basePerDayToggle?.addEventListener("change", () => {
+  const mode = basePerDayToggle.checked ? "per-day" : "same";
+  toggleBaseHoursModeUI(mode);
+});
+
+dayEnableInputs.forEach(cb => {
+  cb.addEventListener("change", () => {
+    const wd = parseInt(workDaysInput?.value || settings.workDays || 5, 10) || 5;
+    const enabledCount = Array.from(dayEnableInputs).filter(x => x.checked).length;
+
+    if (enabledCount > wd) {
+      cb.checked = false;
+      alert(`Tu ne peux cocher que ${wd} jour(s) car "Jours travaillés / semaine" = ${wd}.`);
+    }
+  });
+});
+
+
+
 baseHoursBtn?.addEventListener("click", () => {
   const bh = settings.baseHours || {};
-  const hasAll =
-    bh.start &&
-    bh.lunchStart &&
-    bh.lunchEnd &&
-    bh.end;
+  const mode = bh.mode || "same";
 
-  if (!hasAll) {
-    alert(
-      "Merci de renseigner vos horaires dans ton profil pour activer la saisie automatique."
-    );
-    return;
+  if (mode === "per-day") {
+    const dateStr = dateInput.value || toDateKey(new Date());
+    const d = new Date(dateStr + "T12:00:00");
+    const map = ["sun","mon","tue","wed","thu","fri","sat"];
+    const code = map[d.getDay()];
+    const cfg = bh.days?.[code];
+
+    if (!cfg || !cfg.enabled) {
+      alert("Aucun horaire habituel configuré pour ce jour.");
+      return;
+    }
+
+    startInput.value  = cfg.start || "";
+    lStartInput.value = cfg.lunchStart || "";
+    lEndInput.value   = cfg.lunchEnd || "";
+    endInput.value    = cfg.end || "";
+  } else {
+    const same = bh.same || {};
+    if (!(same.start && same.lunchStart && same.lunchEnd && same.end)) {
+      alert(
+        "Merci de renseigner tes horaires habituels dans ton profil pour activer la saisie automatique."
+      );
+      return;
+    }
+
+    startInput.value  = same.start;
+    lStartInput.value = same.lunchStart;
+    lEndInput.value   = same.lunchEnd;
+    endInput.value    = same.end;
   }
-
-  startInput.value  = bh.start;
-  lStartInput.value = bh.lunchStart;
-  lEndInput.value   = bh.lunchEnd;
-  endInput.value    = bh.end;
 
   updateLiveStats();
 });
@@ -488,6 +564,7 @@ workDaysInput?.addEventListener("change", () => {
   settings.workDays = isFinite(v) && v > 0 && v <= 7 ? v : 5;
   workDaysInput.value = settings.workDays;
   saveSettings();
+  updateBasePerDayMaxLabel();
   render();
 });
 
@@ -1290,16 +1367,91 @@ function openProfileModal() {
   if (!profileModal) return;
 
   const bh = settings.baseHours || {};
-  if (baseStartInput)      baseStartInput.value      = bh.start || "";
-  if (baseLunchStartInput) baseLunchStartInput.value = bh.lunchStart || "";
-  if (baseLunchEndInput)   baseLunchEndInput.value   = bh.lunchEnd || "";
-  if (baseEndInput)        baseEndInput.value        = bh.end || "";
+
+  // Compat ancien format : baseHours plat
+  if (!bh.mode && bh.start !== undefined) {
+    settings.baseHours = {
+      mode: "same",
+      same: {
+        start: bh.start || "",
+        lunchStart: bh.lunchStart || "",
+        lunchEnd: bh.lunchEnd || "",
+        end: bh.end || ""
+      },
+      days: settings.baseHours.days || {
+        mon: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        tue: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        wed: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        thu: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        fri: { enabled: true,  start: "", lunchStart: "", lunchEnd: "", end: "" },
+        sat: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+        sun: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+      }
+    };
+  }
+
+  const mode = settings.baseHours.mode || "same";
+  if (basePerDayToggle) basePerDayToggle.checked = (mode === "per-day");
+  toggleBaseHoursModeUI(mode);
+  updateBasePerDayMaxLabel();
+
+  // Mode "same" : on remplit les 4 inputs classiques
+  const same = settings.baseHours.same || {};
+  if (baseStartInput)      baseStartInput.value      = same.start || "";
+  if (baseLunchStartInput) baseLunchStartInput.value = same.lunchStart || "";
+  if (baseLunchEndInput)   baseLunchEndInput.value   = same.lunchEnd || "";
+  if (baseEndInput)        baseEndInput.value        = same.end || "";
+
+  // Mode "per-day" : on remplit chaque jour
+  const days = settings.baseHours.days || {};
+  dayEnableInputs.forEach(cb => {
+    const day = cb.dataset.day;
+    const d   = days[day] || {};
+    cb.checked = !!d.enabled;
+  });
+  dayStartInputs.forEach(inp => {
+    const day = inp.dataset.day;
+    const d   = days[day] || {};
+    inp.value = d.start || "";
+  });
+  dayLunchStartInputs.forEach(inp => {
+    const day = inp.dataset.day;
+    const d   = days[day] || {};
+    inp.value = d.lunchStart || "";
+  });
+  dayLunchEndInputs.forEach(inp => {
+    const day = inp.dataset.day;
+    const d   = days[day] || {};
+    inp.value = d.lunchEnd || "";
+  });
+  dayEndInputs.forEach(inp => {
+    const day = inp.dataset.day;
+    const d   = days[day] || {};
+    inp.value = d.end || "";
+  });
 
   if (weeklyTargetInput) weeklyTargetInput.value = settings.weeklyTarget ?? 35;
   if (workDaysInput)     workDaysInput.value     = settings.workDays ?? 5;
 
   profileModal.classList.remove("hidden");
-  document.body.classList.add("modal-open");   // 🔹 bloque le scroll
+  document.body.classList.add("modal-open");
+}
+
+function toggleBaseHoursModeUI(mode) {
+  if (!baseSameBlock || !basePerDayBlock) return;
+  if (mode === "per-day") {
+    baseSameBlock.classList.add("base-hidden");
+    basePerDayBlock.classList.remove("base-hidden");
+  } else {
+    baseSameBlock.classList.remove("base-hidden");
+    basePerDayBlock.classList.add("base-hidden");
+  }
+}
+
+function updateBasePerDayMaxLabel() {
+  if (!basePerDayMax) return;
+  const wd = parseInt(workDaysInput?.value || settings.workDays || 5, 10) || 5;
+  basePerDayMax.textContent = wd;
 }
 
 function closeProfileModal() {
@@ -1309,15 +1461,7 @@ function closeProfileModal() {
 }
 
 function handleProfileSave() {
-  const bh = {
-    start: baseStartInput?.value || "",
-    lunchStart: baseLunchStartInput?.value || "",
-    lunchEnd: baseLunchEndInput?.value || "",
-    end: baseEndInput?.value || "",
-  };
-
-  settings.baseHours = bh;
-
+  // 1) On récupère / met à jour weeklyTarget & workDays
   const v = parseFloat(weeklyTargetInput?.value || "35");
   settings.weeklyTarget = isFinite(v) ? v : 35;
 
@@ -1325,10 +1469,99 @@ function handleProfileSave() {
   settings.workDays = isFinite(d) && d > 0 && d <= 7 ? d : 5;
   if (workDaysInput) workDaysInput.value = settings.workDays;
 
+  const targetMin = settings.weeklyTarget * 60;
+  const workDays  = settings.workDays;
+
+  const mode = basePerDayToggle?.checked ? "per-day" : "same";
+  const baseHours = { mode, same: {}, days: {} };
+
+  if (mode === "same") {
+    const same = {
+      start:      baseStartInput?.value      || "",
+      lunchStart: baseLunchStartInput?.value || "",
+      lunchEnd:   baseLunchEndInput?.value   || "",
+      end:        baseEndInput?.value        || "",
+    };
+
+    const dailyMin = computeMinutesFromTimes(same);
+    const weeklyMin = dailyMin * workDays;
+
+    if (!dailyMin) {
+      alert("Merci de renseigner des horaires valides pour tes journées types.");
+      return;
+    }
+
+    if (weeklyMin !== targetMin) {
+      const diff = weeklyMin - targetMin;
+      const signe = diff > 0 ? "+" : "-";
+      alert(
+        `Tes horaires habituels (${minToHM(weeklyMin)}) ne correspondent pas à l'objectif ` +
+        `hebdo (${minToHM(targetMin)}).\nDifférence : ${signe}${minToHM(Math.abs(diff))}.`
+      );
+      return;
+    }
+
+    baseHours.same = same;
+    // on laisse les jours tels qu'ils étaient (ou vides)
+    baseHours.days = settings.baseHours.days || baseHours.days;
+
+  } else {
+    // mode "per-day"
+    const daysCfg = {};
+    let enabledCount = 0;
+    let weeklyMin    = 0;
+
+    dayEnableInputs.forEach(cb => {
+      const day = cb.dataset.day;
+      const enabled = cb.checked;
+
+      const start      = document.querySelector(`.bh-start[data-day="${day}"]`)?.value || "";
+      const lunchStart = document.querySelector(`.bh-lunchStart[data-day="${day}"]`)?.value || "";
+      const lunchEnd   = document.querySelector(`.bh-lunchEnd[data-day="${day}"]`)?.value || "";
+      const end        = document.querySelector(`.bh-end[data-day="${day}"]`)?.value || "";
+
+      const cfg = { enabled, start, lunchStart, lunchEnd, end };
+      daysCfg[day] = cfg;
+
+      if (enabled) {
+        enabledCount++;
+        const dayMin = computeMinutesFromTimes(cfg);
+        if (!dayMin) {
+          alert(`Le jour ${day.toUpperCase()} est coché mais ses horaires sont vides ou invalides.`);
+          throw new Error(`Jour ${day} coché mais horaires vides.`); // ou `return;` si tu ne veux pas d'erreur console
+        }
+        weeklyMin += dayMin;
+      }
+    });
+
+    if (enabledCount !== workDays) {
+      alert(
+        `Tu as coché ${enabledCount} jour(s) mais "Jours travaillés / semaine" = ${workDays}. ` +
+        `Merci d'en cocher exactement ${workDays}.`
+      );
+      return;
+    }
+
+    if (weeklyMin !== targetMin) {
+      const diff = weeklyMin - targetMin;
+      const signe = diff > 0 ? "+" : "-";
+      alert(
+        `La somme de tes horaires par jour (${minToHM(weeklyMin)}) ne correspond pas ` +
+        `à l'objectif hebdo (${minToHM(targetMin)}).\nDifférence : ${signe}${minToHM(Math.abs(diff))}.`
+      );
+      return;
+    }
+
+    baseHours.days = daysCfg;
+    // same peut rester comme avant (optionnel)
+    baseHours.same = settings.baseHours.same || {};
+  }
+
+  settings.baseHours = baseHours;
   saveSettings();
   updateBaseHoursButtonState();
   closeProfileModal();
-  render(); // met à jour les deltas / progression
+  render();
 }
 
 async function handleAccountSave() {
@@ -1402,20 +1635,37 @@ accMenuLogout?.addEventListener("click", () => {
 function updateBaseHoursButtonState() {
   if (!baseHoursBtn) return;
   const bh = settings.baseHours || {};
-  const hasAll =
-    bh.start &&
-    bh.lunchStart &&
-    bh.lunchEnd &&
-    bh.end;
+  const mode = bh.mode || "same";
 
-  if (hasAll) {
-    baseHoursBtn.disabled = false;
-    baseHoursBtn.title = "Remplir avec mes horaires habituels";
+  let ok = false;
+
+  if (mode === "per-day") {
+    const days = bh.days || {};
+    for (const d of Object.values(days)) {
+      if (
+        d.enabled &&
+        d.start &&
+        d.lunchStart &&
+        d.lunchEnd &&
+        d.end
+      ) {
+        ok = true;
+        break;
+      }
+    }
   } else {
-    baseHoursBtn.disabled = true;
-    baseHoursBtn.title =
-      "Merci de renseigner vos horaires dans votre profil pour activer la saisie automatique.";
+    const same = bh.same || {};
+    ok =
+      same.start &&
+      same.lunchStart &&
+      same.lunchEnd &&
+      same.end;
   }
+
+  baseHoursBtn.disabled = !ok;
+  baseHoursBtn.title = ok
+    ? "Remplir avec mes horaires habituels"
+    : "Merci de renseigner des horaires dans ton profil pour activer la saisie automatique.";
 }
 
 function statusLabel(status) {

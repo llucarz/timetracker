@@ -363,7 +363,7 @@ if (otDateInput && !otDateInput.value) {
 //  Events formulaire
 // =========================
 [startInput, lStartInput, lEndInput, endInput, dateInput, statusInput]
-  .forEach(i => i && i.addaddEventListener("input", updateLiveStats));
+  .forEach(i => i && i.addEventListener("input", updateLiveStats));
 
 btnToday?.addEventListener("click", () => {
   dateInput.valueAsNumber =

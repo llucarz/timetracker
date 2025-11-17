@@ -862,7 +862,6 @@ function render() {
   saveOvertimeState();
   renderOvertime();
   updateMenuStats();
-}
 
 // =========================
 //  Objectifs mois / année

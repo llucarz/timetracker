@@ -587,13 +587,13 @@ tr:hover{
   background: rgba(255,255,255,0.01);
 }
 
-.account-menu-stats .ams-value .ams-title {
+.account-menu-stats .-value {
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 2px;
 }
 
-.account-menu-stats .ams-sub {
+.account-menu-stats .ams-sub .ams-title {
   color: var(--muted);
   font-size: 13px;
 }

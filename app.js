@@ -615,13 +615,27 @@ function computeOvertimeEarned() {
   const workDays    = settings.workDays    || 5;
   const dailyTarget = targetHours / workDays;
 
+  // Regroupe par semaine : minutes, jours d'absence, et jours de travail réellement saisis
   const map = new Map();
   for (const e of entries) {
     if (!e.date) continue;
-    const { start } = weekRangeOf(e.date);
+    const { start } = weekRangeOf(e.date); // lundi de la semaine
     const key = start;
-    const obj = map.get(key) || { minutes: 0, absenceDays: 0 };
+
+    let obj = map.get(key);
+    if (!obj) {
+      obj = {
+        minutes: 0,
+        absenceDays: 0,
+        workDates: new Set(), // dates de "vrai" travail saisi
+      };
+      map.set(key, obj);
+    }
+
+    // Minutes travaillées pour cette entrée
     obj.minutes += computeMinutes(e);
+
+    // Jours d'absence qui réduisent la cible
     if (
       e.status === "school" ||
       e.status === "vacation" ||
@@ -630,18 +644,42 @@ function computeOvertimeEarned() {
     ) {
       obj.absenceDays += 1;
     }
-    map.set(key, obj);
+
+    // Jours de travail réellement saisis (on ignore les week-ends sans entrée)
+    if (!e.status || e.status === "work") {
+      obj.workDates.add(e.date);
+    }
   }
 
+  const todayKey = toDateKey(new Date());
+  const { start: currentWeekStart } = weekRangeOf(todayKey);
+
   let totalDelta = 0;
-  for (const [, v] of map) {
-    const adjustedWeeklyHours = Math.max(
-      0,
-      targetHours - v.absenceDays * dailyTarget
-    );
+
+  for (const [weekStartKey, v] of map) {
+    const isCurrentWeek = (weekStartKey === currentWeekStart);
+
+    let adjustedWeeklyHours;
+
+    if (isCurrentWeek) {
+      // ➜ Pour la semaine EN COURS :
+      // on ne compte que les jours déjà saisis (travail) + les jours d'absence
+      const workDaysLogged = v.workDates ? v.workDates.size : 0;
+      const effectiveSlots = Math.min(workDaysLogged + v.absenceDays, workDays);
+      adjustedWeeklyHours  = Math.max(0, effectiveSlots * dailyTarget);
+    } else {
+      // ➜ Pour les semaines PASSÉES :
+      // logique classique : 35h - (absences * cible journalière)
+      adjustedWeeklyHours = Math.max(
+        0,
+        targetHours - v.absenceDays * dailyTarget
+      );
+    }
+
     const targetMin = adjustedWeeklyHours * 60;
     totalDelta += v.minutes - targetMin;
   }
+
   return totalDelta;
 }
 

@@ -159,15 +159,9 @@ button,.btn{
 /* ----- STATS BOXES ----- */
 .stats{
   display:grid;
-  grid-template-columns:repeat(4, minmax(0,1fr));
+  grid-template-columns:repeat(auto-fit, minmax(160px,1fr));
   gap:10px;
   margin-top:10px;
-}
-
-@media (max-width:700px){
-  .stats{
-    grid-template-columns:repeat(2, minmax(0,1fr));
-  }
 }
 
 .stat{
@@ -587,7 +581,7 @@ tr:hover{
   background: rgba(255,255,255,0.01);
 }
 
-.account-menu-stats .-value {
+.account-menu-stats .ams-value {
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 2px;

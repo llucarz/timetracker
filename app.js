@@ -150,6 +150,7 @@ const tbody        = $("#tbody");
 const sumWeek      = $("#sumWeek");
 const sumMonth     = $("#sumMonth");
 const sumYear      = $("#sumYear");
+const sumAll       = $("#sumAll");
 const deltaWeek    = $("#deltaWeek");
 const deltaMonth   = $("#deltaMonth");
 const deltaYear    = $("#deltaYear");
@@ -712,11 +713,13 @@ function render() {
   const yearMin  = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
   const allMin   = sumMinutes(() => true);
 
-  sumWeek.textContent  = minToHM(weekMin);
-  sumMonth.textContent = minToHM(monthMin);
-  sumYear.textContent  = minToHM(yearMin);
-  sumAll.textContent   = minToHM(allMin);
-  entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
+  if (sumWeek)  sumWeek.textContent  = minToHM(weekMin);
+  if (sumMonth) sumMonth.textContent = minToHM(monthMin);
+  if (sumYear)  sumYear.textContent  = minToHM(yearMin);
+  if (sumAll)   sumAll.textContent   = minToHM(allMin);
+  if (entriesCount) {
+    entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
+  }
 
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
   const workDays    = parseInt(workDaysInput.value || "5", 10) || 5;

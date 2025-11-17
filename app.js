@@ -1271,6 +1271,17 @@ function mergeEntries(arr) {
   saveEntries();
 }
 
+function updateMenuStats() {
+  const totalText = document.querySelector(".stat-total .v")?.textContent || "0h00";
+  const entriesText = document.querySelector(".stat-total .k2")?.textContent || "0";
+
+  document.getElementById("menuTotalHours").textContent = totalText;
+
+  const clean = entriesText.replace(/\D+/g, "");
+  document.getElementById("menuTotalEntries").textContent =
+    clean + " saisie" + (clean > 1 ? "s" : "");
+}
+
 function parseCSV(csv) {
   const lines = csv.split(/\r?\n/).filter(Boolean);
   const head = lines
@@ -1304,6 +1315,7 @@ render();
 updateLiveStats();
 renderOvertime();
 updateAccountUI();
+updateMenuStats();
 
 // si un compte existe déjà → on recharge depuis le cloud automatiquement
 if (settings.account && settings.account.key) {

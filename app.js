@@ -508,33 +508,41 @@ fileImport?.addEventListener("change", importFile);
 // =========================
 function openPicker(el) {
   if (!el) return;
-  if (el.showPicker) el.showPicker();
-  else {
-    el.style.display = "inline-block";
+  if (el.showPicker) {
+    el.showPicker();
+  } else {
     el.focus();
     el.click();
   }
 }
 
+// clic simple = changer de vue
 weekLabel?.addEventListener("click", () => {
   currentFilter = "week";
   render();
-  openPicker(weekPicker);
 });
 
 monthLabel?.addEventListener("click", () => {
   currentFilter = "month";
   render();
-  openPicker(monthPicker);
 });
 
 yearLabel?.addEventListener("click", () => {
   currentFilter = "year";
   render();
-  if (yearPicker) {
-    yearPicker.style.display = "inline-block";
-    yearPicker.focus();
-  }
+});
+
+// double clic = ouvrir le picker natif
+weekLabel?.addEventListener("dblclick", () => {
+  openPicker(weekPicker);
+});
+
+monthLabel?.addEventListener("dblclick", () => {
+  openPicker(monthPicker);
+});
+
+yearLabel?.addEventListener("dblclick", () => {
+  openPicker(yearPicker);
 });
 
 function isoWeekStart(value) {
@@ -785,12 +793,10 @@ function render() {
   )?.classList.add("active");
 
   // Affichage pickers
-  if (weekPicker)
-    weekPicker.style.display = currentFilter === "week" ? "inline-block" : "none";
-  if (monthPicker)
-    monthPicker.style.display = currentFilter === "month" ? "inline-block" : "none";
-  if (yearPicker)
-    yearPicker.style.display = currentFilter === "year" ? "inline-block" : "none";
+  // Pickers toujours cachés (on les ouvre seulement via showPicker)
+  if (weekPicker)  weekPicker.style.display  = "none";
+  if (monthPicker) monthPicker.style.display = "none";
+  if (yearPicker)  yearPicker.style.display  = "none";
 
   weekLabel.textContent  = `Semaine ${wStart} → ${wEnd}`;
   monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;

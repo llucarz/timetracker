@@ -599,6 +599,31 @@ function shiftAnchor(delta) {
   render();
 }
 
+function repositionArrows() {
+  const left = document.querySelector("#summaryCard .toolbar .left");
+  if (!left || !prevPeriod || !nextPeriod) return;
+
+  let currentLabel;
+  if (currentFilter === "week") {
+    currentLabel = weekLabel;
+  } else if (currentFilter === "month") {
+    currentLabel = monthLabel;
+  } else {
+    currentLabel = yearLabel;
+  }
+  if (!currentLabel) return;
+
+  // On met la flèche "précédent" juste AVANT le label actif
+  left.insertBefore(prevPeriod, currentLabel);
+
+  // On met la flèche "suivant" juste APRÈS le label actif
+  if (currentLabel.nextSibling) {
+    left.insertBefore(nextPeriod, currentLabel.nextSibling);
+  } else {
+    left.appendChild(nextPeriod);
+  }
+}
+
 // Listener global sur tout le document
 document.addEventListener("click", (e) => {
   const prevBtn = e.target.closest("#prevPeriod");
@@ -827,6 +852,8 @@ function render() {
   weekLabel.textContent  = `Semaine ${wStart} → ${wEnd}`;
   monthLabel.textContent = `Mois ${anchor.slice(0, 7)}`;
   yearLabel.textContent  = `Année ${anchor.slice(0, 4)}`;
+
+  repositionArrows();
 
   const inRange = e =>
     currentFilter === "week"

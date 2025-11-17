@@ -578,3 +578,22 @@ tr:hover{
 }
 .modal-dialog h3{margin:0 0 6px}
 .modal-dialog .sub{margin-bottom:10px}
+
+
+/* --- Stats dans le menu compte --- */
+.account-menu-stats {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.01);
+}
+
+.account-menu-stats .ams-value {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.account-menu-stats .ams-sub {
+  color: var(--muted);
+  font-size: 13px;
+}

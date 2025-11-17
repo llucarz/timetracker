@@ -648,3 +648,14 @@ tr:hover{
 body.modal-open {
   overflow: hidden;
 }
+
+
+/* Corrige la taille des flèches de période (prev / next) */
+#prevPeriod,
+#nextPeriod {
+  width: auto !important;
+  padding: 6px 10px; /* plus petit, plus élégant */
+  font-size: 16px;   /* taille de la flèche */
+  line-height: 16px;
+  min-width: 36px;   /* garde une taille clickable */
+}

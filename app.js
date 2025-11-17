@@ -1,6 +1,7 @@
 // =========================
 //  Utilitaires temps
 // =========================
+console.log("app.js chargé");
 const pad = n => String(n).padStart(2, "0");
 
 function hmToMin(hm) {
@@ -185,6 +186,8 @@ const yearLabel    = $("#yearLabel");
 
 const prevPeriod  = $("#prevPeriod");
 const nextPeriod  = $("#nextPeriod");
+console.log("prevPeriod ref =", prevPeriod);
+console.log("nextPeriod ref =", nextPeriod);
 const weekPicker  = $("#weekPicker");
 const monthPicker = $("#monthPicker");
 const yearPicker  = $("#yearPicker");

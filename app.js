@@ -432,12 +432,22 @@ workDaysInput?.addEventListener("change", () => {
 });
 
 // =========================
-//  Export / import local
+//  Export / import via menu compte
 // =========================
-btnExportCSV?.addEventListener("click", () =>
-  download("timetracker.csv", toCSV(entries))
-);
 
+// Exporter les données en CSV
+accMenuExport?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  download("timetracker.csv", toCSV(entries));
+});
+
+// Importer des données (ouvre le sélecteur de fichier)
+accMenuImport?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  fileImport?.click();
+});
+
+// Quand un fichier est sélectionné → on importe
 fileImport?.addEventListener("change", importFile);
 
 // =========================

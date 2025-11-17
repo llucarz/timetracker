@@ -471,19 +471,16 @@ tr:hover{
 }
 
 /* --- Topbar compte --- */
-.topbar {
-  width: 100%;          /* 🔥 pleine largeur */
-  padding: 12px 20px 0; 
-  display: flex;
-  justify-content: flex-end;   /* 🔥 pousse le bouton complètement à droite */
-  align-items: center;
+.topbar{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  padding:12px 24px 0;
+  display:flex;
+  justify-content:flex-end;
+  z-index:40;
 }
-
-.topbar-right .btn {
-  padding: 8px 12px;
-  font-size: 13px;
-}
-
 
 /* Pour éviter que le contenu passe sous la topbar fixe */
 .wrap{
@@ -542,7 +539,6 @@ tr:hover{
   border-color:var(--accent-2);
   box-shadow:0 0 0 2px rgba(34,197,94,.4);
 }
-
 
 /* --- Modal compte --- */
 .modal{

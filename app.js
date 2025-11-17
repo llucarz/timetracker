@@ -581,17 +581,17 @@ function duplicateYesterday() {
 function updateLiveStats() {
   const e = collectForm();
   const minutes = computeMinutes(e);
-  statDay.textContent = minToHM(minutes);
+
+  // Temps du jour – maintenant affiché dans la carte de droite
+  if (statDay) statDay.textContent = minToHM(minutes);
+
+  // Pour la barre de progression hebdo
   const today = e.date || toDateKey(new Date());
   const { start, end } = weekRangeOf(today);
   const weekMin  = sumMinutes(x => x.date >= start && x.date <= end);
-  const monthMin = sumMinutes(x => x.date.slice(0, 7) === today.slice(0, 7));
-  const yearMin  = sumMinutes(x => x.date.slice(0, 4) === today.slice(0, 4));
-  statWeek.textContent  = minToHM(weekMin);
-  statMonth.textContent = minToHM(monthMin);
-  statYear.textContent  = minToHM(yearMin);
   updateWeekProgress(weekMin, start, end);
 }
+
 
 function updateWeekProgress(weekMin, wStart, wEnd) {
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
@@ -716,6 +716,80 @@ function render() {
     });
     tbody.appendChild(tr);
   }
+
+  const weekMin  = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
+  const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
+  const yearMin  = sumMinutes(x => x.date.slice(0, 4) === anchor.slice(0, 4));
+
+  // Cartes de stats à droite (semaine / mois / année)
+  sumWeek.textContent  = minToHM(weekMin);
+  sumMonth.textContent = minToHM(monthMin);
+  sumYear.textContent  = minToHM(yearMin);
+
+  const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
+  const workDays    = parseInt(workDaysInput.value || "5", 10) || 5;
+  const dailyTarget = targetHours / workDays;
+
+  const absenceDaysWeek = entries.filter(
+    e =>
+      e.date >= wStart &&
+      e.date <= wEnd &&
+      (e.status === "school" ||
+       e.status === "vacation" ||
+       e.status === "sick" ||
+       e.status === "holiday")
+  ).length;
+
+  const adjustedWeeklyTarget = Math.max(
+    0,
+    targetHours - absenceDaysWeek * dailyTarget
+  );
+  const weekTargetMin = adjustedWeeklyTarget * 60;
+
+  if (absenceDaysWeek >= workDays && weekMin === 0) {
+    deltaWeek.textContent = "Absent toute la semaine";
+    deltaWeek.className = "delta";
+  } else if (weekTargetMin > 0 && weekMin > weekTargetMin) {
+    const diff = weekMin - weekTargetMin;
+    deltaWeek.textContent = `+${minToHM(diff)} vs cible`;
+    deltaWeek.className = "delta plus";
+  } else {
+    deltaWeek.textContent = "—";
+    deltaWeek.className = "delta";
+  }
+
+  const monthTargetMin = monthTargetMinutes(anchor, targetHours, workDays);
+  if (monthTargetMin > 0 && monthMin > monthTargetMin) {
+    const diff = monthMin - monthTargetMin;
+    deltaMonth.textContent = `+${minToHM(diff)} vs cible`;
+    deltaMonth.className = "delta plus";
+  } else {
+    deltaMonth.textContent = "—";
+    deltaMonth.className = "delta";
+  }
+
+  const yearTargetMin = yearTargetMinutes(anchor, targetHours, workDays);
+  if (yearTargetMin > 0 && yearMin > yearTargetMin) {
+    const diff = yearMin - yearTargetMin;
+    deltaYear.textContent = `+${minToHM(diff)} vs cible`;
+    deltaYear.className = "delta plus";
+  } else {
+    deltaYear.textContent = "—";
+    deltaYear.className = "delta";
+  }
+
+  updateWeekProgress(weekMin, wStart, wEnd);
+
+  const earned = computeOvertimeEarned();
+  otState.earnedMinutes  = earned;
+  otState.balanceMinutes = earned - (otState.usedMinutes || 0);
+  saveOvertimeState();
+  renderOvertime();
+
+  // Met à jour le total global dans le menu à chaque render
+  updateMenuStats();
+}
+
 
   const weekMin  = sumMinutes(x => x.date >= wStart && x.date <= wEnd);
   const monthMin = sumMinutes(x => x.date.slice(0, 7) === anchor.slice(0, 7));
@@ -1273,22 +1347,20 @@ function mergeEntries(arr) {
 }
 
 function updateMenuStats() {
-  // Total minutes globales depuis toutes les entrées
-  const totalMinutes = sumMinutes(() => true);
+  // Total global calculé directement à partir des entrées,
+  // sans dépendre d'une carte "Total global" dans la page.
+  const totalMin = sumMinutes(() => true);
+  const totalText = minToHM(totalMin);
 
-  // Format hh:mm
-  const totalHM = minToHM(totalMinutes);
+  const n = entries.length;
+  const label = `${n} saisie${n > 1 ? "s" : ""}`;
 
-  // Nombre d'entrées
-  const count = entries.length;
-
-  // Mise à jour du menu
-  const h = document.getElementById("menuTotalHours");
-  const c = document.getElementById("menuTotalEntries");
-
-  if (h) h.textContent = totalHM;
-  if (c) c.textContent = `${count} saisie${count > 1 ? "s" : ""}`;
+  const hEl = document.getElementById("menuTotalHours");
+  const eEl = document.getElementById("menuTotalEntries");
+  if (hEl) hEl.textContent = totalText;
+  if (eEl) eEl.textContent = label;
 }
+
 
 function parseCSV(csv) {
   const lines = csv.split(/\r?\n/).filter(Boolean);

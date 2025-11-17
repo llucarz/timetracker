@@ -472,14 +472,16 @@ tr:hover{
 
 /* --- Topbar compte --- */
 .topbar{
-  max-width:1150px;
-  margin:0 auto;
-  padding:12px 20px 0;
-  display:flex;
-  justify-content:flex-end;  /* bouton collé à droite dans le container */
-  align-items:center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 0 0 0;     /* 0 à droite → bouton collé au bord */
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  z-index: 40;
 }
-
 
 /* Pour éviter que le contenu passe sous la topbar fixe */
 .wrap{

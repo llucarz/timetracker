@@ -1102,8 +1102,6 @@ if (accountBtn && accountModal) {
   accCloseBtn?.addEventListener("click", closeAccountModal);
   accSaveBtn?.addEventListener("click", handleAccountSave);
   accLogoutBtn?.addEventListener("click", handleLogout);
-  accProfileBtn?.addEventListener("click", () => alert("Les options de profil arriveront bientôt 🙂");
-
 }
 
 // =========================

@@ -476,35 +476,15 @@ tr:hover{
 }
 
 /* --- Topbar compte --- */
-/* Barre totalement large */
-.topbar{
-  width:100%;
-  padding:12px 20px 0;
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  color:var(--muted);
-  font-size:14px;
-}
-
-
-/* Contenu interne centré mais extensible */
-.topbar-inner {
+.topbar {
   width: 100%;
-  max-width: 1150px;
-  margin-left: auto;   /* TRÈS IMPORTANT : colle à droite */
-}
-
-/* Le bouton */
-.topbar-right .btn {
-  padding: 8px 12px;
-  font-size: 13px;
-}
-
-/* Effet connecté */
-.account-connected {
-  border-color: var(--accent-2);
-  box-shadow: 0 0 0 2px rgba(34,197,94,.4);
+  padding: 12px 25px;
+  display: flex;
+  justify-content: flex-end;  /* colle tout à droite */
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 /* --- Modal compte --- */

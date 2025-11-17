@@ -143,6 +143,7 @@ const btnDelete    = $("#btnDelete");
 const weeklyTargetInput = $("#weeklyTarget");
 const workDaysInput     = $("#workDays");
 const statDay           = $("#statDay");
+const deltaDay          = $("#deltaDay");
 const weekProgress      = $("#weekProgress");
 
 // Tableau & récap global
@@ -575,6 +576,29 @@ function updateLiveStats() {
 
   // Temps du jour
   if (statDay) statDay.textContent = minToHM(minutes);
+
+  // Heures sup du jour (par rapport à la cible journalière)
+  if (deltaDay) {
+    const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
+    const workDays    = parseInt(workDaysInput.value || "5", 10)   || 5;
+    const dailyTarget = targetHours / workDays;
+    const targetMin   = e.status === "work" ? dailyTarget * 60 : 0;
+
+    if (e.status === "work" && minutes > targetMin) {
+      const diff = minutes - targetMin;
+      deltaDay.textContent = `+${minToHM(diff)} vs cible`;
+      deltaDay.className = "delta plus";
+    } else if (e.status === "work" && minutes > 0 && minutes < targetMin) {
+      const diff = targetMin - minutes;
+      // si tu veux aussi voir le "retard" :
+      // deltaDay.textContent = `-${minToHM(diff)} vs cible`;
+      deltaDay.textContent = "—";
+      deltaDay.className = "delta";
+    } else {
+      deltaDay.textContent = "—";
+      deltaDay.className = "delta";
+    }
+  }
 
   // Progression hebdomadaire
   const today = e.date || toDateKey(new Date());

@@ -21,25 +21,73 @@ export default async function handler(req, res) {
     if (method === 'GET') {
       const raw = await redis.get(redisKey);
 
-      // raw peut être null, une string JSON, ou déjà un tableau
-      let entries = [];
-      if (Array.isArray(raw)) entries = raw;
-      else if (typeof raw === 'string' && raw.length) {
-        try { entries = JSON.parse(raw); } catch { entries = []; }
+      // Valeurs par défaut
+      let entries  = [];
+      let settings = null;
+      let overtime = null;
+
+      if (!raw) {
+        // rien en BDD → on renvoie les valeurs par défaut
+        return res.status(200).json({ entries, settings, overtime });
       }
 
-      return res.status(200).json({ entries });
+      if (Array.isArray(raw)) {
+        // 🧓 Ancien format : on stockait juste un tableau d'entries
+        entries = raw;
+      } else if (typeof raw === 'string' && raw.length) {
+        try {
+          const parsed = JSON.parse(raw);
+
+          // Si c’est encore un tableau => ancien format
+          if (Array.isArray(parsed)) {
+            entries = parsed;
+          } else if (parsed && typeof parsed === 'object') {
+            // Nouveau format complet
+            if (Array.isArray(parsed.entries)) entries = parsed.entries;
+            if (parsed.settings && typeof parsed.settings === 'object') {
+              settings = parsed.settings;
+            }
+            if (parsed.overtime && typeof parsed.overtime === 'object') {
+              overtime = parsed.overtime;
+            }
+          }
+        } catch {
+          // JSON cassé → on renvoie des valeurs vides
+          entries  = [];
+          settings = null;
+          overtime = null;
+        }
+      } else if (raw && typeof raw === 'object') {
+        // Cas où Upstash renverrait déjà un objet
+        if (Array.isArray(raw.entries)) entries = raw.entries;
+        if (raw.settings && typeof raw.settings === 'object') {
+          settings = raw.settings;
+        }
+        if (raw.overtime && typeof raw.overtime === 'object') {
+          overtime = raw.overtime;
+        }
+      }
+
+      return res.status(200).json({ entries, settings, overtime });
     }
 
     if (method === 'POST') {
       const body = await readJson(req);
 
+      // body attendu : { entries, settings, overtime }
       if (!Array.isArray(body?.entries)) {
-        return res.status(400).json({ error: 'Body must be { entries: [...] }' });
+        return res
+          .status(400)
+          .json({ error: 'Body must be { entries: [...], settings?, overtime? }' });
       }
 
-      // on stocke en JSON
-      await redis.set(redisKey, JSON.stringify(body.entries));
+      const toStore = {
+        entries: body.entries,
+        settings: body.settings || null,
+        overtime: body.overtime || null,
+      };
+
+      await redis.set(redisKey, JSON.stringify(toStore));
       return res.status(200).json({ ok: true });
     }
 

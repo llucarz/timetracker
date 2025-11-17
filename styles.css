@@ -477,25 +477,69 @@ tr:hover{
 
 /* --- Topbar compte --- */
 .topbar{
-  position: fixed;    /* collé à la fenêtre, pas au contenu */
-  top: 12px;          /* distance du haut */
-  right: 24px;        /* distance du bord droit */
-  left: auto;
-  width: auto;        /* s'adapte à la taille du bouton */
-  padding: 0;
-  margin: 0;
-  z-index: 100;       /* au-dessus des cartes */
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  padding:12px 24px 0;
+  display:flex;
+  justify-content:flex-end;
+  z-index:40;
 }
 
-/* le conteneur n'a plus vraiment d'intérêt, mais on le garde */
-.topbar-right .btn{
-  padding:8px 12px;
-  font-size:13px;
+/* Pour éviter que le contenu passe sous la topbar fixe */
+.wrap{
+  padding-top:56px;
 }
-/* Bouton compte connecté : on ne touche pas */
+
+/* Bouton compte + menu alignés à droite */
+.account-wrapper{
+  position:relative;
+}
+
+/* Panneau déroulant */
+.account-menu{
+  position:absolute;
+  top:calc(100% + 8px);
+  right:0;
+  width:260px;
+  background:rgba(10,16,40,0.98);
+  border-radius:18px;
+  box-shadow:0 18px 45px rgba(0,0,0,0.55);
+  border:1px solid rgba(255,255,255,0.05);
+  padding:6px 0;
+  backdrop-filter:blur(18px);
+}
+.account-menu.hidden{
+  display:none;
+}
+
+.account-menu-header{
+  padding:10px 16px;
+  font-size:13px;
+  color:var(--muted);
+  border-bottom:1px solid rgba(255,255,255,0.05);
+}
+
+.account-menu-item{
+  width:100%;
+  padding:8px 16px;
+  text-align:left;
+  font-size:14px;
+  color:var(--text);
+  background:transparent;
+  border:none;
+  cursor:pointer;
+}
+.account-menu-item:hover{
+  background:rgba(255,255,255,0.04);
+}
+
+.account-menu-item.danger{
+  color:#f97373;
+}
+
+/* Bouton compte connecté (tu l’avais déjà) */
 .account-connected{
   border-color:var(--accent-2);
   box-shadow:0 0 0 2px rgba(34,197,94,.4);

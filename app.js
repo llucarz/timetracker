@@ -265,6 +265,22 @@ const dayLunchStartInputs = document.querySelectorAll(".bh-lunchStart");
 const dayLunchEndInputs   = document.querySelectorAll(".bh-lunchEnd");
 const dayEndInputs        = document.querySelectorAll(".bh-end");
 
+const dayTabs  = document.querySelectorAll(".bh-tab");
+const dayCards = document.querySelectorAll(".bh-day-card");
+
+dayTabs.forEach(tab => {
+  tab.addEventListener("click", () => {
+    const day = tab.dataset.day;
+
+    dayTabs.forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    dayCards.forEach(card => {
+      card.classList.toggle("active", card.dataset.day === day);
+    });
+  });
+});
+
 // =========================
 //  Filtre de période
 // =========================

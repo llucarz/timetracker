@@ -597,3 +597,37 @@ tr:hover{
   color: var(--muted);
   font-size: 13px;
 }
+
+/* --- Modale profil de travail --- */
+#profileModal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+#profileModal.hidden {
+  display: none;
+}
+
+/* le contenu de la modale (la carte "Profil de travail") */
+#profileModal .profile-panel {
+  background: linear-gradient(180deg, #101728, #0b1020);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .7);
+  padding: 20px 22px;
+  max-width: 520px;
+  width: 94vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* désactiver le scroll de la page quand une modale est ouverte */
+body.modal-open {
+  overflow: hidden;
+}

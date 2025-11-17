@@ -70,12 +70,14 @@ function loadSettings() {
     const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
     if (typeof s.weeklyTarget !== "number") s.weeklyTarget = 35;
     if (typeof s.workDays    !== "number") s.workDays    = 5;
+    s.cloudKey ??= "";
     s.account  ??= null;   // { name, company, key }
     return s;
   } catch {
     return {
       weeklyTarget: 35,
       workDays: 5,
+      cloudKey: "",
       account: null,
     };
   }
@@ -155,7 +157,7 @@ const sumAll     = $("#sumAll");
 const deltaWeek  = $("#deltaWeek");
 const deltaMonth = $("#deltaMonth");
 const deltaYear  = $("#deltaYear");
-const entriesCountEl = $("#entriesCount");
+const entriesCount = $("#entriesCount");
 
 const weekLabel  = $("#weekLabel");
 const monthLabel = $("#monthLabel");
@@ -166,10 +168,6 @@ const nextPeriod  = $("#nextPeriod");
 const weekPicker  = $("#weekPicker");
 const monthPicker = $("#monthPicker");
 const yearPicker  = $("#yearPicker");
-
-// Export / import
-const btnExportCSV = $("#btnExportCSV");
-const fileImport   = $("#fileImport");
 
 // Heures sup – affichage
 const otBalanceHM   = $("#otBalanceHM");
@@ -191,7 +189,7 @@ const otModalClose = $("#otModalClose");
 const otHistoryBody  = $("#otHistoryBody");
 const otHistoryEmpty = $("#otHistoryEmpty");
 
-// Compte utilisateur + menu
+// Compte utilisateur
 const accountBtn      = $("#accountBtn");
 const accountModal    = $("#accountModal");
 const accNameInput    = $("#accName");
@@ -199,17 +197,15 @@ const accCompanyInput = $("#accCompany");
 const accSaveBtn      = $("#accSaveBtn");
 const accCloseBtn     = $("#accCloseBtn");
 const accLogoutBtn    = $("#accLogoutBtn");
-
-// menu déroulant
-const accountMenu         = $("#accountMenu");
-const accMenuHeader       = $("#accMenuHeader");
-const accMenuTotalHM      = $("#accMenuTotalHM");
-const accMenuTotalEntries = $("#accMenuTotalEntries");
-const accMenuLogin        = $("#accMenuLogin");
-const accMenuEditProfile  = $("#accMenuEditProfile");
-const accMenuExport       = $("#accMenuExport");
-const accMenuImport       = $("#accMenuImport");
-const accMenuLogout       = $("#accMenuLogout");
+const accProfileBtn   = $("#accProfileBtn");
+const fileImport       = $("#fileImport");
+const accountMenu       = $("#accountMenu");
+const accMenuHeader     = $("#accMenuHeader");
+const accMenuLogin      = $("#accMenuLogin");
+const accMenuEditProfile= $("#accMenuEditProfile");
+const accMenuExport    = $("#accMenuExport");
+const accMenuImport    = $("#accMenuImport");
+const accMenuLogout     = $("#accMenuLogout");
 
 // =========================
 //  Filtre de période
@@ -340,12 +336,12 @@ function sumMinutes(filterFn) {
 // =========================
 //  Init formulaire
 // =========================
-if (dateInput && !dateInput.value) {
+if (!dateInput.value) {
   dateInput.valueAsNumber =
     Date.now() - new Date().getTimezoneOffset() * 60000;
 }
-if (weeklyTargetInput) weeklyTargetInput.value = settings.weeklyTarget;
-if (workDaysInput)     workDaysInput.value     = settings.workDays;
+weeklyTargetInput.value = settings.weeklyTarget;
+workDaysInput.value     = settings.workDays;
 
 if (otDateInput && !otDateInput.value) {
   otDateInput.valueAsNumber =
@@ -375,7 +371,6 @@ if (otDateInput && !otDateInput.value) {
   .forEach(i => i && i.addEventListener("input", updateLiveStats));
 
 btnToday?.addEventListener("click", () => {
-  if (!dateInput) return;
   dateInput.valueAsNumber =
     Date.now() - new Date().getTimezoneOffset() * 60000;
   updateLiveStats();
@@ -437,12 +432,22 @@ workDaysInput?.addEventListener("change", () => {
 });
 
 // =========================
-//  Export / import
+//  Export / import via menu compte
 // =========================
-btnExportCSV?.addEventListener("click", () =>
-  download("timetracker.csv", toCSV(entries))
-);
 
+// Exporter les données en CSV
+accMenuExport?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  download("timetracker.csv", toCSV(entries));
+});
+
+// Importer des données (ouvre le sélecteur de fichier)
+accMenuImport?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  fileImport?.click();
+});
+
+// Quand un fichier est sélectionné → on importe
 fileImport?.addEventListener("change", importFile);
 
 // =========================
@@ -721,8 +726,7 @@ function render() {
   sumMonth.textContent = minToHM(monthMin);
   sumYear.textContent  = minToHM(yearMin);
   sumAll.textContent   = minToHM(allMin);
-  const nEntries = entries.length;
-  entriesCountEl.textContent = `${nEntries} saisie${nEntries > 1 ? "s" : ""}`;
+  entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
 
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
   const workDays    = parseInt(workDaysInput.value || "5", 10) || 5;
@@ -783,9 +787,6 @@ function render() {
   otState.balanceMinutes = earned - (otState.usedMinutes || 0);
   saveOvertimeState();
   renderOvertime();
-
-  // 🔥 MAJ des stats dans le menu compte
-  updateMenuStats(allMin, nEntries);
 }
 
 // =========================
@@ -817,368 +818,506 @@ function monthTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
 
     let absenceDays = 0;
     for (const e of entries) {
-          if (
-      e.date >= weekStartKey &&
-      e.date <= weekEndKey &&
-      (
-        e.status === "school" ||
-        e.status === "vacation" ||
-        e.status === "sick" ||
-        e.status === "holiday"
-      )
-    ) {
-      absenceDays++;
+      if (
+        e.date >= weekStartKey &&
+        e.date <= weekEndKey &&
+        (e.status === "school" ||
+         e.status === "vacation" ||
+         e.status === "sick" ||
+         e.status === "holiday")
+      ) {
+        absenceDays++;
+      }
     }
+
+    const adjustedWeekly = Math.max(
+      0,
+      weeklyTargetHours - absenceDays * dailyTarget
+    );
+    totalHours += adjustedWeekly;
+
+    monday.setUTCDate(monday.getUTCDate() + 7);
   }
-
-  // Cible hebdomadaire ajustée
-  const adjustedWeekly = Math.max(0, weeklyTargetHours - absenceDays * dailyTarget);
-  totalHours += adjustedWeekly;
-
-  monday.setUTCDate(monday.getUTCDate() + 7);
-}
-
-return totalHours * 60;
+  return Math.round(totalHours * 60);
 }
 
 function yearTargetMinutes(anchorKey, weeklyTargetHours, workDays) {
-  const year = +anchorKey.slice(0, 4);
-
-  const jan1 = new Date(Date.UTC(year, 0, 1));
-  const dec31 = new Date(Date.UTC(year, 11, 31));
-
-  let monday = mondayOf(jan1);
-  let totalHours = 0;
   const dailyTarget = weeklyTargetHours / workDays;
+  const y = +anchorKey.slice(0, 4);
 
-  while (monday <= dec31) {
+  const yearFirst = new Date(Date.UTC(y, 0, 1));
+  const yearLast  = new Date(Date.UTC(y, 11, 31));
+
+  let monday = mondayOf(yearFirst);
+  let totalHours = 0;
+
+  while (monday <= yearLast) {
     const weekStart = new Date(monday);
-    const weekEnd = new Date(monday);
+    const weekEnd   = new Date(monday);
     weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
 
+    if (weekEnd < yearFirst || weekStart > yearLast) {
+      monday.setUTCDate(monday.getUTCDate() + 7);
+      continue;
+    }
+
     const weekStartKey = toDateKey(weekStart);
-    const weekEndKey = toDateKey(weekEnd);
+    const weekEndKey   = toDateKey(weekEnd);
 
     let absenceDays = 0;
     for (const e of entries) {
       if (
         e.date >= weekStartKey &&
         e.date <= weekEndKey &&
-        (
-          e.status === "school" ||
-          e.status === "vacation" ||
-          e.status === "sick" ||
-          e.status === "holiday"
-        )
+        (e.status === "school" ||
+         e.status === "vacation" ||
+         e.status === "sick" ||
+         e.status === "holiday")
       ) {
         absenceDays++;
       }
     }
 
-    const adjustedWeekly = Math.max(0, weeklyTargetHours - absenceDays * dailyTarget);
+    const adjustedWeekly = Math.max(
+      0,
+      weeklyTargetHours - absenceDays * dailyTarget
+    );
     totalHours += adjustedWeekly;
 
     monday.setUTCDate(monday.getUTCDate() + 7);
   }
-
-  return totalHours * 60;
+  return Math.round(totalHours * 60);
 }
 
 // =========================
-//  Rendue heures sup
+//  Heures sup : affichage & récup
 // =========================
 function renderOvertime() {
-  otBalanceHM.textContent = minToHM(otState.balanceMinutes);
-  otBalanceDays.textContent = (otState.balanceMinutes / (settings.workDays * 60)).toFixed(2) + " j";
-  otEarned.textContent = minToHM(otState.earnedMinutes);
-  otUsed.textContent = minToHM(otState.usedMinutes);
+  const bal    = otState.balanceMinutes || 0;
+  const earned = otState.earnedMinutes  || 0;
+  const used   = otState.usedMinutes    || 0;
+
+  otBalanceHM.textContent = minToHM(bal);
+  otEarned.textContent    = minToHM(earned);
+  otUsed.textContent      = minToHM(used);
+
+  const targetHours = settings.weeklyTarget || 35;
+  const workDays    = settings.workDays    || 5;
+  const dailyTarget = targetHours / workDays;
+
+  const hoursPerDay  = dailyTarget;
+  const days         = hoursPerDay > 0 ? Math.trunc(bal / 60 / hoursPerDay) : 0;
+  const remainingMin = bal - days * hoursPerDay * 60;
+  otBalanceDays.textContent = `${days} jour${days > 1 ? "s" : ""} · ${minToHM(
+    remainingMin
+  )}`;
 }
 
+otApplyBtn?.addEventListener("click", () => {
+  const days  = parseInt(otDaysInput.value  || "0", 10) || 0;
+  const hours = parseFloat(otHoursInput.value || "0")   || 0;
+  const date  = otDateInput.value || toDateKey(new Date());
+  const note  = (otNoteInput.value || "").trim();
+
+  const targetHours = settings.weeklyTarget || 35;
+  const workDays    = settings.workDays    || 5;
+  const dailyTarget = targetHours / workDays;
+
+  const totalHours = days * dailyTarget + hours;
+  const minutes    = Math.round(totalHours * 60);
+
+  if (minutes <= 0) {
+    alert("Indique au moins quelques heures ou jours à récupérer.");
+    return;
+  }
+
+  if (minutes > otState.balanceMinutes) {
+    if (!confirm("Tu récupères plus que ton solde d'heures sup. Continuer quand même ?"))
+      return;
+  }
+
+  otState.usedMinutes   += minutes;
+  otState.balanceMinutes = otState.earnedMinutes - otState.usedMinutes;
+
+  otState.events.push({
+    id: crypto.randomUUID(),
+    date,
+    minutes,
+    note,
+  });
+
+  saveOvertimeState();
+  renderOvertime();
+  refreshOtHistory();
+
+  otDaysInput.value  = "0";
+  otHoursInput.value = "0";
+  otNoteInput.value  = "";
+});
+
 // =========================
-//  Historique OT
+//  Modale historique heures sup
 // =========================
+function openOtModal() {
+  if (!otModal) return;
+  otModal.classList.remove("hidden");
+  refreshOtHistory();
+}
+
+function closeOtModal() {
+  if (!otModal) return;
+  otModal.classList.add("hidden");
+}
+
+otShowHistoryBtn?.addEventListener("click", openOtModal);
+otModalClose?.addEventListener("click", closeOtModal);
+otModal?.addEventListener("click", e => {
+  if (e.target === otModal) closeOtModal();
+});
+
 function refreshOtHistory() {
+  if (!otHistoryBody || !otHistoryEmpty) return;
+  const events = otState.events || [];
   otHistoryBody.innerHTML = "";
-  if (!otState.events.length) {
+
+  if (!events.length) {
     otHistoryEmpty.style.display = "block";
     return;
   }
   otHistoryEmpty.style.display = "none";
 
-  for (const ev of otState.events) {
+  for (const ev of events) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${ev.date}</td>
-      <td>${ev.type === "use" ? "-" : "+"}${minToHM(ev.minutes)}</td>
-      <td>${ev.note || ""}</td>
+      <td>${minToHM(ev.minutes)}</td>
+      <td>${escapeHtml(ev.note || "")}</td>
       <td>
-        <button class="icon-btn danger" data-id="${ev.id}">
-          <span>🗑️</span>
+        <button class="icon-btn danger" data-id="${ev.id}" title="Supprimer">
+          <span>🗑</span>
         </button>
       </td>
     `;
+    tr.querySelector("button").addEventListener("click", () => {
+      deleteOtEvent(ev.id);
+    });
     otHistoryBody.appendChild(tr);
   }
-
-  [...otHistoryBody.querySelectorAll(".icon-btn")].forEach(btn => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.id;
-      otState.events = otState.events.filter(e => e.id !== id);
-      otState.usedMinutes = otState.events
-        .filter(e => e.type === "use")
-        .reduce((a, b) => a + b.minutes, 0);
-      otState.balanceMinutes = otState.earnedMinutes - otState.usedMinutes;
-      saveOvertimeState();
-      renderOvertime();
-      refreshOtHistory();
-    });
-  });
 }
 
-otShowHistoryBtn?.addEventListener("click", () => {
-  otModal.classList.remove("hidden");
-  refreshOtHistory();
-});
-otModalClose?.addEventListener("click", () => otModal.classList.add("hidden"));
+function deleteOtEvent(id) {
+  const idx = otState.events.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  const ev = otState.events[idx];
+  if (!confirm("Supprimer cette récupération ?")) return;
 
-// =========================
-//  Appliquer récup OT
-// =========================
-otApplyBtn?.addEventListener("click", () => {
-  const d   = otDateInput.value;
-  const h   = parseInt(otHoursInput.value || "0", 10);
-  const day = parseFloat(otDaysInput.value || "0");
-
-  const minutes = h * 60 + day * settings.workDays * 60;
-  if (!minutes) {
-    alert("Aucun montant de récupération indiqué.");
-    return;
-  }
-
-  const ev = {
-    id: crypto.randomUUID(),
-    type: "use",
-    minutes,
-    date: d,
-    note: otNoteInput.value || "",
-  };
-
-  otState.events.push(ev);
-  otState.usedMinutes += minutes;
+  otState.events.splice(idx, 1);
+  otState.usedMinutes   = Math.max(0, otState.usedMinutes - ev.minutes);
   otState.balanceMinutes = otState.earnedMinutes - otState.usedMinutes;
-
   saveOvertimeState();
   renderOvertime();
   refreshOtHistory();
-});
-
-// =========================
-//  Statuts
-// =========================
-function statusLabel(s) {
-  switch (s) {
-    case "school": return "Cours";
-    case "vacation": return "Congés";
-    case "sick": return "Maladie";
-    case "holiday": return "Férié";
-    default: return "Travail";
-  }
-}
-
-function escapeHtml(t) {
-  return t.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
-
-// =========================
-//  CSV
-// =========================
-function toCSV(arr) {
-  const lines = ["date,start,lunchStart,lunchEnd,end,notes,status"];
-  for (const e of arr) {
-    lines.push([
-      e.date,
-      e.start || "",
-      e.lunchStart || "",
-      e.lunchEnd || "",
-      e.end || "",
-      (e.notes || "").replace(/"/g, '""'),
-      e.status,
-    ].map(v => `"${v}"`).join(","));
-  }
-  return lines.join("\n");
-}
-
-function download(name, content) {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([content], { type: "text/csv" }));
-  a.download = name;
-  a.click();
-}
-
-// =========================
-//  Import
-// =========================
-function importFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = evt => {
-    const text = evt.target.result;
-    const rows = text.split(/\r?\n/).slice(1);
-
-    for (const row of rows) {
-      if (!row.trim()) continue;
-      const cols = row.match(/"([^"]*)"/g).map(s => s.slice(1, -1));
-      const obj = {
-        date: cols[0],
-        start: cols[1],
-        lunchStart: cols[2],
-        lunchEnd: cols[3],
-        end: cols[4],
-        notes: cols[5],
-        status: cols[6] || "work",
-      };
-      const idx = entries.findIndex(x => x.date === obj.date);
-      if (idx >= 0) entries.splice(idx, 1);
-      entries.push({ id: crypto.randomUUID(), ...obj });
-    }
-    entries.sort((a, b) => a.date.localeCompare(b.date));
-    saveEntries();
-    render();
-  };
-  reader.readAsText(file);
-}
-
-// =========================
-//  MENU COMPTE
-// =========================
-accountBtn?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  accountMenu.classList.toggle("hidden");
-});
-
-// Fermer si click ailleurs
-document.addEventListener("click", () => {
-  if (!accountMenu.classList.contains("hidden")) {
-    accountMenu.classList.add("hidden");
-  }
-});
-
-// -------------------------
-// Menu items
-// -------------------------
-
-// Ouvrir modal compte (non connecté)
-accMenuLogin?.addEventListener("click", () => {
-  accountMenu.classList.add("hidden");
-  openAccountModal();
-});
-
-// Modifier le profil
-accMenuEditProfile?.addEventListener("click", () => {
-  accountMenu.classList.add("hidden");
-  openAccountModal();
-});
-
-// Export
-accMenuExport?.addEventListener("click", () => {
-  accountMenu.classList.add("hidden");
-  download("timetracker.csv", toCSV(entries));
-});
-
-// Import
-accMenuImport?.addEventListener("click", () => {
-  accountMenu.classList.add("hidden");
-  fileImport.click();
-});
-
-// Déconnexion
-accMenuLogout?.addEventListener("click", () => {
-  accountMenu.classList.add("hidden");
-  handleLogout();
-});
-
-// =========================
-// Mise à jour stats menu
-// =========================
-function updateMenuStats(totalMinutes, totalEntries) {
-  accMenuTotalHM.textContent = minToHM(totalMinutes);
-  accMenuTotalEntries.textContent = `${totalEntries} saisies`;
 }
 
 // =========================
 //  Compte utilisateur
 // =========================
-function openAccountModal() {
-  accNameInput.value = settings.account?.name || "";
-  accCompanyInput.value = settings.account?.company || "";
-  accountModal.classList.remove("hidden");
+function slugify(s) {
+  return (s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9\-]/g, "");
 }
 
-accCloseBtn?.addEventListener("click", () =>
-  accountModal.classList.add("hidden")
-);
+function makeAccountKey(name, company) {
+  const n = slugify(name);
+  const c = slugify(company);
+  if (!n || !c) return null;
+  return `acct:${c}:${n}`;
+}
 
-accSaveBtn?.addEventListener("click", () => {
-  const name = accNameInput.value.trim();
-  const company = accCompanyInput.value.trim();
-  if (!name) {
-    alert("Entre un nom.");
-    return;
-  }
-
-  // Première connexion → créer clé API
-  if (!settings.account) {
-    settings.account = {
-      name,
-      company,
-      key: crypto.randomUUID(),
-    };
-  } else {
-    settings.account.name = name;
-    settings.account.company = company;
-  }
-  saveSettings();
-  accountModal.classList.add("hidden");
-
-  updateAccountUI();
-  loadFromCloudForCurrentAccount();
-});
-
-accLogoutBtn?.addEventListener("click", handleLogout);
-
-function handleLogout() {
-  if (!confirm("Se déconnecter ?")) return;
-  settings.account = null;
-  saveSettings();
-  updateAccountUI();
+// plus de boutons cloud → no-op pour éviter l’erreur au F5
+function updateCloudKeyLabel() {
+  // volontairement vide
 }
 
 function updateAccountUI() {
-  if (settings.account) {
-    accountBtn.textContent = "Menu";
-    accMenuHeader.textContent = `Connecté en tant que ${settings.account.name}`;
-    accMenuLogin.style.display = "none";
-    accMenuEditProfile.style.display = "block";
-    accMenuLogout.style.display = "block";
-    accMenuExport.style.display = "block";
-    accMenuImport.style.display = "block";
+  const acc = settings.account;
+  const connected = acc && acc.key;
+
+  if (connected) {
+    // Bouton en haut
+    if (accountBtn){
+      accountBtn.textContent = `${acc.name} · ${acc.company}`;
+      accountBtn.classList.add("account-connected");
+    }
+
+    // Menu déroulant
+    if (accMenuHeader)
+      accMenuHeader.textContent = `Connecté en tant que ${acc.name} · ${acc.company}`;
+    if (accMenuLogin)
+      accMenuLogin.style.display = "none";
+    if (accMenuEditProfile)
+      accMenuEditProfile.style.display = "block";
+    if (accMenuLogout)
+      accMenuLogout.style.display = "block";
   } else {
-    accountBtn.textContent = "Menu";
-    accMenuHeader.textContent = "Non connecté";
-    accMenuLogin.style.display = "block";
-    accMenuEditProfile.style.display = "none";
-    accMenuLogout.style.display = "none";
-    accMenuExport.style.display = "none";
-    accMenuImport.style.display = "none";
+    if (accountBtn){
+      accountBtn.textContent = "Menu";
+      accountBtn.classList.remove("account-connected");
+    }
+
+    if (accMenuHeader)
+      accMenuHeader.textContent = "Non connecté";
+    if (accMenuLogin)
+      accMenuLogin.style.display = "block";
+    if (accMenuEditProfile)
+      accMenuEditProfile.style.display = "none";
+    if (accMenuLogout)
+      accMenuLogout.style.display = "none";
   }
 }
 
+function openAccountModal() {
+  if (!accountModal) return;
+  const acc = settings.account;
+  if (acc) {
+    accNameInput.value    = acc.name || "";
+    accCompanyInput.value = acc.company || "";
+  } else {
+    accNameInput.value    = "";
+    accCompanyInput.value = "";
+  }
+  accountModal.classList.remove("hidden");
+}
+
+function closeAccountModal() {
+  if (!accountModal) return;
+  accountModal.classList.add("hidden");
+}
+
+async function handleAccountSave() {
+  const name    = accNameInput.value.trim();
+  const company = accCompanyInput.value.trim();
+  const key = makeAccountKey(name, company);
+  if (!key) {
+    alert("Renseigne au moins un nom d’utilisateur et une société.");
+    return;
+  }
+  settings.account = { name, company, key };
+  settings.cloudKey = key;
+  saveSettings();
+  updateAccountUI();
+  closeAccountModal();
+
+  await loadFromCloudForCurrentAccount();
+}
+
+function handleLogout() {
+  if (!confirm("Se déconnecter du compte ?")) return;
+  settings.account = null;
+  saveSettings();
+  updateAccountUI();
+  closeAccountModal();
+}
+
+// === Listeurs pour la MODALE de compte ===
+if (accountModal) {
+  accCloseBtn?.addEventListener("click", closeAccountModal);
+  accSaveBtn?.addEventListener("click", handleAccountSave);
+  accLogoutBtn?.addEventListener("click", handleLogout);
+}
+
+// === Ouverture / fermeture du MENU de compte ===
+if (accountBtn && accountMenu) {
+  accountBtn.addEventListener("click", (e) => {
+    // Empêche le click de remonter jusqu'au document
+    e.stopPropagation();
+    accountMenu.classList.toggle("hidden");
+  });
+}
+
+// Fermer le menu si on clique ailleurs sur la page
+document.addEventListener("click", (e) => {
+  if (!accountMenu || accountMenu.classList.contains("hidden")) return;
+
+  // Si on clique dans le menu OU sur le bouton, on ne ferme pas
+  if (accountMenu.contains(e.target) || e.target === accountBtn) return;
+
+  accountMenu.classList.add("hidden");
+});
+
+// === Boutons internes du menu de compte ===
+
+// Non connecté : ouvrir la modale pour se connecter / créer
+accMenuLogin?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  openAccountModal();
+});
+
+// Connecté : modifier le profil (même modale)
+accMenuEditProfile?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  openAccountModal();
+});
+
+// Connecté : se déconnecter
+accMenuLogout?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  handleLogout();
+});
+
+
 // =========================
-//  Lancement
+//  Divers
 // =========================
-updateAccountUI();
+function statusLabel(status) {
+  switch (status) {
+    case "school":  return "École / formation";
+    case "vacation":return "Vacances";
+    case "sick":    return "Arrêt maladie";
+    case "holiday": return "Jour férié";
+    default:        return "Travail";
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, m => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[m]);
+}
+
+function download(filename, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function toCSV(data) {
+  const head = [
+    "date",
+    "start",
+    "lunchStart",
+    "lunchEnd",
+    "end",
+    "minutes",
+    "status",
+    "notes",
+  ];
+  const rows = data.map(e => [
+    e.date,
+    e.start || "",
+    e.lunchStart || "",
+    e.lunchEnd || "",
+    e.end || "",
+    computeMinutes(e),
+    e.status || "work",
+    (e.notes || "").replaceAll('"', '""'),
+  ]);
+  const csv = [
+    head.join(","),
+    ...rows.map(r => r.map(x => `"${x}"`).join(",")),
+  ].join("\n");
+  return csv;
+}
+
+async function importFile(ev) {
+  const f = ev.target.files[0];
+  if (!f) return;
+  const text = await f.text();
+  if (f.name.endsWith(".json")) {
+    try {
+      const arr = JSON.parse(text);
+      if (!Array.isArray(arr)) throw 0;
+      mergeEntries(arr);
+    } catch {
+      alert("JSON invalide.");
+    }
+  } else if (f.name.endsWith(".csv")) {
+    const arr = parseCSV(text);
+    mergeEntries(arr);
+  } else {
+    alert("Format non supporté.");
+  }
+  fileImport.value = "";
+  render();
+}
+
+function mergeEntries(arr) {
+  for (const r of arr) {
+    if (!r.date) continue;
+    const idx = entries.findIndex(x => x.date === r.date);
+    const obj = {
+      id: idx > -1 ? entries[idx].id : crypto.randomUUID(),
+      date: r.date,
+      start: r.start || "",
+      lunchStart: r.lunchStart || "",
+      lunchEnd: r.lunchEnd || "",
+      end: r.end || "",
+      notes: r.notes || "",
+      status: r.status || "work",
+    };
+    if (idx > -1) entries[idx] = obj;
+    else entries.push(obj);
+  }
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  saveEntries();
+}
+
+function updateMenuStats() {
+  const totalText = document.querySelector(".stat-total .v")?.textContent || "0h00";
+  const entriesText = document.querySelector(".stat-total .k2")?.textContent || "0";
+
+  document.getElementById("menuTotalHours").textContent = totalText;
+
+  const clean = entriesText.replace(/\D+/g, "");
+  document.getElementById("menuTotalEntries").textContent =
+    clean + " saisie" + (clean > 1 ? "s" : "");
+}
+
+function parseCSV(csv) {
+  const lines = csv.split(/\r?\n/).filter(Boolean);
+  const head = lines
+    .shift()
+    .split(",")
+    .map(s => s.replaceAll('"', "").trim());
+  const idx = k => head.indexOf(k);
+  const out = [];
+  for (const line of lines) {
+    const cols = line
+      .match(/("(?:[^"]|"")*"|[^,]+)/g)
+      .map(s => s.replace(/^"|"$/g, "").replaceAll('""', '"'));
+    out.push({
+      date: cols[idx("date")] || "",
+      start: cols[idx("start")] || "",
+      lunchStart: cols[idx("lunchStart")] || "",
+      lunchEnd: cols[idx("lunchEnd")] || "",
+      end: cols[idx("end")] || "",
+      notes: cols[idx("notes")] || "",
+      status: cols[idx("status")] || "work",
+    });
+  }
+  return out;
+}
+
+// =========================
+//  Premier rendu
+// =========================
+updateCloudKeyLabel();
 render();
 updateLiveStats();
 renderOvertime();
-refreshOtHistory();
+updateAccountUI();
+updateMenuStats();
+
+// si un compte existe déjà → on recharge depuis le cloud automatiquement
+if (settings.account && settings.account.key) {
+  loadFromCloudForCurrentAccount();
+}

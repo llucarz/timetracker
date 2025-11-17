@@ -715,6 +715,7 @@ function render() {
   sumWeek.textContent  = minToHM(weekMin);
   sumMonth.textContent = minToHM(monthMin);
   sumYear.textContent  = minToHM(yearMin);
+  sumAll.textContent   = minToHM(allMin);
   entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
 
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
@@ -776,10 +777,9 @@ function render() {
   otState.balanceMinutes = earned - (otState.usedMinutes || 0);
   saveOvertimeState();
   renderOvertime();
-
-  // Met à jour le total global dans le menu à chaque render
   updateMenuStats();
 }
+
 
 // =========================
 //  Objectifs mois / année
@@ -1251,17 +1251,19 @@ function mergeEntries(arr) {
 }
 
 function updateMenuStats() {
-  const totalMin = sumMinutes(() => true);
-  const totalText = minToHM(totalMin);
+  const totalEl   = document.getElementById("menuTotalHours");
+  const entriesEl = document.getElementById("menuTotalEntries");
+  if (!totalEl || !entriesEl) return;
 
-  const n = entries.length;
-  const label = `${n} saisie${n > 1 ? "s" : ""}`;
+  // total global en minutes sur TOUTES les entrées
+  const totalMinutes = sumMinutes(() => true);
+  const count        = entries.length || 0;
 
-  const hEl = document.getElementById("menuTotalHours");
-  const eEl = document.getElementById("menuTotalEntries");
-  if (hEl) hEl.textContent = totalText;
-  if (eEl) eEl.textContent = label;
+  totalEl.textContent = minToHM(totalMinutes);
+  entriesEl.textContent =
+    count + " saisie" + (count > 1 ? "s" : "");
 }
+
 
 function parseCSV(csv) {
   const lines = csv.split(/\r?\n/).filter(Boolean);

@@ -9,35 +9,44 @@
 <body>
   <!-- Barre du haut -->
   <header class="topbar">
-    <div class="topbar-right">
-      <div class="account-wrapper">
-        <!-- Bouton de compte (comme avant) -->
-        <button class="btn secondary" id="accountBtn">
-          Créer un compte
+    <div class="account-wrapper">
+      <button class="btn secondary" id="accountBtn">
+        Créer un compte
+      </button>
+  
+      <div class="account-menu hidden" id="accountMenu">
+        <div class="account-menu-header" id="accMenuHeader">
+          Non connecté
+        </div>
+  
+        <!-- Quand pas connecté : on utilisera ce bouton -->
+        <button class="account-menu-item" id="accMenuLogin">
+          Se connecter / créer un compte
         </button>
   
-        <!-- MENU DÉROULANT COMPTE -->
-        <div id="accountMenu" class="account-menu hidden">
-          <div class="account-menu-header" id="accMenuHeader">
-            Non connecté
-          </div>
+        <!-- Quand connecté : on affiche / utilise surtout ceux-là -->
+        <button class="account-menu-item" id="accMenuEditProfile">
+          Modifier le profil
+        </button>
   
-          <!-- Quand on n’est PAS connecté -->
-          <button class="account-menu-item" id="accMenuLogin">
-            Se connecter / créer un compte
-          </button>
+        <button class="account-menu-item" id="accMenuExport">
+          Exporter les heures (CSV)
+        </button>
   
-          <!-- Quand on est connecté -->
-          <button class="account-menu-item" id="accMenuEditProfile" style="display:none">
-            Modifier le profil
-          </button>
-          <button class="account-menu-item danger" id="accMenuLogout" style="display:none">
-            Se déconnecter
-          </button>
-        </div>
+        <button class="account-menu-item" id="accMenuImport">
+          Importer des heures
+        </button>
+  
+        <button class="account-menu-item danger" id="accMenuLogout">
+          Se déconnecter
+        </button>
       </div>
     </div>
+  
+    <!-- input fichier global, déclenché par le menu "Importer" -->
+    <input type="file" id="fileImport" accept=".json,.csv" style="display:none" />
   </header>
+
   
   <div class="wrap">
     <div class="grid">
@@ -161,9 +170,9 @@
               >
                 ◀
               </button>
-
+            
               <!-- Pickers natifs, affichés selon le filtre -->
-              <input type="week" id="weekPicker" class="picker" />
+              <input type="week"  id="weekPicker"  class="picker" />
               <input type="month" id="monthPicker" class="picker" />
               <input
                 type="number"
@@ -175,7 +184,7 @@
                 style="width:100px"
                 placeholder="Année"
               />
-
+            
               <button
                 class="btn secondary"
                 id="nextPeriod"
@@ -183,19 +192,7 @@
               >
                 ▶
               </button>
-
-              <button class="btn secondary" id="btnExportCSV">Exporter CSV</button>
-              <label class="btn" for="fileImport" style="cursor:pointer"
-                >Importer</label
-              >
-              <input
-                type="file"
-                id="fileImport"
-                accept=".json,.csv"
-                style="display:none"
-              />
             </div>
-          </div>
 
           <table id="tbl">
             <thead>

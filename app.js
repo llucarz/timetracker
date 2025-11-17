@@ -202,7 +202,11 @@ const accSaveBtn      = $("#accSaveBtn");
 const accCloseBtn     = $("#accCloseBtn");
 const accLogoutBtn    = $("#accLogoutBtn");
 const accProfileBtn   = $("#accProfileBtn");
-
+const accountMenu       = $("#accountMenu");
+const accMenuHeader     = $("#accMenuHeader");
+const accMenuLogin      = $("#accMenuLogin");
+const accMenuEditProfile= $("#accMenuEditProfile");
+const accMenuLogout     = $("#accMenuLogout");
 
 // =========================
 //  Filtre de période
@@ -1030,27 +1034,39 @@ function updateCloudKeyLabel() {
 }
 
 function updateAccountUI() {
-  if (!accountBtn) return;
   const acc = settings.account;
   const connected = acc && acc.key;
 
   if (connected) {
-    // Texte du bouton en haut
-    accountBtn.textContent = `${acc.name} · ${acc.company}`;
-    accountBtn.classList.add("account-connected");
+    // Bouton en haut
+    if (accountBtn){
+      accountBtn.textContent = `${acc.name} · ${acc.company}`;
+      accountBtn.classList.add("account-connected");
+    }
 
-    // Dans la modale : on montre Profil + Déconnexion, on cache "Se connecter / créer"
-    if (accSaveBtn)    accSaveBtn.style.display    = "none";
-    if (accProfileBtn) accProfileBtn.style.display = "inline-block";
-    if (accLogoutBtn)  accLogoutBtn.style.display  = "inline-block";
+    // Menu déroulant
+    if (accMenuHeader)
+      accMenuHeader.textContent = `Connecté en tant que ${acc.name} · ${acc.company}`;
+    if (accMenuLogin)
+      accMenuLogin.style.display = "none";
+    if (accMenuEditProfile)
+      accMenuEditProfile.style.display = "block";
+    if (accMenuLogout)
+      accMenuLogout.style.display = "block";
   } else {
-    // Pas connecté
-    accountBtn.textContent = "Créer un compte";
-    accountBtn.classList.remove("account-connected");
+    if (accountBtn){
+      accountBtn.textContent = "Créer un compte";
+      accountBtn.classList.remove("account-connected");
+    }
 
-    if (accSaveBtn)    accSaveBtn.style.display    = "inline-block";
-    if (accProfileBtn) accProfileBtn.style.display = "none";
-    if (accLogoutBtn)  accLogoutBtn.style.display  = "none";
+    if (accMenuHeader)
+      accMenuHeader.textContent = "Non connecté";
+    if (accMenuLogin)
+      accMenuLogin.style.display = "block";
+    if (accMenuEditProfile)
+      accMenuEditProfile.style.display = "none";
+    if (accMenuLogout)
+      accMenuLogout.style.display = "none";
   }
 }
 
@@ -1097,12 +1113,52 @@ function handleLogout() {
   closeAccountModal();
 }
 
-if (accountBtn && accountModal) {
-  accountBtn.addEventListener("click", openAccountModal);
+// === Listeurs pour la MODALE de compte ===
+if (accountModal) {
   accCloseBtn?.addEventListener("click", closeAccountModal);
   accSaveBtn?.addEventListener("click", handleAccountSave);
   accLogoutBtn?.addEventListener("click", handleLogout);
 }
+
+// === Ouverture / fermeture du MENU de compte ===
+if (accountBtn && accountMenu) {
+  accountBtn.addEventListener("click", (e) => {
+    // Empêche le click de remonter jusqu'au document
+    e.stopPropagation();
+    accountMenu.classList.toggle("hidden");
+  });
+}
+
+// Fermer le menu si on clique ailleurs sur la page
+document.addEventListener("click", (e) => {
+  if (!accountMenu || accountMenu.classList.contains("hidden")) return;
+
+  // Si on clique dans le menu OU sur le bouton, on ne ferme pas
+  if (accountMenu.contains(e.target) || e.target === accountBtn) return;
+
+  accountMenu.classList.add("hidden");
+});
+
+// === Boutons internes du menu de compte ===
+
+// Non connecté : ouvrir la modale pour se connecter / créer
+accMenuLogin?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  openAccountModal();
+});
+
+// Connecté : modifier le profil (même modale)
+accMenuEditProfile?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  openAccountModal();
+});
+
+// Connecté : se déconnecter
+accMenuLogout?.addEventListener("click", () => {
+  accountMenu?.classList.add("hidden");
+  handleLogout();
+});
+
 
 // =========================
 //  Divers

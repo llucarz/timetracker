@@ -169,10 +169,6 @@ const weekPicker  = $("#weekPicker");
 const monthPicker = $("#monthPicker");
 const yearPicker  = $("#yearPicker");
 
-// Export / import
-const btnExportCSV = $("#btnExportCSV");
-const fileImport   = $("#fileImport");
-
 // Heures sup – affichage
 const otBalanceHM   = $("#otBalanceHM");
 const otBalanceDays = $("#otBalanceDays");
@@ -202,10 +198,13 @@ const accSaveBtn      = $("#accSaveBtn");
 const accCloseBtn     = $("#accCloseBtn");
 const accLogoutBtn    = $("#accLogoutBtn");
 const accProfileBtn   = $("#accProfileBtn");
+const fileImport       = $("#fileImport");
 const accountMenu       = $("#accountMenu");
 const accMenuHeader     = $("#accMenuHeader");
 const accMenuLogin      = $("#accMenuLogin");
 const accMenuEditProfile= $("#accMenuEditProfile");
+const accMenuExport    = $("#accMenuExport");
+const accMenuImport    = $("#accMenuImport");
 const accMenuLogout     = $("#accMenuLogout");
 
 // =========================

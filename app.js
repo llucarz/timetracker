@@ -363,7 +363,7 @@ if (otDateInput && !otDateInput.value) {
 //  Events formulaire
 // =========================
 [startInput, lStartInput, lEndInput, endInput, dateInput, statusInput]
-  .forEach(i => i && i.addEventListener("input", updateLiveStats));
+  .forEach(i => i && i.addaddEventListener("input", updateLiveStats));
 
 btnToday?.addEventListener("click", () => {
   dateInput.valueAsNumber =
@@ -573,10 +573,10 @@ function updateLiveStats() {
   const e = collectForm();
   const minutes = computeMinutes(e);
 
-  // Temps du jour – juste affiché
+  // Temps du jour
   if (statDay) statDay.textContent = minToHM(minutes);
 
-  // Pour la barre de progression hebdo
+  // Progression hebdomadaire
   const today = e.date || toDateKey(new Date());
   const { start, end } = weekRangeOf(today);
   const weekMin  = sumMinutes(x => x.date >= start && x.date <= end);
@@ -585,7 +585,7 @@ function updateLiveStats() {
 
 function updateWeekProgress(weekMin, wStart, wEnd) {
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
-  const workDays    = parseInt(workDaysInput.value || "5", 10) || 5;
+  const workDays    = parseInt(workDaysInput.value || "5", 10)   || 5;
   const dailyTarget = targetHours / workDays;
 
   const absenceDays = entries.filter(
@@ -652,6 +652,7 @@ function render() {
   const anchor = periodAnchorKey || toDateKey(new Date());
   const { start: wStart, end: wEnd } = weekRangeOf(anchor);
 
+  // Onglets actifs
   [weekLabel, monthLabel, yearLabel].forEach(el => el?.classList.remove("active"));
   (currentFilter === "week"
     ? weekLabel
@@ -660,6 +661,7 @@ function render() {
     : yearLabel
   )?.classList.add("active");
 
+  // Affichage pickers
   if (weekPicker)
     weekPicker.style.display = currentFilter === "week" ? "inline-block" : "none";
   if (monthPicker)
@@ -678,6 +680,7 @@ function render() {
       ? e.date.slice(0, 7) === anchor.slice(0, 7)
       : e.date.slice(0, 4) === anchor.slice(0, 4);
 
+  // Remplissage tableau
   tbody.innerHTML = "";
   for (const e of entries.filter(inRange)) {
     const tr = document.createElement("tr");
@@ -715,13 +718,17 @@ function render() {
   sumWeek.textContent  = minToHM(weekMin);
   sumMonth.textContent = minToHM(monthMin);
   sumYear.textContent  = minToHM(yearMin);
-  sumAll.textContent   = minToHM(allMin);
+
+  // Suppression de l’ancien bug sumAll
+  // (plus de sumAll ici)
+
   entriesCount.textContent = `${entries.length} saisie${entries.length > 1 ? "s" : ""}`;
 
   const targetHours = parseFloat(weeklyTargetInput.value || "35") || 35;
   const workDays    = parseInt(workDaysInput.value || "5", 10) || 5;
   const dailyTarget = targetHours / workDays;
 
+  // Absences semaine
   const absenceDaysWeek = entries.filter(
     e =>
       e.date >= wStart &&
@@ -738,6 +745,7 @@ function render() {
   );
   const weekTargetMin = adjustedWeeklyTarget * 60;
 
+  // Δ semaine
   if (absenceDaysWeek >= workDays && weekMin === 0) {
     deltaWeek.textContent = "Absent toute la semaine";
     deltaWeek.className = "delta";
@@ -750,6 +758,7 @@ function render() {
     deltaWeek.className = "delta";
   }
 
+  // Δ mois
   const monthTargetMin = monthTargetMinutes(anchor, targetHours, workDays);
   if (monthTargetMin > 0 && monthMin > monthTargetMin) {
     const diff = monthMin - monthTargetMin;
@@ -760,6 +769,7 @@ function render() {
     deltaMonth.className = "delta";
   }
 
+  // Δ année
   const yearTargetMin = yearTargetMinutes(anchor, targetHours, workDays);
   if (yearTargetMin > 0 && yearMin > yearTargetMin) {
     const diff = yearMin - yearTargetMin;
@@ -772,14 +782,16 @@ function render() {
 
   updateWeekProgress(weekMin, wStart, wEnd);
 
+  // Heures sup
   const earned = computeOvertimeEarned();
   otState.earnedMinutes  = earned;
   otState.balanceMinutes = earned - (otState.usedMinutes || 0);
   saveOvertimeState();
   renderOvertime();
+
+  // Menu déroulant
   updateMenuStats();
 }
-
 
 // =========================
 //  Objectifs mois / année
@@ -924,7 +936,7 @@ otApplyBtn?.addEventListener("click", () => {
   }
 
   if (minutes > otState.balanceMinutes) {
-    if (!confirm("Tu récupères plus que ton solde d'heures sup. Continuer quand même ?"))
+    if (!confirm("Tu récupères plus que ton solde d'heures sup. Continuer ?"))
       return;
   }
 
@@ -1029,7 +1041,6 @@ function makeAccountKey(name, company) {
   return `acct:${c}:${n}`;
 }
 
-// plus de boutons cloud → no-op pour éviter l’erreur au F5
 function updateCloudKeyLabel() {
   // volontairement vide
 }
@@ -1046,12 +1057,14 @@ function updateAccountUI() {
 
     if (accMenuHeader)
       accMenuHeader.textContent = `Connecté en tant que ${acc.name} · ${acc.company}`;
+
     if (accMenuLogin)
       accMenuLogin.style.display = "none";
     if (accMenuEditProfile)
       accMenuEditProfile.style.display = "block";
     if (accMenuLogout)
       accMenuLogout.style.display = "block";
+
   } else {
     if (accountBtn){
       accountBtn.textContent = "Menu";
@@ -1060,6 +1073,7 @@ function updateAccountUI() {
 
     if (accMenuHeader)
       accMenuHeader.textContent = "Non connecté";
+
     if (accMenuLogin)
       accMenuLogin.style.display = "block";
     if (accMenuEditProfile)
@@ -1092,7 +1106,7 @@ async function handleAccountSave() {
   const company = accCompanyInput.value.trim();
   const key = makeAccountKey(name, company);
   if (!key) {
-    alert("Renseigne au moins un nom d’utilisateur et une société.");
+    alert("Renseigne au moins un nom + une société.");
     return;
   }
   settings.account = { name, company, key };
@@ -1255,7 +1269,6 @@ function updateMenuStats() {
   const entriesEl = document.getElementById("menuTotalEntries");
   if (!totalEl || !entriesEl) return;
 
-  // total global en minutes sur TOUTES les entrées
   const totalMinutes = sumMinutes(() => true);
   const count        = entries.length || 0;
 
@@ -1263,7 +1276,6 @@ function updateMenuStats() {
   entriesEl.textContent =
     count + " saisie" + (count > 1 ? "s" : "");
 }
-
 
 function parseCSV(csv) {
   const lines = csv.split(/\r?\n/).filter(Boolean);

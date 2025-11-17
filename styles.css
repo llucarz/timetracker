@@ -477,23 +477,24 @@ tr:hover{
 
 /* --- Topbar compte --- */
 .topbar{
-  width:100%;                 /* prend toute la largeur de l’écran */
-  padding:12px 24px 0;        /* un peu d’espace au bord */
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;   /* colle le contenu complètement à droite */
-  color:var(--muted);
-  font-size:14px;
-  position:sticky;            /* optionnel : reste en haut au scroll */
-  top:0;
-  z-index:50;
+  position: fixed;    /* collé à la fenêtre, pas au contenu */
+  top: 12px;          /* distance du haut */
+  right: 24px;        /* distance du bord droit */
+  left: auto;
+  width: auto;        /* s'adapte à la taille du bouton */
+  padding: 0;
+  margin: 0;
+  z-index: 100;       /* au-dessus des cartes */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
+/* le conteneur n'a plus vraiment d'intérêt, mais on le garde */
 .topbar-right .btn{
   padding:8px 12px;
   font-size:13px;
 }
-
 /* Bouton compte connecté : on ne touche pas */
 .account-connected{
   border-color:var(--accent-2);

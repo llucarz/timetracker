@@ -201,6 +201,8 @@ const accCompanyInput = $("#accCompany");
 const accSaveBtn      = $("#accSaveBtn");
 const accCloseBtn     = $("#accCloseBtn");
 const accLogoutBtn    = $("#accLogoutBtn");
+const accProfileBtn   = $("#accProfileBtn");
+
 
 // =========================
 //  Filtre de période
@@ -1033,13 +1035,22 @@ function updateAccountUI() {
   const connected = acc && acc.key;
 
   if (connected) {
+    // Texte du bouton en haut
     accountBtn.textContent = `${acc.name} · ${acc.company}`;
     accountBtn.classList.add("account-connected");
-    if (accLogoutBtn) accLogoutBtn.style.display = "inline-block";
+
+    // Dans la modale : on montre Profil + Déconnexion, on cache "Se connecter / créer"
+    if (accSaveBtn)    accSaveBtn.style.display    = "none";
+    if (accProfileBtn) accProfileBtn.style.display = "inline-block";
+    if (accLogoutBtn)  accLogoutBtn.style.display  = "inline-block";
   } else {
+    // Pas connecté
     accountBtn.textContent = "Créer un compte";
     accountBtn.classList.remove("account-connected");
-    if (accLogoutBtn) accLogoutBtn.style.display = "none";
+
+    if (accSaveBtn)    accSaveBtn.style.display    = "inline-block";
+    if (accProfileBtn) accProfileBtn.style.display = "none";
+    if (accLogoutBtn)  accLogoutBtn.style.display  = "none";
   }
 }
 
@@ -1091,6 +1102,8 @@ if (accountBtn && accountModal) {
   accCloseBtn?.addEventListener("click", closeAccountModal);
   accSaveBtn?.addEventListener("click", handleAccountSave);
   accLogoutBtn?.addEventListener("click", handleLogout);
+  accProfileBtn?.addEventListener("click", () => alert("Les options de profil arriveront bientôt 🙂");
+
 }
 
 // =========================

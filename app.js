@@ -194,6 +194,7 @@ const baseEndInput        = $("#baseEnd");
 
 // Bouton horaires habituels
 const baseHoursBtn = $("#btnBaseHours");
+console.log("baseHoursBtn ref =", baseHoursBtn);
 
 // Tableau & récap global
 const tbody        = $("#tbody");

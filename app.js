@@ -494,15 +494,23 @@ dayEnableInputs.forEach(cb => {
 
 
 baseHoursBtn?.addEventListener("click", () => {
+  console.log("[baseHoursBtn] click");
+
   const bh = settings.baseHours || {};
   const mode = bh.mode || "same";
 
+  console.log("[baseHoursBtn] settings.baseHours =", bh, "mode =", mode);
+
+  const dateStr = dateInput.value || toDateKey(new Date());
+  const d = new Date(dateStr + "T12:00:00");
+  const map = ["sun","mon","tue","wed","thu","fri","sat"];
+  const code = map[d.getDay()];
+
+  console.log("[baseHoursBtn] dateStr =", dateStr, "getDay() =", d.getDay(), "code =", code);
+
   if (mode === "per-day") {
-    const dateStr = dateInput.value || toDateKey(new Date());
-    const d = new Date(dateStr + "T12:00:00");
-    const map = ["sun","mon","tue","wed","thu","fri","sat"];
-    const code = map[d.getDay()];
     const cfg = bh.days?.[code];
+    console.log("[baseHoursBtn] cfg pour ce jour =", cfg);
 
     if (!cfg || !cfg.enabled) {
       alert("Aucun horaire habituel configuré pour ce jour.");
@@ -513,8 +521,11 @@ baseHoursBtn?.addEventListener("click", () => {
     lStartInput.value = cfg.lunchStart || "";
     lEndInput.value   = cfg.lunchEnd || "";
     endInput.value    = cfg.end || "";
+
   } else {
     const same = bh.same || {};
+    console.log("[baseHoursBtn] same =", same);
+
     if (!(same.start && same.lunchStart && same.lunchEnd && same.end)) {
       alert(
         "Merci de renseigner tes horaires habituels dans ton profil pour activer la saisie automatique."
@@ -528,8 +539,16 @@ baseHoursBtn?.addEventListener("click", () => {
     endInput.value    = same.end;
   }
 
+  console.log("[baseHoursBtn] valeurs appliquées", {
+    start: startInput.value,
+    lunchStart: lStartInput.value,
+    lunchEnd: lEndInput.value,
+    end: endInput.value,
+  });
+
   updateLiveStats();
 });
+
 
 btnSave?.addEventListener("click", () => {
   const e = collectForm();

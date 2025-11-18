@@ -327,14 +327,6 @@ async function syncToCloud() {
   });
 }
 
-
-  await fetch(`/api/data?key=${encodeURIComponent(key)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
 async function loadFromCloudForCurrentAccount() {
   if (!settings.account || !settings.account.key) return;
   try {
@@ -391,6 +383,7 @@ async function loadFromCloudForCurrentAccount() {
     console.error("Erreur chargement cloud compte", err);
   }
 }
+
 
 // =========================
 //  Calcul temps travaillé

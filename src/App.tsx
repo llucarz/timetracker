@@ -5,6 +5,7 @@ import { DailyEntryModal } from "./components/DailyEntryModal";
 import { WeeklyView } from "./components/WeeklyView";
 import { OvertimePanel } from "./components/OvertimePanel";
 import { ProfileModal } from "./components/ProfileModal";
+import { LoginModal } from "./components/LoginModal";
 import { UserMenu } from "./components/UserMenu";
 import { Onboarding } from "./components/Onboarding";
 import { Toaster } from "./components/ui/sonner";
@@ -15,6 +16,7 @@ function App() {
   const { settings, updateSettings } = useTimeTracker();
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState<"dashboard" | "history" | "overtime">("dashboard");
   const [isScrolled, setIsScrolled] = useState(false);
   const [period, setPeriod] = useState<"week" | "month" | "year">("week");
@@ -105,6 +107,7 @@ function App() {
                 userName={settings.account?.name || "Utilisateur"} 
                 company={settings.account?.company || "Entreprise"}
                 onOpenProfile={() => setIsProfileOpen(true)}
+                onLogin={() => setIsLoginModalOpen(true)}
               />
               
               {/* Mobile menu button */}
@@ -212,6 +215,12 @@ function App() {
       <ProfileModal 
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
+      />
+
+      {/* Login Modal */}
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => setIsLoginModalOpen(false)} 
       />
 
       <Toaster />

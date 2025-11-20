@@ -1,6 +1,6 @@
 {
-      "name": "UI/UX Design for Time Tracking App",
-      "version": "0.1.0",
+      "name": "timetracker",
+      "version": "1.0.0",
       "private": true,
       "dependencies": {
             "@radix-ui/react-accordion": "^1.2.3",

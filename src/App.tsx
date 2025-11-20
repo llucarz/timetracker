@@ -5,14 +5,13 @@ import { WeeklyView } from "./components/WeeklyView";
 import { OvertimePanel } from "./components/OvertimePanel";
 import { ProfileModal } from "./components/ProfileModal";
 import { UserMenu } from "./components/UserMenu";
-import { Onboarding } from "./components/Onboarding";
 import { Toaster } from "./components/ui/sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { LayoutDashboard, Clock, TrendingUp, Menu, X } from "lucide-react";
 import { useTimeTracker } from "./context/TimeTrackerContext";
 
 function App() {
-  const { settings, updateSettings } = useTimeTracker();
+  const { settings } = useTimeTracker();
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentView, setCurrentView] = useState<"dashboard" | "history" | "overtime">("dashboard");
@@ -42,41 +41,6 @@ function App() {
     }
     setIsMobileMenuOpen(false);
   }, [currentView]);
-
-  const handleOnboardingComplete = (data: any) => {
-    updateSettings({
-      isOnboarded: true,
-      weeklyTarget: data.weeklyTarget,
-      workDays: data.workDays.length,
-      account: {
-        name: data.name,
-        company: data.company,
-        key: crypto.randomUUID() // Generate a dummy key for now
-      },
-      baseHours: {
-        mode: "same",
-        same: {
-          start: data.arrival,
-          lunchStart: data.pauseStart,
-          lunchEnd: data.pauseEnd,
-          end: data.departure
-        },
-        days: {
-          mon: { enabled: data.workDays.includes("monday"), start: data.arrival, lunchStart: data.pauseStart, lunchEnd: data.pauseEnd, end: data.departure },
-          tue: { enabled: data.workDays.includes("tuesday"), start: data.arrival, lunchStart: data.pauseStart, lunchEnd: data.pauseEnd, end: data.departure },
-          wed: { enabled: data.workDays.includes("wednesday"), start: data.arrival, lunchStart: data.pauseStart, lunchEnd: data.pauseEnd, end: data.departure },
-          thu: { enabled: data.workDays.includes("thursday"), start: data.arrival, lunchStart: data.pauseStart, lunchEnd: data.pauseEnd, end: data.departure },
-          fri: { enabled: data.workDays.includes("friday"), start: data.arrival, lunchStart: data.pauseStart, lunchEnd: data.pauseEnd, end: data.departure },
-          sat: { enabled: data.workDays.includes("saturday"), start: data.arrival, lunchStart: data.pauseStart, lunchEnd: data.pauseEnd, end: data.departure },
-          sun: { enabled: data.workDays.includes("sunday"), start: data.arrival, lunchStart: data.pauseStart, lunchEnd: data.pauseEnd, end: data.departure },
-        }
-      }
-    });
-  };
-
-  if (!settings.isOnboarded) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
-  }
 
   const defaultSchedule = settings.baseHours?.same || {
     arrival: "09:00",

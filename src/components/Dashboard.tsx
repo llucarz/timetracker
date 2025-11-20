@@ -1,6 +1,5 @@
 import { Clock, TrendingUp, Calendar, Zap, Play, ArrowRight, Sparkles, Pencil } from "lucide-react";
 import { Button } from "./ui/button";
-import { motion } from "motion/react";
 import { useState } from "react";
 import { EditEntryModal } from "./EditEntryModal";
 import { useTimeTracker } from "../context/TimeTrackerContext";
@@ -63,10 +62,7 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* Welcome Hero */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+      <div
         className="relative overflow-hidden bg-gradient-to-r from-[#a855f7] via-[#ec4899] to-[#f43f5e] rounded-[2rem] p-8 sm:p-12 lg:p-16 text-white shadow-xl"
       >
         {/* Decorative background */}
@@ -107,7 +103,7 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
             <Clock className="w-40 h-40 text-white/40" strokeWidth={1} />
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Stats Grid */}
       <div>
@@ -160,10 +156,7 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
       </div>
 
       {/* Recent Activity */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
+      <div
         className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 lg:p-8 card-shadow"
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
@@ -181,11 +174,8 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
           {recentEntries.length === 0 ? (
             <p className="text-center text-gray-500 py-8">Aucune entrée récente.</p>
           ) : recentEntries.map((entry, index) => (
-            <motion.div
+            <div
               key={index}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 + index * 0.05 }}
               className="flex items-center justify-between p-3 sm:p-4 rounded-xl sm:rounded-2xl hover:bg-gray-50 transition-colors group"
             >
               <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
@@ -231,10 +221,10 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
                   <Pencil className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-purple-600" />
                 </button>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Edit Entry Modal */}
       {isEditModalOpen && (
@@ -262,10 +252,7 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, subtitle, trend, iconBg, iconColor, trendColor, delay = 0 }: StatCardProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay }}
+    <div
       className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-md transition-all group border border-gray-100"
     >
       <div className="flex items-start justify-between mb-6">
@@ -283,6 +270,6 @@ function StatCard({ icon, label, value, subtitle, trend, iconBg, iconColor, tren
         <p className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">{value}</p>
         <p className="text-sm text-gray-400 font-medium">{subtitle}</p>
       </div>
-    </motion.div>
+    </div>
   );
 }

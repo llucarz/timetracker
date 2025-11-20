@@ -6,7 +6,6 @@ import { OvertimePanel } from "./components/OvertimePanel";
 import { ProfileModal } from "./components/ProfileModal";
 import { UserMenu } from "./components/UserMenu";
 import { Toaster } from "./components/ui/sonner";
-import { motion, AnimatePresence } from "motion/react";
 import { LayoutDashboard, Clock, TrendingUp, Menu, X } from "lucide-react";
 import { useTimeTracker } from "./context/TimeTrackerContext";
 
@@ -88,10 +87,8 @@ function App() {
                     </span>
                   </div>
                   {currentView === item.id && (
-                    <motion.div
-                      layoutId="navIndicator"
+                    <div
                       className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
                     />
                   )}
                 </button>
@@ -121,13 +118,8 @@ function App() {
           </div>
 
           {/* Mobile Navigation */}
-          <AnimatePresence>
             {isMobileMenuOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
+              <div
                 className="md:hidden overflow-hidden border-t border-gray-200"
               >
                 <nav className="py-2 space-y-1">
@@ -146,9 +138,8 @@ function App() {
                     </button>
                   ))}
                 </nav>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
         </div>
       </header>
 
@@ -159,45 +150,27 @@ function App() {
           currentView === "dashboard" ? "overflow-y-auto py-4 sm:py-6 lg:py-8" : "overflow-hidden py-4 sm:py-6 lg:py-8 pb-6 sm:pb-8"
         }`}
       >
-        <AnimatePresence mode="wait">
           {currentView === "dashboard" && (
-            <motion.div
-              key="dashboard"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
-            >
+            <div>
               <Dashboard onStartEntry={() => setIsEntryModalOpen(true)} />
-            </motion.div>
+            </div>
           )}
           
           {currentView === "history" && (
-            <motion.div
-              key="history"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
+            <div
               className="h-full"
             >
               <WeeklyView period={period} onPeriodChange={setPeriod} />
-            </motion.div>
+            </div>
           )}
 
           {currentView === "overtime" && (
-            <motion.div
-              key="overtime"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
+            <div
               className="h-full overflow-hidden"
             >
               <OvertimePanel />
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
       </main>
 
       {/* Daily Entry Modal */}

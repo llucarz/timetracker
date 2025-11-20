@@ -16,6 +16,7 @@ interface WeeklyViewProps {
 
 export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
   const { entries } = useTimeTracker();
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
@@ -24,10 +25,53 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
   const [periodButtonRef, setPeriodButtonRef] = useState<HTMLButtonElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Sort entries by date descending
-  const sortedEntries = useMemo(() => {
-    return [...entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [entries]);
+  // Filter and sort entries based on period and currentDate
+  const filteredEntries = useMemo(() => {
+    const start = new Date(currentDate);
+    const end = new Date(currentDate);
+
+    if (period === "week") {
+      const day = start.getDay() || 7;
+      if (day !== 1) start.setHours(-24 * (day - 1));
+      start.setHours(0, 0, 0, 0);
+      end.setTime(start.getTime() + 6 * 24 * 60 * 60 * 1000);
+      end.setHours(23, 59, 59, 999);
+    } else if (period === "month") {
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(end.getMonth() + 1);
+      end.setDate(0);
+      end.setHours(23, 59, 59, 999);
+    } else if (period === "year") {
+      start.setMonth(0, 1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(11, 31);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+
+    return entries
+      .filter(e => e.date >= startStr && e.date <= endStr)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [entries, period, currentDate]);
+
+  const handlePrevious = () => {
+    const newDate = new Date(currentDate);
+    if (period === "week") newDate.setDate(newDate.getDate() - 7);
+    else if (period === "month") newDate.setMonth(newDate.getMonth() - 1);
+    else if (period === "year") newDate.setFullYear(newDate.getFullYear() - 1);
+    setCurrentDate(newDate);
+  };
+
+  const handleNext = () => {
+    const newDate = new Date(currentDate);
+    if (period === "week") newDate.setDate(newDate.getDate() + 7);
+    else if (period === "month") newDate.setMonth(newDate.getMonth() + 1);
+    else if (period === "year") newDate.setFullYear(newDate.getFullYear() + 1);
+    setCurrentDate(newDate);
+  };
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -164,9 +208,14 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
           <div>
             <h3 className="font-semibold text-gray-900 mb-0.5 text-base">Entrées de temps</h3>
             <p className="text-xs text-gray-500">
-              {period === "week" && `Semaine du ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`}
-              {period === "month" && new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-              {period === "year" && `Année ${new Date().getFullYear()}`}
+              {period === "week" && `Semaine du ${(() => {
+                const d = new Date(currentDate);
+                const day = d.getDay() || 7;
+                if (day !== 1) d.setDate(d.getDate() - (day - 1));
+                return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+              })()}`}
+              {period === "month" && currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+              {period === "year" && `Année ${currentDate.getFullYear()}`}
             </p>
           </div>
           
@@ -204,10 +253,10 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
 
                 {/* Navigation buttons */}
                 <div className="flex items-center gap-1 bg-gray-100 p-0.5 sm:p-1 rounded-lg sm:rounded-xl">
-                  <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg">
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={handlePrevious}>
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
-                  <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg">
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={handleNext}>
                     <ChevronRight className="w-4 h-4" />
                   </Button>
                 </div>
@@ -268,7 +317,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
-                  {sortedEntries.map((entry, index) => {
+                  {filteredEntries.map((entry, index) => {
                     const duration = minToHM(computeMinutes(entry));
                     const breakDuration = (entry.lunchStart && entry.lunchEnd) 
                       ? hmToMin(entry.lunchEnd) - hmToMin(entry.lunchStart) 
@@ -340,7 +389,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             {/* Mobile Card View (visible on small screens) */}
             <div className="lg:hidden overflow-y-auto flex-1 p-2">
               <div className="space-y-3">
-                {sortedEntries.map((entry, index) => {
+                {filteredEntries.map((entry, index) => {
                   const duration = minToHM(computeMinutes(entry));
                   const breakDuration = (entry.lunchStart && entry.lunchEnd) 
                     ? hmToMin(entry.lunchEnd) - hmToMin(entry.lunchStart) 
@@ -415,7 +464,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             </div>
             
             {/* Scroll indicator - desktop only */}
-            {sortedEntries.length > 5 && !isScrolledToBottom && (
+            {filteredEntries.length > 5 && !isScrolledToBottom && (
               <div className="hidden lg:block absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none">
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-gray-400 flex items-center gap-1">
                   <ChevronLeft className="w-3 h-3 -rotate-90" />
@@ -429,7 +478,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
         {/* Footer with total count - Plus compact */}
         <div className="mt-3 pt-3 border-t border-gray-100">
           <p className="text-xs text-gray-500">
-            <span className="font-semibold text-gray-900">{sortedEntries.length}</span> entrées au total
+            <span className="font-semibold text-gray-900">{filteredEntries.length}</span> entrées au total
           </p>
         </div>
       </motion.div>

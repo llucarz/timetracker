@@ -5,18 +5,17 @@ import { motion, AnimatePresence } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { computeMinutes, minToHM } from "../lib/utils";
 import { toast } from "sonner";
-import { AuthModal } from "./AuthModal";
 
 interface UserMenuProps {
   userName: string;
   company: string;
   onOpenProfile: () => void;
+  onLoginClick: () => void;
 }
 
-export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
+export function UserMenu({ userName, company, onOpenProfile, onLoginClick }: UserMenuProps) {
   const { entries, importEntries, updateSettings, settings } = useTimeTracker();
   const [isOpen, setIsOpen] = useState(false);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoggedIn = !!settings.account?.key;
@@ -118,8 +117,6 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
         </div>
       </button>
 
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-
       <AnimatePresence>
         {isOpen && (
           <>
@@ -215,7 +212,7 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
                   <button
                     onClick={() => {
                       setIsOpen(false);
-                      setIsAuthOpen(true);
+                      onLoginClick();
                     }}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-green-50 transition-colors text-left"
                   >

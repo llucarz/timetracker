@@ -97,18 +97,22 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
 
   // Persistence Effects
   useEffect(() => {
-    localStorage.setItem(STORE_KEY, JSON.stringify(entries));
-    // Recalculate overtime whenever entries or settings change
-    const earned = computeOvertimeEarned(entries, settings.weeklyTarget, settings.workDays);
-    setOtState(prev => {
-      const newState = {
-        ...prev,
-        earnedMinutes: earned,
-        balanceMinutes: earned - prev.usedMinutes
-      };
-      localStorage.setItem(OT_STORE_KEY, JSON.stringify(newState));
-      return newState;
-    });
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(entries));
+      // Recalculate overtime whenever entries or settings change
+      const earned = computeOvertimeEarned(entries, settings.weeklyTarget, settings.workDays);
+      setOtState(prev => {
+        const newState = {
+          ...prev,
+          earnedMinutes: earned,
+          balanceMinutes: earned - prev.usedMinutes
+        };
+        localStorage.setItem(OT_STORE_KEY, JSON.stringify(newState));
+        return newState;
+      });
+    } catch (error) {
+      console.error("Failed to update overtime state:", error);
+    }
   }, [entries, settings.weeklyTarget, settings.workDays]);
 
   useEffect(() => {

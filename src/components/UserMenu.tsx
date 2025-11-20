@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
 import { Button } from "./ui/button";
-import { Download, Upload, LogOut, Settings, User } from "lucide-react";
+import { Download, Upload, LogOut, Settings, User, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { computeMinutes, minToHM } from "../lib/utils";
 import { toast } from "sonner";
+import { AuthModal } from "./AuthModal";
 
 interface UserMenuProps {
   userName: string;
@@ -13,9 +14,14 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
-  const { entries, importEntries, updateSettings } = useTimeTracker();
+  const { entries, importEntries, updateSettings, settings } = useTimeTracker();
   const [isOpen, setIsOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isLoggedIn = !!settings.account?.key;
+  const displayUserName = isLoggedIn ? settings.account?.name : "Invité";
+  const displayCompany = isLoggedIn ? settings.account?.company : "Mode local";
 
   const totalMinutes = entries.reduce((acc, entry) => {
     return acc + computeMinutes(entry.startTime, entry.endTime, entry.breakDuration);
@@ -104,13 +110,15 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
         className="flex items-center gap-3 px-4 py-2 rounded-xl hover:bg-gray-100 transition-colors"
       >
         <div className="text-right hidden sm:block">
-          <p className="text-sm font-semibold text-gray-900">{userName}</p>
-          <p className="text-xs text-gray-500">{company}</p>
+          <p className="text-sm font-semibold text-gray-900">{displayUserName}</p>
+          <p className="text-xs text-gray-500">{displayCompany}</p>
         </div>
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold shadow-lg shadow-purple-200">
-          {userName.charAt(0)}
+          {displayUserName.charAt(0)}
         </div>
       </button>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       <AnimatePresence>
         {isOpen && (
@@ -131,11 +139,13 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
             >
               {/* User Info */}
               <div className="px-4 py-4 bg-gradient-to-br from-purple-50 to-pink-50 border-b border-purple-100">
-                <p className="text-sm font-semibold text-gray-900">Connecté en tant que</p>
-                <p className="text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  {userName}
+                <p className="text-sm font-semibold text-gray-900">
+                  {isLoggedIn ? "Connecté en tant que" : "Mode Invité"}
                 </p>
-                <p className="text-sm text-gray-600">{company}</p>
+                <p className="text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  {displayUserName}
+                </p>
+                <p className="text-sm text-gray-600">{displayCompany}</p>
                 <div className="mt-3 pt-3 border-t border-purple-100">
                   <p className="text-xs text-gray-500">Total heures suivies</p>
                   <p className="text-xl font-bold text-gray-900">{totalHours}</p>
@@ -188,18 +198,36 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
 
                 <div className="my-2 border-t border-gray-100" />
 
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 transition-colors text-left"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                    <LogOut className="w-4 h-4 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-red-600">Se déconnecter</p>
-                    <p className="text-xs text-red-400">Quitter votre compte</p>
-                  </div>
-                </button>
+                {isLoggedIn ? (
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                      <LogOut className="w-4 h-4 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-red-600">Se déconnecter</p>
+                      <p className="text-xs text-red-400">Quitter votre compte</p>
+                    </div>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      setIsAuthOpen(true);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-green-50 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                      <LogIn className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-green-600">Connexion / Inscription</p>
+                      <p className="text-xs text-green-400">Sauvegarder vos données</p>
+                    </div>
+                  </button>
+                )}
               </div>
             </motion.div>
           </>

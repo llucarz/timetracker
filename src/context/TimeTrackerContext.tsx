@@ -13,6 +13,8 @@ interface TimeTrackerContextType {
   addOvertimeEvent: (event: Omit<OvertimeEvent, 'id'>) => void;
   deleteOvertimeEvent: (id: string) => void;
   importEntries: (newEntries: Omit<Entry, 'id'>[]) => void;
+  syncWithCloud: () => Promise<void>;
+  loadFromCloud: () => Promise<void>;
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | undefined>(undefined);
@@ -191,6 +193,48 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const syncWithCloud = async () => {
+    if (!settings.account?.key) return;
+    try {
+      await fetch(`/api/data?key=${settings.account.key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entries,
+          settings,
+          overtime: otState,
+        }),
+      });
+    } catch (error) {
+      console.error("Cloud sync failed:", error);
+    }
+  };
+
+  const loadFromCloud = async () => {
+    if (!settings.account?.key) return;
+    try {
+      const res = await fetch(`/api/data?key=${settings.account.key}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      
+      if (data.entries) setEntries(data.entries);
+      if (data.settings) setSettings(data.settings);
+      if (data.overtime) setOtState(data.overtime);
+    } catch (error) {
+      console.error("Cloud load failed:", error);
+    }
+  };
+
+  // Auto-sync when data changes
+  useEffect(() => {
+    if (settings.account?.key) {
+      const timeout = setTimeout(() => {
+        syncWithCloud();
+      }, 2000); // Debounce 2s
+      return () => clearTimeout(timeout);
+    }
+  }, [entries, settings, otState]);
+
   return (
     <TimeTrackerContext.Provider value={{
       entries,
@@ -202,7 +246,9 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
       updateSettings,
       addOvertimeEvent,
       deleteOvertimeEvent,
-      importEntries
+      importEntries,
+      syncWithCloud,
+      loadFromCloud
     }}>
       {children}
     </TimeTrackerContext.Provider>

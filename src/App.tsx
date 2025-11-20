@@ -56,66 +56,6 @@ function App() {
     { id: "overtime", label: "Heures sup.", icon: TrendingUp },
   ] as const;
 
-  if (!settings.isOnboarded) {
-    return (
-      <Onboarding
-        onComplete={(data) => {
-          const dayMap: Record<string, string> = {
-            monday: "mon",
-            tuesday: "tue",
-            wednesday: "wed",
-            thursday: "thu",
-            friday: "fri",
-            saturday: "sat",
-            sunday: "sun",
-          };
-
-          const safeDays: any = settings.baseHours?.days ? { ...settings.baseHours.days } : {
-            mon: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            tue: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            wed: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            thu: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            fri: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            sat: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            sun: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
-          };
-
-          Object.keys(safeDays).forEach((k) => {
-            if (safeDays[k]) safeDays[k].enabled = false;
-          });
-
-          data.workDays.forEach((d) => {
-            const key = dayMap[d];
-            if (key && safeDays[key]) {
-              safeDays[key].enabled = true;
-              safeDays[key].start = data.arrival;
-              safeDays[key].lunchStart = data.pauseStart;
-              safeDays[key].lunchEnd = data.pauseEnd;
-              safeDays[key].end = data.departure;
-            }
-          });
-
-          updateSettings({
-            isOnboarded: true,
-            account: { name: data.name, company: data.company, key: "" },
-            weeklyTarget: data.weeklyTarget,
-            workDays: data.workDays.length,
-            baseHours: {
-              mode: "same",
-              same: {
-                start: data.arrival,
-                lunchStart: data.pauseStart,
-                lunchEnd: data.pauseEnd,
-                end: data.departure,
-              },
-              days: safeDays,
-            },
-          });
-        }}
-      />
-    );
-  }
-
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gray-50">
       {/* Header - Ultra moderne et responsive */}

@@ -1,0 +1,8 @@
+{
+  "name": "time-tracker-35h",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@upstash/redis": "^1.28.0"
+  }
+}

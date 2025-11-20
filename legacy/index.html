@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Time Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+  
+<body>
+  <!-- Barre du haut -->
+  <header class="topbar">
+    <div class="account-wrapper">
+      <button class="btn secondary" id="accountBtn">
+        Menu
+      </button>
+  
+      <div class="account-menu hidden" id="accountMenu">
+        <div class="account-menu-header" id="accMenuHeader">
+          Non connecté
+        </div>
+
+        <div class="account-menu-stats">
+          <div class="ams-title">Total global</div>
+          <div class="ams-value" id="menuTotalHours">00h00</div>
+          <div class="ams-sub" id="menuTotalEntries">0 saisie</div>
+        </div>
+
+        <!-- Quand pas connecté : on utilisera ce bouton -->
+        <button class="account-menu-item" id="accMenuLogin">
+          Se connecter / créer un compte
+        </button>
+  
+        <!-- Quand connecté : on affiche / utilise surtout ceux-là -->
+        <button class="account-menu-item" id="accMenuEditProfile">
+          Modifier le profil
+        </button>
+  
+        <button class="account-menu-item" id="accMenuExport">
+          Exporter les heures (CSV)
+        </button>
+  
+        <button class="account-menu-item" id="accMenuImport">
+          Importer des heures
+        </button>
+  
+        <button class="account-menu-item danger" id="accMenuLogout">
+          Se déconnecter
+        </button>
+      </div>
+    </div>
+  
+    <!-- input fichier global, déclenché par le menu "Importer" -->
+    <input type="file" id="fileImport" accept=".json,.csv" style="display:none" />
+  </header>
+
+  
+  <div class="wrap">
+    <div class="grid">
+      <!-- COLONNE GAUCHE : saisie journalière -->
+      <section class="card" id="formCard">
+        <h3 style="margin:0 0 6px">Saisie journalière</h3>
+        <div class="sub">
+          Indique tes horaires : arrivée, pause, reprise, départ. Tu peux ajouter une note.
+        </div>
+
+        <label for="date">Date</label>
+        <div class="row">
+          <input type="date" id="date" />
+          <button class="btn secondary" id="btnToday" title="Remplir avec aujourd'hui">
+            Aujourd'hui
+          </button>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="start">Arrivée</label>
+            <input type="time" id="start" />
+          </div>
+          <div>
+            <label for="lunchStart">Début pause</label>
+            <input type="time" id="lunchStart" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label for="lunchEnd">Fin pause</label>
+            <input type="time" id="lunchEnd" />
+          </div>
+          <div>
+            <label for="end">Départ</label>
+            <input type="time" id="end" />
+          </div>
+        </div>
+
+        <label for="notes">Note (optionnel)</label>
+        <input
+          type="text"
+          id="notes"
+          placeholder="Ex.: support, déploiement, réunion…"
+        />
+
+        <div class="row" style="margin-top:8px">
+          <button type="button" class="btn secondary" id="btnBaseHours">
+            Remplir mes horaires habituels
+          </button>
+        </div>
+
+        <label for="status">Statut de la journée</label>
+        <select id="status">
+          <option value="work">Travail</option>
+          <option value="school">École / formation</option>
+          <option value="vacation">Vacances</option>
+          <option value="sick">Arrêt maladie</option>
+          <option value="holiday">Jour férié</option>
+        </select>
+        <div class="sub" style="margin-top:4px">
+          Les journées non « Travail » ne comptent pas dans les heures, et retirent
+          1/5 de l'objectif hebdo (35h → 7h par jour).
+        </div>
+
+        <div class="btns">
+          <button class="btn green" id="btnSave">Enregistrer</button>
+          <button class="btn secondary" id="btnClear">Effacer</button>
+          <button class="btn warn" id="btnDuplicate">Dupliquer la veille</button>
+          <button class="btn danger" id="btnDelete" style="display:none">
+            Supprimer la saisie
+          </button>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="progress"><div id="weekProgress"></div>
+        </div>
+
+        <div class="footer">
+          Astuce : clique une ligne du tableau pour la modifier. Tout est sauvegardé
+          automatiquement dans le navigateur.
+        </div>
+      </section>
+
+      <!-- COLONNE DROITE : tableau + compte d'heures sup -->
+      <div class="right-col">
+        <!-- TABLEAU & RÉCAPS (heures semaine/mois/année) -->
+        <section class="card" id="summaryCard">
+          <div class="toolbar">
+            <div class="left">
+              <button
+                class="btn secondary"
+                id="prevPeriod"
+                title="Période précédente"
+                onclick="console.log('onclick HTML prev');"
+              >
+                ◀
+              </button>
+        
+              <span class="pill" id="weekLabel">Semaine —</span>
+              <span class="pill" id="monthLabel">Mois —</span>
+              <span class="pill" id="yearLabel">Année —</span>
+        
+              <button
+                class="btn secondary"
+                id="nextPeriod"
+                title="Période suivante"
+              >
+                ▶
+              </button>
+            </div>
+          </div>
+        
+          <!-- Pickers natifs, cachés mais toujours présents -->
+          <input type="week"  id="weekPicker"  class="picker" />
+          <input type="month" id="monthPicker" class="picker" />
+          <input
+            type="number"
+            id="yearPicker"
+            class="picker"
+            min="1970"
+            max="2100"
+            step="1"
+            placeholder="Année"
+          />
+
+          <div class="table-wrap">
+            <table id="tbl">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Arrivée</th>
+                  <th>Pause</th>
+                  <th>Reprise</th>
+                  <th>Départ</th>
+                  <th>Total</th>
+                  <th>Statut</th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="stats" style="margin-top:14px">
+            <div class="stat">
+              <div class="k">Temps travaillé (jour)</div>
+              <div class="v" id="statDay">0h00</div>
+              <div class="delta" id="deltaDay">—</div>
+            </div>
+            <div class="stat">
+              <div class="k">Heures semaine</div>
+              <div class="v" id="sumWeek">0h00</div>
+              <div class="delta" id="deltaWeek">—</div>
+            </div>
+            <div class="stat">
+              <div class="k">Heures mois</div>
+              <div class="v" id="sumMonth">0h00</div>
+              <div class="delta" id="deltaMonth">—</div>
+            </div>
+            <div class="stat">
+              <div class="k">Heures année</div>
+              <div class="v" id="sumYear">0h00</div>
+              <div class="delta" id="deltaYear">—</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CARTE SÉPARÉE : COMPTE D’HEURES SUPPLÉMENTAIRES -->
+        <section class="card card-overtime">
+          <div class="overtime">
+            <h3 class="overtime-title">Compte d’heures supplémentaires</h3>
+            <p class="overtime-sub">
+              Solde cumulé : les jours de travail se basent sur « objectif hebdo / jours
+              travaillés ».
+            </p>
+
+            <!-- Encadré 1 : affichage des soldes -->
+            <div class="overtime-main">
+              <div class="overtime-grid">
+                <div class="overtime-box">
+                  <div class="k">Solde actuel</div>
+                  <div class="v" id="otBalanceHM">0h00</div>
+                  <div class="overtime-small" id="otBalanceDays">
+                    0 jour · 0h
+                  </div>
+                </div>
+                <div class="overtime-box">
+                  <div class="k">Heures sup gagnées</div>
+                  <div class="v" id="otEarned">0h00</div>
+                </div>
+                <div class="overtime-box">
+                  <div class="k">Déjà récupéré</div>
+                  <div class="v" id="otUsed">0h00</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Encadré 2 : formulaire de déduction -->
+            <div class="overtime-deduct">
+              <h4 class="overtime-deduct-title">Récupération d’heures</h4>
+
+              <div class="row">
+                <div>
+                  <label for="otDays">Jours récupérés</label>
+                  <input type="number" id="otDays" min="0" step="1" value="0" />
+                </div>
+                <div>
+                  <label for="otHours">Heures récupérées</label>
+                  <input
+                    type="number"
+                    id="otHours"
+                    min="0"
+                    step="0.5"
+                    value="0"
+                  />
+                </div>
+              </div>
+
+              <div class="row">
+                <div>
+                  <label for="otDate">Date de la récup</label>
+                  <input type="date" id="otDate" />
+                </div>
+                <div>
+                  <label for="otNote">Commentaire</label>
+                  <input
+                    type="text"
+                    id="otNote"
+                    placeholder="Ex.: RTT, récup astreinte…"
+                  />
+                </div>
+              </div>
+
+              <div class="overtime-actions">
+                <button class="btn secondary" id="otApply">
+                  Enregistrer la récup
+                </button>
+                <button class="btn secondary ghost" id="otShowHistory">
+                  Voir les récupérations
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <!-- fin .right-col -->
+    </div>
+  </div>
+
+  <!-- MODALE : historique des récupérations -->
+  <div id="otModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Historique des récupérations</h3>
+        <button class="modal-close" id="otModalClose" title="Fermer">✕</button>
+      </div>
+      <div class="modal-body">
+        <table class="modal-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Quantité</th>
+              <th>Commentaire</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="otHistoryBody"></tbody>
+        </table>
+        <p class="modal-empty" id="otHistoryEmpty">
+          Aucune récupération enregistrée pour l’instant.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE : gestion du compte -->
+  <div id="accountModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <h3>Compte Time Tracker</h3>
+      <p class="sub">
+        Crée un compte (ou connecte-toi) avec ton nom + ta société. Aucune solution
+        de mot de passe : toute personne connaissant ces infos peut voir/modifier tes
+        heures.
+      </p>
+
+      <label for="accName">Nom d’utilisateur</label>
+      <input type="text" id="accName" placeholder="Ex : Léo" />
+
+      <label for="accCompany">Société / organisation</label>
+      <input type="text" id="accCompany" placeholder="Ex : Easyw3" />
+
+      <div class="btns account-actions" style="margin-top:16px">
+        <!-- Bouton utilisé uniquement quand on n'est PAS connecté -->
+        <button class="btn green" id="accSaveBtn">
+          Se connecter / créer
+        </button>
+      
+        <!-- Bouton visible seulement quand on est connecté -->
+        <button class="btn secondary" id="accProfileBtn" style="display:none">
+          Profil
+        </button>
+      
+        <button class="btn secondary" id="accCloseBtn">Fermer</button>
+      
+        <!-- Bouton visible seulement quand on est connecté -->
+        <button class="btn danger" id="accLogoutBtn" style="margin-left:auto;display:none">
+          Se déconnecter
+        </button>
+      </div>
+    </div>
+  </div>
+
+    <!-- MODALE : profil de travail -->
+  <div id="profileModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <h3>Profil de travail</h3>
+      <p class="sub">
+        Configure tes horaires habituels et tes paramètres de semaine de travail.
+      </p>
+      <h4>Horaires habituels</h4>
+      <!-- Switch mode : identiques / par jour -->
+      <div class="toggle-row">
+        <span>Configurer des horaires différents par jour</span>
+        <label class="switch">
+          <input type="checkbox" id="basePerDayToggle" />
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+      
+      <!-- Mode 1 : mêmes horaires tous les jours -->
+      <div id="baseSameBlock">
+        <div class="row">
+          <div>
+            <label for="baseStart">Arrivée</label>
+            <input type="time" id="baseStart" />
+          </div>
+          <div>
+            <label for="baseLunchStart">Début pause</label>
+            <input type="time" id="baseLunchStart" />
+          </div>
+        </div>
+      
+        <div class="row">
+          <div>
+            <label for="baseLunchEnd">Fin pause</label>
+            <input type="time" id="baseLunchEnd" />
+          </div>
+          <div>
+            <label for="baseEnd">Départ</label>
+            <input type="time" id="baseEnd" />
+          </div>
+        </div>
+      </div>
+      
+      <!-- Mode 2 : horaires par jour -->
+      <div id="basePerDayBlock" class="base-hidden">
+      <!-- Onglets jours -->
+      <div class="bh-tabs">
+        <button type="button" class="bh-tab active" data-day="mon">Lun</button>
+        <button type="button" class="bh-tab" data-day="tue">Mar</button>
+        <button type="button" class="bh-tab" data-day="wed">Mer</button>
+        <button type="button" class="bh-tab" data-day="thu">Jeu</button>
+        <button type="button" class="bh-tab" data-day="fri">Ven</button>
+        <button type="button" class="bh-tab" data-day="sat">Sam</button>
+        <button type="button" class="bh-tab" data-day="sun">Dim</button>
+      </div>
+    
+      <p class="overtime-sub">
+        Tu peux cocher au maximum <span id="basePerDayMax">5</span> jours
+        (selon « Jours travaillés / semaine »). Le total de ces journées doit
+        correspondre à l'objectif hebdo.
+      </p>
+    
+      <div class="bh-day-cards">
+        <!-- Lundi -->
+        <div class="bh-day-card active" data-day="mon">
+          <div class="bh-day-header">
+            <div class="bh-day-title">
+              <input type="checkbox" class="bh-day-enable" data-day="mon" id="bhMon">
+              <label for="bhMon">Lundi</label>
+            </div>
+          </div>
+    
+          <div class="row">
+            <div>
+              <label>Arrivée</label>
+              <input type="time" class="bh-start" data-day="mon">
+            </div>
+            <div>
+              <label>Début pause</label>
+              <input type="time" class="bh-lunchStart" data-day="mon">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fin pause</label>
+              <input type="time" class="bh-lunchEnd" data-day="mon">
+            </div>
+            <div>
+              <label>Départ</label>
+              <input type="time" class="bh-end" data-day="mon">
+            </div>
+          </div>
+        </div>
+    
+        <!-- Mardi -->
+        <div class="bh-day-card" data-day="tue">
+          <div class="bh-day-header">
+            <div class="bh-day-title">
+              <input type="checkbox" class="bh-day-enable" data-day="tue" id="bhTue">
+              <label for="bhTue">Mardi</label>
+            </div>
+          </div>
+    
+          <div class="row">
+            <div>
+              <label>Arrivée</label>
+              <input type="time" class="bh-start" data-day="tue">
+            </div>
+            <div>
+              <label>Début pause</label>
+              <input type="time" class="bh-lunchStart" data-day="tue">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fin pause</label>
+              <input type="time" class="bh-lunchEnd" data-day="tue">
+            </div>
+            <div>
+              <label>Départ</label>
+              <input type="time" class="bh-end" data-day="tue">
+            </div>
+          </div>
+        </div>
+    
+        <!-- Mercredi -->
+        <div class="bh-day-card" data-day="wed">
+          <div class="bh-day-header">
+            <div class="bh-day-title">
+              <input type="checkbox" class="bh-day-enable" data-day="wed" id="bhWed">
+              <label for="bhWed">Mercredi</label>
+            </div>
+          </div>
+    
+          <div class="row">
+            <div>
+              <label>Arrivée</label>
+              <input type="time" class="bh-start" data-day="wed">
+            </div>
+            <div>
+              <label>Début pause</label>
+              <input type="time" class="bh-lunchStart" data-day="wed">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fin pause</label>
+              <input type="time" class="bh-lunchEnd" data-day="wed">
+            </div>
+            <div>
+              <label>Départ</label>
+              <input type="time" class="bh-end" data-day="wed">
+            </div>
+          </div>
+        </div>
+    
+        <!-- Jeudi -->
+        <div class="bh-day-card" data-day="thu">
+          <div class="bh-day-header">
+            <div class="bh-day-title">
+              <input type="checkbox" class="bh-day-enable" data-day="thu" id="bhThu">
+              <label for="bhThu">Jeudi</label>
+            </div>
+          </div>
+    
+          <div class="row">
+            <div>
+              <label>Arrivée</label>
+              <input type="time" class="bh-start" data-day="thu">
+            </div>
+            <div>
+              <label>Début pause</label>
+              <input type="time" class="bh-lunchStart" data-day="thu">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fin pause</label>
+              <input type="time" class="bh-lunchEnd" data-day="thu">
+            </div>
+            <div>
+              <label>Départ</label>
+              <input type="time" class="bh-end" data-day="thu">
+            </div>
+          </div>
+        </div>
+    
+        <!-- Vendredi -->
+        <div class="bh-day-card" data-day="fri">
+          <div class="bh-day-header">
+            <div class="bh-day-title">
+              <input type="checkbox" class="bh-day-enable" data-day="fri" id="bhFri">
+              <label for="bhFri">Vendredi</label>
+            </div>
+          </div>
+    
+          <div class="row">
+            <div>
+              <label>Arrivée</label>
+              <input type="time" class="bh-start" data-day="fri">
+            </div>
+            <div>
+              <label>Début pause</label>
+              <input type="time" class="bh-lunchStart" data-day="fri">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fin pause</label>
+              <input type="time" class="bh-lunchEnd" data-day="fri">
+            </div>
+            <div>
+              <label>Départ</label>
+              <input type="time" class="bh-end" data-day="fri">
+            </div>
+          </div>
+        </div>
+    
+        <!-- Samedi -->
+        <div class="bh-day-card" data-day="sat">
+          <div class="bh-day-header">
+            <div class="bh-day-title">
+              <input type="checkbox" class="bh-day-enable" data-day="sat" id="bhSat">
+              <label for="bhSat">Samedi</label>
+            </div>
+          </div>
+    
+          <div class="row">
+            <div>
+              <label>Arrivée</label>
+              <input type="time" class="bh-start" data-day="sat">
+            </div>
+            <div>
+              <label>Début pause</label>
+              <input type="time" class="bh-lunchStart" data-day="sat">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fin pause</label>
+              <input type="time" class="bh-lunchEnd" data-day="sat">
+            </div>
+            <div>
+              <label>Départ</label>
+              <input type="time" class="bh-end" data-day="sat">
+            </div>
+          </div>
+        </div>
+    
+        <!-- Dimanche -->
+        <div class="bh-day-card" data-day="sun">
+          <div class="bh-day-header">
+            <div class="bh-day-title">
+              <input type="checkbox" class="bh-day-enable" data-day="sun" id="bhSun">
+              <label for="bhSun">Dimanche</label>
+            </div>
+          </div>
+    
+          <div class="row">
+            <div>
+              <label>Arrivée</label>
+              <input type="time" class="bh-start" data-day="sun">
+            </div>
+            <div>
+              <label>Début pause</label>
+              <input type="time" class="bh-lunchStart" data-day="sun">
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Fin pause</label>
+              <input type="time" class="bh-lunchEnd" data-day="sun">
+            </div>
+            <div>
+              <label>Départ</label>
+              <input type="time" class="bh-end" data-day="sun">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+      <h4 style="margin-top:16px">Semaine de travail</h4>
+      <p class="sub">
+        Ces paramètres servent au calcul des heures supplémentaires et de la progression.
+      </p>
+
+      <div class="row">
+        <div>
+          <label for="weeklyTarget">Objectif hebdo (heures)</label>
+          <input type="number" id="weeklyTarget" min="1" step="0.5" value="35" />
+        </div>
+        <div>
+          <label for="workDays">Jours travaillés / semaine</label>
+          <input type="number" id="workDays" min="1" max="7" step="1" value="5" />
+        </div>
+      </div>
+
+      <div class="btns" style="margin-top:16px">
+        <button class="btn green" id="profileSaveBtn">Enregistrer</button>
+        <button class="btn secondary" id="profileCloseBtn">Fermer</button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="app.js" defer></script>
+</body>
+</html>

@@ -498,6 +498,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
           onClose={() => setOpenPeriodPicker(null)}
           onSelect={(date) => setCurrentDate(date)}
           anchorElement={periodButtonRef}
+          initialDate={currentDate}
         />
       )}
     </div>

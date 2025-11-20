@@ -8,11 +8,12 @@ interface PeriodPickerProps {
   onClose: () => void;
   onSelect: (date: Date) => void;
   anchorElement: HTMLElement;
+  initialDate?: Date;
 }
 
-export function PeriodPicker({ isOpen, period, onClose, onSelect, anchorElement }: PeriodPickerProps) {
-  const [selectedYear, setSelectedYear] = useState(2025);
-  const [selectedMonth, setSelectedMonth] = useState(10); // Novembre (0-indexed)
+export function PeriodPicker({ isOpen, period, onClose, onSelect, anchorElement, initialDate }: PeriodPickerProps) {
+  const [selectedYear, setSelectedYear] = useState(initialDate ? initialDate.getFullYear() : new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(initialDate ? initialDate.getMonth() : new Date().getMonth());
   const [hoveredWeek, setHoveredWeek] = useState<number | null>(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -163,7 +164,7 @@ export function PeriodPicker({ isOpen, period, onClose, onSelect, anchorElement 
                     {/* Semaines avec points */}
                     <div className="space-y-0.5">
                       {calendarWeeks.map((week, weekIndex) => (
-                        <button
+                        <div
                           key={weekIndex}
                           onClick={() => {
                             onSelect(week[0].date);
@@ -171,7 +172,7 @@ export function PeriodPicker({ isOpen, period, onClose, onSelect, anchorElement 
                           }}
                           onMouseEnter={() => setHoveredWeek(weekIndex)}
                           onMouseLeave={() => setHoveredWeek(null)}
-                          className="grid grid-cols-7 gap-1 w-full py-0.5 rounded-lg transition-colors hover:bg-purple-50"
+                          className="grid grid-cols-7 gap-1 w-full py-0.5 rounded-lg transition-colors hover:bg-purple-50 cursor-pointer"
                         >
                           {week.map((day, dayIndex) => {
                             const isWeekHovered = hoveredWeek === weekIndex;
@@ -199,7 +200,7 @@ export function PeriodPicker({ isOpen, period, onClose, onSelect, anchorElement 
                               </div>
                             );
                           })}
-                        </button>
+                        </div>
                       ))}
                     </div>
 

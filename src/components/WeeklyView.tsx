@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { EditEntryModal } from "./EditEntryModal";
 import { PeriodPicker } from "./PeriodPicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { computeMinutesFromTimes, minToHM } from "../lib/utils";
+import { minToHM, computeMinutes } from "../lib/utils";
 
 interface WeeklyViewProps {
   period: "week" | "month" | "year";
@@ -15,7 +15,7 @@ interface WeeklyViewProps {
 }
 
 export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
-  const { entries, settings } = useTimeTracker();
+  const { entries } = useTimeTracker();
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(false);
@@ -24,50 +24,48 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
   const [periodButtonRef, setPeriodButtonRef] = useState<HTMLButtonElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Sort entries by date descending
+  const sortedEntries = useMemo(() => {
+    return [...entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [entries]);
+
   // Calculate stats
   const stats = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0];
     
-    // Helper to get week number
-    const getWeek = (d: Date) => {
-      const date = new Date(d.getTime());
-      date.setHours(0, 0, 0, 0);
-      date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
-      const week1 = new Date(date.getFullYear(), 0, 4);
-      return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-    };
+    // Start of week (Monday)
+    const startOfWeek = new Date(now);
+    const day = startOfWeek.getDay() || 7; // Get current day number, converting Sun (0) to 7
+    if (day !== 1) startOfWeek.setHours(-24 * (day - 1));
+    startOfWeek.setHours(0, 0, 0, 0);
 
-    const currentWeek = getWeek(now);
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    // Start of month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Start of year
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
 
     let todayMinutes = 0;
     let weekMinutes = 0;
     let monthMinutes = 0;
     let yearMinutes = 0;
 
-    Object.values(entries).forEach(entry => {
+    entries.forEach(entry => {
       const entryDate = new Date(entry.date);
-      const minutes = computeMinutesFromTimes({
-        start: entry.start,
-        lunchStart: entry.lunchStart,
-        lunchEnd: entry.lunchEnd,
-        end: entry.end
-      });
+      const minutes = computeMinutes(entry.startTime, entry.endTime, entry.breakDuration);
 
-      if (entry.date === todayStr) {
+      if (entry.date === today) {
         todayMinutes += minutes;
       }
-
-      if (entryDate.getFullYear() === currentYear) {
+      if (entryDate >= startOfWeek) {
+        weekMinutes += minutes;
+      }
+      if (entryDate >= startOfMonth) {
+        monthMinutes += minutes;
+      }
+      if (entryDate >= startOfYear) {
         yearMinutes += minutes;
-        if (entryDate.getMonth() === currentMonth) {
-          monthMinutes += minutes;
-        }
-        if (getWeek(entryDate) === currentWeek) {
-          weekMinutes += minutes;
-        }
       }
     });
 
@@ -75,27 +73,8 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
       today: minToHM(todayMinutes),
       week: minToHM(weekMinutes),
       month: minToHM(monthMinutes),
-      year: minToHM(yearMinutes)
+      year: minToHM(yearMinutes) // Approximate for year if needed, or just use HM
     };
-  }, [entries]);
-
-  // Sort entries by date descending
-  const sortedEntries = useMemo(() => {
-    return Object.values(entries)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .map(entry => {
-        const minutes = computeMinutesFromTimes({
-          start: entry.start,
-          lunchStart: entry.lunchStart,
-          lunchEnd: entry.lunchEnd,
-          end: entry.end
-        });
-        return {
-          ...entry,
-          duration: minToHM(minutes),
-          status: entry.status || "Work" // Default to Work if undefined
-        };
-      });
   }, [entries]);
 
   const handleEditEntry = (entry: any) => {
@@ -137,7 +116,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             icon={<Calendar className="w-4 h-4" />}
             label="Cette semaine"
             value={stats.week}
-            subtitle="Total semaine"
+            subtitle="+2h30 vs objectif"
             color="teal"
             delay={0.1}
           />
@@ -145,7 +124,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             icon={<TrendingUp className="w-4 h-4" />}
             label="Ce mois"
             value={stats.month}
-            subtitle="Total mois"
+            subtitle="95% de l'objectif"
             color="pink"
             delay={0.2}
           />
@@ -153,7 +132,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             icon={<Zap className="w-4 h-4" />}
             label="Cette année"
             value={stats.year}
-            subtitle="Total année"
+            subtitle="Sur la bonne voie"
             color="yellow"
             delay={0.3}
           />
@@ -185,9 +164,9 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
           <div>
             <h3 className="font-semibold text-gray-900 mb-0.5 text-base">Entrées de temps</h3>
             <p className="text-xs text-gray-500">
-              {period === "week" && "Semaine en cours"}
-              {period === "month" && "Mois en cours"}
-              {period === "year" && "Année en cours"}
+              {period === "week" && `Semaine du ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`}
+              {period === "month" && new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+              {period === "year" && `Année ${new Date().getFullYear()}`}
             </p>
           </div>
           
@@ -289,71 +268,68 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
-                  {sortedEntries.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="px-3 py-8 text-center text-gray-500 text-sm">
-                        Aucune entrée pour cette période
+                  {sortedEntries.map((entry, index) => {
+                    const duration = minToHM(computeMinutes(entry.startTime, entry.endTime, entry.breakDuration));
+                    const breakDisplay = entry.breakDuration > 0 ? `${entry.breakDuration} min` : "—";
+                    
+                    return (
+                    <motion.tr
+                      key={entry.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(index * 0.05, 0.5) }}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-3 py-2.5">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900 text-sm">
+                            {new Date(entry.date).toLocaleDateString('fr-FR', { 
+                              day: 'numeric',
+                              month: 'short'
+                            })}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(entry.date).toLocaleDateString('fr-FR', { weekday: 'short' })}
+                          </span>
+                        </div>
                       </td>
-                    </tr>
-                  ) : (
-                    sortedEntries.map((entry, index) => (
-                      <motion.tr
-                        key={entry.date}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: Math.min(index * 0.05, 0.5) }}
-                        className="hover:bg-gray-50 transition-colors"
-                      >
-                        <td className="px-3 py-2.5">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-900 text-sm">
-                              {new Date(entry.date).toLocaleDateString('fr-FR', { 
-                                day: 'numeric',
-                                month: 'short'
-                              })}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(entry.date).toLocaleDateString('fr-FR', { weekday: 'short' })}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="font-mono text-sm text-gray-700">{entry.start || "—"}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="font-mono text-sm text-gray-700">{entry.lunchStart || "—"}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="font-mono text-sm text-gray-700">{entry.lunchEnd || "—"}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="font-mono text-sm text-gray-700">{entry.end || "—"}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="font-semibold text-gray-900">{entry.duration}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <Badge 
-                            variant={entry.status === "work" ? "default" : "secondary"}
-                            className="rounded-full text-xs font-medium"
-                          >
-                            {entry.status}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <span className="text-sm text-gray-500 truncate max-w-[150px] block">{entry.notes || "—"}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-center">
-                          <button
-                            onClick={() => handleEditEntry(entry)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-purple-50 transition-colors"
-                          >
-                            <Pencil className="w-4 h-4 text-purple-600" />
-                          </button>
-                        </td>
-                      </motion.tr>
-                    ))
-                  )}
+                      <td className="px-3 py-2.5">
+                        <span className="font-mono text-sm text-gray-700">{entry.startTime || "—"}</span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="font-mono text-sm text-gray-700">{breakDisplay}</span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="font-mono text-sm text-gray-700">—</span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="font-mono text-sm text-gray-700">{entry.endTime || "—"}</span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="font-semibold text-gray-900">{duration}</span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <Badge 
+                          variant={entry.type === "work" ? "default" : "secondary"}
+                          className="rounded-full text-xs font-medium capitalize"
+                        >
+                          {entry.type}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="text-sm text-gray-500">{entry.note || "—"}</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        <button
+                          onClick={() => handleEditEntry(entry)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-purple-50 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4 text-purple-600" />
+                        </button>
+                      </td>
+                    </motion.tr>
+                  );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -361,75 +337,74 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             {/* Mobile Card View (visible on small screens) */}
             <div className="lg:hidden overflow-y-auto flex-1 p-2">
               <div className="space-y-3">
-                {sortedEntries.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 text-sm">
-                    Aucune entrée pour cette période
-                  </div>
-                ) : (
-                  sortedEntries.map((entry, index) => (
-                    <motion.div
-                      key={entry.date}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index * 0.05, 0.5) }}
-                      className="bg-gray-50 rounded-lg p-4 space-y-3"
-                    >
-                      <div className="flex items-center justify-between">
+                {sortedEntries.map((entry, index) => {
+                  const duration = minToHM(computeMinutes(entry.startTime, entry.endTime, entry.breakDuration));
+                  const breakDisplay = entry.breakDuration > 0 ? `${entry.breakDuration} min` : "—";
+
+                  return (
+                  <motion.div
+                    key={entry.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index * 0.05, 0.5) }}
+                    className="bg-gray-50 rounded-lg p-4 space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {new Date(entry.date).toLocaleDateString('fr-FR', { 
+                            day: 'numeric',
+                            month: 'long',
+                            weekday: 'short'
+                          })}
+                        </p>
+                        <Badge 
+                          variant={entry.type === "work" ? "default" : "secondary"}
+                          className="rounded-full text-xs font-medium mt-1 capitalize"
+                        >
+                          {entry.type}
+                        </Badge>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-900 text-lg">{duration}</p>
+                        <button
+                          onClick={() => handleEditEntry(entry)}
+                          className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-purple-50 transition-colors"
+                        >
+                          <Pencil className="w-4 h-4 text-purple-600" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {entry.type === "work" && (
+                      <div className="grid grid-cols-2 gap-3 text-xs">
                         <div>
-                          <p className="font-semibold text-gray-900 text-sm">
-                            {new Date(entry.date).toLocaleDateString('fr-FR', { 
-                              day: 'numeric',
-                              month: 'long',
-                              weekday: 'short'
-                            })}
-                          </p>
-                          <Badge 
-                            variant={entry.status === "work" ? "default" : "secondary"}
-                            className="rounded-full text-xs font-medium mt-1"
-                          >
-                            {entry.status}
-                          </Badge>
+                          <p className="text-gray-500">Arrivée</p>
+                          <p className="font-mono text-gray-900 mt-0.5">{entry.startTime || "—"}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-gray-900 text-lg">{entry.duration}</p>
-                          <button
-                            onClick={() => handleEditEntry(entry)}
-                            className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-purple-50 transition-colors"
-                          >
-                            <Pencil className="w-4 h-4 text-purple-600" />
-                          </button>
+                        <div>
+                          <p className="text-gray-500">Départ</p>
+                          <p className="font-mono text-gray-900 mt-0.5">{entry.endTime || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Pause</p>
+                          <p className="font-mono text-gray-900 mt-0.5">{breakDisplay}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Reprise</p>
+                          <p className="font-mono text-gray-900 mt-0.5">—</p>
                         </div>
                       </div>
-                      
-                      {entry.status === "work" && (
-                        <div className="grid grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <p className="text-gray-500">Arrivée</p>
-                            <p className="font-mono text-gray-900 mt-0.5">{entry.start}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Départ</p>
-                            <p className="font-mono text-gray-900 mt-0.5">{entry.end}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Pause</p>
-                            <p className="font-mono text-gray-900 mt-0.5">{entry.lunchStart}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Reprise</p>
-                            <p className="font-mono text-gray-900 mt-0.5">{entry.lunchEnd}</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {entry.notes && (
-                        <p className="text-xs text-gray-600 italic border-t border-gray-200 pt-2">
-                          {entry.notes}
-                        </p>
-                      )}
-                    </motion.div>
-                  ))
-                )}
+                    )}
+                    
+                    {entry.note && (
+                      <p className="text-xs text-gray-600 italic border-t border-gray-200 pt-2">
+                        {entry.note}
+                      </p>
+                    )}
+                  </motion.div>
+                );
+                })}
               </div>
             </div>
             

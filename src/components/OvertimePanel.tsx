@@ -7,6 +7,15 @@ import { TrendingUp, TrendingDown, Plus, Calendar, Clock, Trash2, Minimize2, Max
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
+import { minToHM } from "../lib/utils";
+
+interface Recovery {
+  id: string;
+  date: string;
+  type: "days" | "hours";
+  amount: number;
+  comment?: string;
+}
 
 // Fonction pour convertir les heures en jours et heures
 function convertHoursToDays(hours: number) {
@@ -24,7 +33,7 @@ function convertHoursToDays(hours: number) {
 }
 
 export function OvertimePanel() {
-  const { otState, addRecovery, deleteRecovery } = useTimeTracker();
+  const { otState, addOvertimeEvent, deleteOvertimeEvent } = useTimeTracker();
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [recoveredDays, setRecoveredDays] = useState("");
@@ -32,10 +41,22 @@ export function OvertimePanel() {
   const [recoveryDate, setRecoveryDate] = useState("");
   const [comment, setComment] = useState("");
   
-  const overtimeBalance = otState.balance;
-  const overtimeEarned = otState.totalEarned;
-  const overtimeRecovered = otState.totalRecovered;
-  const recoveries = otState.recoveries;
+  // Calculate stats from context
+  const overtimeBalance = parseFloat((otState.balanceMinutes / 60).toFixed(2));
+  const overtimeEarned = parseFloat((otState.earnedMinutes / 60).toFixed(2));
+  const overtimeRecovered = parseFloat((otState.usedMinutes / 60).toFixed(2));
+
+  // Map events to recoveries for display
+  const recoveries: Recovery[] = otState.events.map(event => {
+    const isDay = event.minutes % 450 === 0 && event.minutes > 0;
+    return {
+      id: event.id,
+      date: event.date,
+      type: isDay ? "days" : "hours",
+      amount: isDay ? event.minutes / 450 : parseFloat((event.minutes / 60).toFixed(2)),
+      comment: event.note
+    };
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const handleSaveRecovery = () => {
     if (!recoveryDate || (!recoveredDays && !recoveredHours)) {
@@ -43,11 +64,17 @@ export function OvertimePanel() {
       return;
     }
 
-    addRecovery({
+    let minutes = 0;
+    if (recoveredDays) {
+      minutes = parseFloat(recoveredDays) * 7.5 * 60;
+    } else if (recoveredHours) {
+      minutes = parseFloat(recoveredHours) * 60;
+    }
+
+    addOvertimeEvent({
       date: recoveryDate,
-      type: recoveredDays ? "days" : "hours",
-      amount: parseFloat(recoveredDays || recoveredHours),
-      comment: comment || undefined,
+      minutes: minutes,
+      note: comment
     });
 
     toast.success("Récupération enregistrée", {
@@ -342,7 +369,7 @@ export function OvertimePanel() {
                       </div>
                       <button
                         onClick={() => {
-                          deleteRecovery(recovery.id);
+                          deleteOvertimeEvent(recovery.id);
                           toast.success("Récupération supprimée");
                         }}
                         className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 rounded-lg hover:bg-red-50 flex items-center justify-center"

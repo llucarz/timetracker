@@ -10,16 +10,17 @@ import { motion, AnimatePresence } from "motion/react";
 import { DatePicker } from "./DatePicker";
 import { TimePicker } from "./TimePicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
+import { Entry } from "../lib/types";
 import { computeMinutesFromTimes, minToHM } from "../lib/utils";
 
 interface EditEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  entry: any | null;
+  entry: Entry | null;
 }
 
 export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) {
-  const { updateEntry, deleteEntry, settings } = useTimeTracker();
+  const { updateEntry, deleteEntry } = useTimeTracker();
   const [date, setDate] = useState("");
   const [arrival, setArrival] = useState("");
   const [pauseStart, setPauseStart] = useState("");
@@ -35,7 +36,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
       setPauseStart(entry.lunchStart || "");
       setPauseEnd(entry.lunchEnd || "");
       setDeparture(entry.end || "");
-      setNotes(entry.notes || "");
+      setNotes(entry.note || "");
       setStatus(entry.status || "work");
     }
   }, [entry]);
@@ -51,39 +52,49 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
       return;
     }
 
-    updateEntry({
-      date,
-      start: arrival,
-      lunchStart: pauseStart,
-      lunchEnd: pauseEnd,
-      end: departure,
-      notes,
-      status: status as any
-    });
-
-    toast.success("Entrée mise à jour avec succès", {
-      description: `${date} - ${calculateDuration()} travaillées`,
-    });
+    if (entry) {
+      updateEntry({
+        ...entry,
+        date,
+        start: arrival,
+        lunchStart: pauseStart,
+        lunchEnd: pauseEnd,
+        end: departure,
+        note: notes,
+        status: status as any,
+      });
+      
+      const duration = calculateDuration();
+      toast.success("Entrée mise à jour avec succès", {
+        description: `${date} - ${duration} travaillées`,
+      });
+    }
     
     onClose();
   };
 
   const handleDelete = () => {
     if (confirm("Êtes-vous sûr de vouloir supprimer cette entrée ?")) {
-      deleteEntry(date);
-      toast.success("Entrée supprimée");
+      if (entry) {
+        deleteEntry(entry.id);
+        toast.success("Entrée supprimée");
+      }
       onClose();
     }
   };
 
   const calculateDuration = () => {
-    const minutes = computeMinutesFromTimes({ start: arrival, lunchStart: pauseStart, lunchEnd: pauseEnd, end: departure });
-    return minToHM(minutes);
+    const mins = computeMinutesFromTimes({
+      start: arrival,
+      lunchStart: pauseStart,
+      lunchEnd: pauseEnd,
+      end: departure
+    });
+    return minToHM(mins);
   };
 
   const duration = calculateDuration();
   const isWorkDay = status === "work";
-  const dailyTargetHM = minToHM((settings.weeklyTarget / settings.workDays) * 60);
 
   if (!entry) return null;
 
@@ -221,7 +232,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-gray-600 mb-1">Objectif journalier</p>
-                              <p className="text-2xl font-bold text-gray-700">{dailyTargetHM}</p>
+                              <p className="text-2xl font-bold text-gray-700">7h00</p>
                             </div>
                           </div>
                         </motion.div>

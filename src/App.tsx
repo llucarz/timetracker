@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTimeTracker } from "./context/TimeTrackerContext";
 import { Dashboard } from "./components/Dashboard";
 import { DailyEntryModal } from "./components/DailyEntryModal";
 import { WeeklyView } from "./components/WeeklyView";
@@ -6,8 +7,8 @@ import { OvertimePanel } from "./components/OvertimePanel";
 import { ProfileModal } from "./components/ProfileModal";
 import { UserMenu } from "./components/UserMenu";
 import { Toaster } from "./components/ui/sonner";
+import { motion, AnimatePresence } from "motion/react";
 import { LayoutDashboard, Clock, TrendingUp, Menu, X } from "lucide-react";
-import { useTimeTracker } from "./context/TimeTrackerContext";
 
 function App() {
   const { settings } = useTimeTracker();
@@ -41,11 +42,11 @@ function App() {
     setIsMobileMenuOpen(false);
   }, [currentView]);
 
-  const defaultSchedule = settings.baseHours?.same || {
-    arrival: "09:00",
-    pauseStart: "12:30",
-    pauseEnd: "13:30",
-    departure: "18:00",
+  const defaultSchedule = {
+    arrival: settings.baseHours?.same?.start || "09:00",
+    pauseStart: settings.baseHours?.same?.lunchStart || "12:30",
+    pauseEnd: settings.baseHours?.same?.lunchEnd || "13:30",
+    departure: settings.baseHours?.same?.end || "18:00",
   };
 
   const navigationItems = [
@@ -61,34 +62,36 @@ function App() {
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo minimaliste */}
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center shadow-lg shadow-pink-200">
-                <Clock className="w-4 h-4 text-white" strokeWidth={2.5} />
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 flex items-center justify-center">
+                <Clock className="w-4 h-4 text-white" />
               </div>
-              <span className="font-bold text-gray-900 text-lg tracking-tight">TimeFlow</span>
+              <span className="font-semibold text-gray-900 text-sm sm:text-base">TimeFlow</span>
             </div>
 
             {/* Navigation desktop */}
-            <nav className="hidden md:flex items-center gap-8">
+            <nav className="hidden md:flex items-center gap-4 lg:gap-8">
               {navigationItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setCurrentView(item.id as any)}
-                  className="relative group py-5"
+                  className="relative group py-4"
                 >
                   <div className="flex items-center gap-2">
                     <item.icon className={`w-4 h-4 transition-colors ${
-                      currentView === item.id ? "text-gray-900" : "text-gray-400 group-hover:text-gray-600"
+                      currentView === item.id ? "text-purple-600" : "text-gray-500 group-hover:text-gray-900"
                     }`} />
                     <span className={`text-sm font-medium transition-colors ${
-                      currentView === item.id ? "text-gray-900" : "text-gray-500 group-hover:text-gray-900"
+                      currentView === item.id ? "text-gray-900" : "text-gray-600 group-hover:text-gray-900"
                     }`}>
                       {item.label}
                     </span>
                   </div>
                   {currentView === item.id && (
-                    <div
-                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600"
+                    <motion.div
+                      layoutId="navIndicator"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-600 to-pink-600"
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
                     />
                   )}
                 </button>
@@ -118,8 +121,13 @@ function App() {
           </div>
 
           {/* Mobile Navigation */}
+          <AnimatePresence>
             {isMobileMenuOpen && (
-              <div
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
                 className="md:hidden overflow-hidden border-t border-gray-200"
               >
                 <nav className="py-2 space-y-1">
@@ -138,8 +146,9 @@ function App() {
                     </button>
                   ))}
                 </nav>
-              </div>
+              </motion.div>
             )}
+          </AnimatePresence>
         </div>
       </header>
 
@@ -150,27 +159,45 @@ function App() {
           currentView === "dashboard" ? "overflow-y-auto py-4 sm:py-6 lg:py-8" : "overflow-hidden py-4 sm:py-6 lg:py-8 pb-6 sm:pb-8"
         }`}
       >
+        <AnimatePresence mode="wait">
           {currentView === "dashboard" && (
-            <div>
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3 }}
+            >
               <Dashboard onStartEntry={() => setIsEntryModalOpen(true)} />
-            </div>
+            </motion.div>
           )}
           
           {currentView === "history" && (
-            <div
+            <motion.div
+              key="history"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3 }}
               className="h-full"
             >
               <WeeklyView period={period} onPeriodChange={setPeriod} />
-            </div>
+            </motion.div>
           )}
 
           {currentView === "overtime" && (
-            <div
+            <motion.div
+              key="overtime"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3 }}
               className="h-full overflow-hidden"
             >
               <OvertimePanel />
-            </div>
+            </motion.div>
           )}
+        </AnimatePresence>
       </main>
 
       {/* Daily Entry Modal */}

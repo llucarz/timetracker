@@ -15,11 +15,16 @@ import { computeMinutesFromTimes, minToHM } from "../lib/utils";
 interface DailyEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultSchedule?: any; // We use settings from context instead
+  defaultSchedule?: {
+    arrival: string;
+    pauseStart: string;
+    pauseEnd: string;
+    departure: string;
+  };
 }
 
-export function DailyEntryModal({ isOpen, onClose }: DailyEntryModalProps) {
-  const { addEntry, settings } = useTimeTracker();
+export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntryModalProps) {
+  const { addEntry } = useTimeTracker();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [arrival, setArrival] = useState("");
   const [pauseStart, setPauseStart] = useState("");
@@ -29,26 +34,15 @@ export function DailyEntryModal({ isOpen, onClose }: DailyEntryModalProps) {
   const [status, setStatus] = useState("work");
 
   const handleFillDefault = () => {
-    const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-    const map: Record<string, string> = { mon: 'mon', tue: 'tue', wed: 'wed', thu: 'thu', fri: 'fri', sat: 'sat', sun: 'sun' };
-    const dayKey = map[dayOfWeek];
-
-    if (settings.baseHours?.mode === 'per-day' && settings.baseHours.days[dayKey]?.enabled) {
-      const daySettings = settings.baseHours.days[dayKey];
-      setArrival(daySettings.start);
-      setPauseStart(daySettings.lunchStart);
-      setPauseEnd(daySettings.lunchEnd);
-      setDeparture(daySettings.end);
-    } else if (settings.baseHours?.same) {
-      setArrival(settings.baseHours.same.start);
-      setPauseStart(settings.baseHours.same.lunchStart);
-      setPauseEnd(settings.baseHours.same.lunchEnd);
-      setDeparture(settings.baseHours.same.end);
+    if (defaultSchedule) {
+      setArrival(defaultSchedule.arrival);
+      setPauseStart(defaultSchedule.pauseStart);
+      setPauseEnd(defaultSchedule.pauseEnd);
+      setDeparture(defaultSchedule.departure);
+      toast.success("Horaires habituels remplis", {
+        description: "Vous pouvez maintenant ajuster si nécessaire"
+      });
     }
-
-    toast.success("Horaires habituels remplis", {
-      description: "Vous pouvez maintenant ajuster si nécessaire"
-    });
   };
 
   const handleSave = () => {
@@ -68,8 +62,8 @@ export function DailyEntryModal({ isOpen, onClose }: DailyEntryModalProps) {
       lunchStart: pauseStart,
       lunchEnd: pauseEnd,
       end: departure,
-      notes,
-      status: status as any
+      note: notes,
+      status: status as any,
     });
 
     const formattedDate = new Date(date).toLocaleDateString("fr-FR", {
@@ -92,17 +86,20 @@ export function DailyEntryModal({ isOpen, onClose }: DailyEntryModalProps) {
     setPauseEnd("");
     setDeparture("");
     setNotes("");
-    setStatus("work");
   };
 
   const calculateDuration = () => {
-    const minutes = computeMinutesFromTimes({ start: arrival, lunchStart: pauseStart, lunchEnd: pauseEnd, end: departure });
-    return minToHM(minutes);
+    const mins = computeMinutesFromTimes({
+      start: arrival,
+      lunchStart: pauseStart,
+      lunchEnd: pauseEnd,
+      end: departure
+    });
+    return minToHM(mins);
   };
 
   const duration = calculateDuration();
   const isWorkDay = status === "work";
-  const dailyTargetHM = minToHM((settings.weeklyTarget / settings.workDays) * 60);
 
   return (
     <AnimatePresence>
@@ -249,7 +246,7 @@ export function DailyEntryModal({ isOpen, onClose }: DailyEntryModalProps) {
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-gray-600 mb-1">Objectif journalier</p>
-                              <p className="text-2xl font-bold text-gray-700">{dailyTargetHM}</p>
+                              <p className="text-2xl font-bold text-gray-700">7h00</p>
                             </div>
                           </div>
                         </motion.div>

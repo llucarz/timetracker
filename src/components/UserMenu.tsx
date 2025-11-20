@@ -3,7 +3,7 @@ import { Button } from "./ui/button";
 import { Download, Upload, LogOut, Settings, User } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { computeMinutesFromTimes, minToHM } from "../lib/utils";
+import { computeMinutes, minToHM } from "../lib/utils";
 import { toast } from "sonner";
 
 interface UserMenuProps {
@@ -18,97 +18,70 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const totalMinutes = entries.reduce((acc, entry) => {
-    return acc + computeMinutesFromTimes({
-      start: entry.start,
-      lunchStart: entry.lunchStart,
-      lunchEnd: entry.lunchEnd,
-      end: entry.end
-    });
+    return acc + computeMinutes(entry.startTime, entry.endTime, entry.breakDuration);
   }, 0);
+  const totalHours = minToHM(totalMinutes);
 
   const handleExport = () => {
-    const head = [
-      "date",
-      "start",
-      "lunchStart",
-      "lunchEnd",
-      "end",
-      "minutes",
-      "status",
-      "notes",
-    ];
-    const rows = entries.map(e => [
-      e.date,
-      e.start || "",
-      e.lunchStart || "",
-      e.lunchEnd || "",
-      e.end || "",
-      computeMinutesFromTimes({ start: e.start, lunchStart: e.lunchStart, lunchEnd: e.lunchEnd, end: e.end }),
-      e.status || "work",
-      (e.notes || "").replaceAll('"', '""'),
-    ]);
-    const csv = [
-      head.join(","),
-      ...rows.map(r => r.map(x => `"${x}"`).join(",")),
+    const headers = ["Date", "Arrivée", "Départ", "Pause (min)", "Type", "Note"];
+    const csvContent = [
+      headers.join(","),
+      ...entries.map(e => 
+        [e.date, e.startTime, e.endTime, e.breakDuration, e.type, `"${e.note || ""}"`].join(",")
+      )
     ].join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "timetracker_export.csv");
+    link.setAttribute("download", `time_entries_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    toast.success("Export réussi");
   };
 
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
-    try {
-      const text = await file.text();
-      if (file.name.endsWith(".json")) {
-        const data = JSON.parse(text);
-        if (Array.isArray(data)) {
-          importEntries(data);
-          toast.success("Import réussi !");
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split("\n");
+        const newEntries: any[] = [];
+        
+        // Skip header
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          // Simple CSV parsing (doesn't handle commas in quotes perfectly but good enough for now)
+          const parts = line.split(",");
+          if (parts.length >= 5) {
+            newEntries.push({
+              date: parts[0],
+              startTime: parts[1],
+              endTime: parts[2],
+              breakDuration: parseInt(parts[3]) || 0,
+              type: parts[4] as any,
+              note: parts[5] ? parts[5].replace(/^"|"$/g, '') : ""
+            });
+          }
         }
-      } else if (file.name.endsWith(".csv")) {
-        const lines = text.split(/\r?\n/).filter(Boolean);
-        const head = lines.shift()?.split(",").map(s => s.replaceAll('"', "").trim());
-        if (!head) throw new Error("CSV invalide");
-        
-        const idx = (k: string) => head.indexOf(k);
-        const newEntries = lines.map(line => {
-          const cols = line.match(/("(?:[^"]|"")*"|[^,]+)/g)?.map(s => s.replace(/^"|"$/g, "").replaceAll('""', '"')) || [];
-          return {
-            date: cols[idx("date")] || "",
-            start: cols[idx("start")] || "",
-            lunchStart: cols[idx("lunchStart")] || "",
-            lunchEnd: cols[idx("lunchEnd")] || "",
-            end: cols[idx("end")] || "",
-            notes: cols[idx("notes")] || "",
-            status: (cols[idx("status")] || "work") as any,
-          };
-        }).filter(e => e.date);
-        
+
         importEntries(newEntries);
-        toast.success("Import réussi !");
+        toast.success(`${newEntries.length} entrées importées`);
+        setIsOpen(false);
+      } catch (error) {
+        toast.error("Erreur lors de l'import");
+        console.error(error);
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Erreur lors de l'import");
-    }
-    
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    setIsOpen(false);
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -116,9 +89,9 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
       <input
         type="file"
         ref={fileInputRef}
+        onChange={handleImport}
+        accept=".csv"
         className="hidden"
-        accept=".csv,.json"
-        onChange={handleFileChange}
       />
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -159,7 +132,7 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
                 <p className="text-sm text-gray-600">{company}</p>
                 <div className="mt-3 pt-3 border-t border-purple-100">
                   <p className="text-xs text-gray-500">Total heures suivies</p>
-                  <p className="text-xl font-bold text-gray-900">{minToHM(totalMinutes)}</p>
+                  <p className="text-xl font-bold text-gray-900">{totalHours}</p>
                 </div>
               </div>
 
@@ -195,8 +168,8 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
                 </button>
 
                 <button
-                  onClick={handleImportClick}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-50 transition-colors text-left"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-100 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
                     <Upload className="w-4 h-4 text-blue-600" />

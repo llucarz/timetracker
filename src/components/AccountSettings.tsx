@@ -3,7 +3,7 @@ import { User, Building2, Key, Upload, Download, LogOut, Trash2, Copy, CheckCirc
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,

@@ -36,7 +36,8 @@ export function weekRangeOf(dateStr: string): { start: string; end: string } {
   return { start: s, end: toDateKey(e) };
 }
 
-export function computeMinutes(entry: Partial<Entry>): number {
+export function computeMinutes(entry: Partial<Entry> | undefined | null): number {
+  if (!entry) return 0;
   const status = entry.status || "work";
   if (status !== "work") return 0;
 
@@ -80,7 +81,7 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
   const map = new Map<string, { minutes: number; absenceDays: number; workDates: Set<string> }>();
   
   for (const e of entries) {
-    if (!e.date) continue;
+    if (!e || !e.date) continue;
     const { start } = weekRangeOf(e.date); // lundi de la semaine
     const key = start;
 

@@ -26,11 +26,14 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<Entry[]>(() => {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
-      return raw.map((e: any) => ({
-        ...e,
-        status: e.status || "work",
-        id: e.id || crypto.randomUUID(),
-      }));
+      if (!Array.isArray(raw)) return [];
+      return raw
+        .filter((e: any) => e && typeof e === 'object')
+        .map((e: any) => ({
+          ...e,
+          status: e.status || "work",
+          id: e.id || crypto.randomUUID(),
+        }));
     } catch {
       return [];
     }

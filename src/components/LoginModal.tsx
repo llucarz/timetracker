@@ -63,9 +63,26 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       setCompany("");
     } catch (error) {
       console.error(error);
-      toast.error("Erreur de connexion", {
-        description: "Vérifiez votre connexion internet"
+      // Fallback to local mode if API is unreachable
+      const key = generateAccountKey(company, name);
+      const newAccount = { 
+        name: name.trim(), 
+        company: company.trim(), 
+        key 
+      };
+      
+      updateSettings({ 
+        account: newAccount,
+        isOnboarded: true 
       });
+
+      toast.success("Mode hors ligne activé", {
+        description: "Vos données sont sauvegardées localement"
+      });
+      
+      onClose();
+      setName("");
+      setCompany("");
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +108,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="bg-white rounded-3xl card-shadow max-w-md w-full overflow-hidden"
+              className="bg-white rounded-3xl card-shadow max-w-sm w-full overflow-hidden"
             >
               {/* Header */}
               <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">

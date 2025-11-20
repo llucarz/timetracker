@@ -13,7 +13,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
-  const { entries, importEntries } = useTimeTracker();
+  const { entries, importEntries, updateSettings } = useTimeTracker();
   const [isOpen, setIsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -21,6 +21,12 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
     return acc + computeMinutes(entry.startTime, entry.endTime, entry.breakDuration);
   }, 0);
   const totalHours = minToHM(totalMinutes);
+
+  const handleLogout = () => {
+    updateSettings({ isOnboarded: false, account: null });
+    setIsOpen(false);
+    toast.success("Déconnexion réussie");
+  };
 
   const handleExport = () => {
     const headers = ["Date", "Arrivée", "Départ", "Pause (min)", "Type", "Note"];
@@ -183,6 +189,7 @@ export function UserMenu({ userName, company, onOpenProfile }: UserMenuProps) {
                 <div className="my-2 border-t border-gray-100" />
 
                 <button
+                  onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 transition-colors text-left"
                 >
                   <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">

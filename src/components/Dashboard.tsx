@@ -67,90 +67,93 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="relative overflow-hidden bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 text-white card-shadow-hover"
+        className="relative overflow-hidden bg-gradient-to-r from-[#a855f7] via-[#ec4899] to-[#f43f5e] rounded-[2rem] p-8 sm:p-12 lg:p-16 text-white shadow-xl"
       >
         {/* Decorative background */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-0 right-0 w-64 sm:w-96 h-64 sm:h-96 bg-white rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-64 sm:w-96 h-64 sm:h-96 bg-purple-900 rounded-full blur-3xl" />
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-900/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
         </div>
 
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/20 backdrop-blur-sm mb-4 sm:mb-6">
-            <Sparkles className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
-            <span className="text-xs sm:text-sm font-medium">Bon retour !</span>
+        <div className="relative z-10 max-w-2xl">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/20 backdrop-blur-md mb-8 border border-white/10">
+            <Sparkles className="w-4 h-4" />
+            <span className="text-sm font-medium">Bon retour !</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
             Prêt à suivre votre temps ?
           </h1>
-          <p className="text-base sm:text-lg lg:text-xl text-white/90 mb-6 sm:mb-8 leading-relaxed">
+          <p className="text-lg sm:text-xl text-white/90 mb-10 leading-relaxed max-w-xl">
             Commencez votre journée en enregistrant vos heures de travail. Suivez vos progrès et gérez vos heures supplémentaires efficacement.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
             <Button
               onClick={onStartEntry}
               size="lg"
-              className="h-12 sm:h-14 px-6 sm:px-8 bg-white text-purple-600 hover:bg-gray-50 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-2xl shadow-black/20 group"
+              className="h-14 px-8 bg-white text-purple-600 hover:bg-gray-50 rounded-2xl font-bold text-lg shadow-lg shadow-black/10 group transition-all hover:scale-105"
             >
-              <Play className="w-4 sm:w-5 h-4 sm:h-5 group-hover:scale-110 transition-transform" />
+              <Play className="w-5 h-5 mr-2 fill-purple-600" />
               Saisir mes heures
-              <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
           </div>
         </div>
 
-        {/* Decorative element - only on larger screens */}
-        <div className="absolute bottom-0 right-8 hidden xl:block">
-          <div className="w-48 h-48 2xl:w-64 2xl:h-64 rounded-full bg-white/10 backdrop-blur-xl flex items-center justify-center">
-            <Clock className="w-24 h-24 2xl:w-32 2xl:h-32 text-white/30" strokeWidth={1.5} />
+        {/* Decorative element - Clock */}
+        <div className="absolute top-1/2 -translate-y-1/2 right-12 hidden xl:block">
+          <div className="w-80 h-80 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20 shadow-2xl">
+            <Clock className="w-40 h-40 text-white/40" strokeWidth={1} />
           </div>
         </div>
       </motion.div>
 
       {/* Stats Grid */}
       <div>
-        <div className="mb-4 sm:mb-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Vos statistiques</h2>
-          <p className="text-sm sm:text-base text-gray-500 mt-1">Vue d'ensemble de votre suivi du temps</p>
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">Vos statistiques</h2>
+          <p className="text-gray-500 mt-1">Vue d'ensemble de votre suivi du temps</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
           <StatCard
-            icon={<Clock className="w-5 sm:w-6 h-5 sm:h-6" />}
+            icon={<Clock className="w-6 h-6" />}
             label="Aujourd'hui"
             value={minToHM(todayMinutes)}
             subtitle={todayMinutes > 0 ? "En cours" : "Pas d'entrée"}
-            gradient="from-purple-500 to-pink-500"
-            shadowColor="shadow-purple-200"
+            iconBg="bg-purple-100"
+            iconColor="text-purple-600"
             delay={0}
           />
           <StatCard
-            icon={<Calendar className="w-5 sm:w-6 h-5 sm:h-6" />}
+            icon={<Calendar className="w-6 h-6" />}
             label="Cette semaine"
             value={minToHM(weekMinutes)}
             subtitle={`Objectif: ${settings.weeklyTarget}h`}
             trend={weekMinutes > weekTarget ? "+" + minToHM(weekMinutes - weekTarget) : undefined}
-            gradient="from-teal-500 to-cyan-500"
-            shadowColor="shadow-teal-200"
+            iconBg="bg-cyan-100"
+            iconColor="text-cyan-600"
+            trendColor="text-cyan-600 bg-cyan-50"
             delay={0.1}
           />
           <StatCard
-            icon={<TrendingUp className="w-5 sm:w-6 h-5 sm:h-6" />}
+            icon={<TrendingUp className="w-6 h-6" />}
             label="Ce mois"
             value={minToHM(monthMinutes)}
             subtitle="Total cumulé"
-            gradient="from-pink-500 to-rose-500"
-            shadowColor="shadow-pink-200"
+            iconBg="bg-pink-100"
+            iconColor="text-pink-600"
             delay={0.2}
           />
           <StatCard
-            icon={<Zap className="w-5 sm:w-6 h-5 sm:h-6" />}
+            icon={<Zap className="w-6 h-6" />}
             label="Solde heures sup."
             value={minToHM(otState.balanceMinutes)}
             subtitle="Prêtes à récupérer"
-            gradient="from-emerald-500 to-teal-500"
-            shadowColor="shadow-emerald-200"
+            iconBg="bg-emerald-100"
+            iconColor="text-emerald-600"
+            trend={otState.balanceMinutes > 0 ? "+" + minToHM(otState.balanceMinutes) : undefined}
+            trendColor="text-emerald-600 bg-emerald-50"
             delay={0.3}
           />
         </div>
@@ -251,33 +254,34 @@ interface StatCardProps {
   value: string;
   subtitle: string;
   trend?: string;
-  gradient: string;
-  shadowColor: string;
+  iconBg: string;
+  iconColor: string;
+  trendColor?: string;
   delay?: number;
 }
 
-function StatCard({ icon, label, value, subtitle, trend, gradient, shadowColor, delay = 0 }: StatCardProps) {
+function StatCard({ icon, label, value, subtitle, trend, iconBg, iconColor, trendColor, delay = 0 }: StatCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay }}
-      className="bg-white rounded-2xl p-6 card-shadow hover:card-shadow-hover transition-all group"
+      className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-md transition-all group border border-gray-100"
     >
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white shadow-lg ${shadowColor} group-hover:scale-110 transition-transform`}>
+      <div className="flex items-start justify-between mb-6">
+        <div className={`w-14 h-14 rounded-2xl ${iconBg} ${iconColor} flex items-center justify-center transition-transform group-hover:scale-110`}>
           {icon}
         </div>
         {trend && (
-          <span className="text-sm font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
+          <span className={`text-sm font-bold px-3 py-1.5 rounded-full ${trendColor || 'text-emerald-600 bg-emerald-50'}`}>
             {trend}
           </span>
         )}
       </div>
       <div>
-        <p className="text-sm text-gray-500 mb-1">{label}</p>
-        <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
-        <p className="text-sm text-gray-500">{subtitle}</p>
+        <p className="text-base font-medium text-gray-500 mb-2">{label}</p>
+        <p className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">{value}</p>
+        <p className="text-sm text-gray-400 font-medium">{subtitle}</p>
       </div>
     </motion.div>
   );

@@ -62,27 +62,27 @@ function App() {
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo minimaliste */}
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 flex items-center justify-center">
-                <Clock className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center shadow-lg shadow-pink-200">
+                <Clock className="w-4 h-4 text-white" strokeWidth={2.5} />
               </div>
-              <span className="font-semibold text-gray-900 text-sm sm:text-base">TimeFlow</span>
+              <span className="font-bold text-gray-900 text-lg tracking-tight">TimeFlow</span>
             </div>
 
             {/* Navigation desktop */}
-            <nav className="hidden md:flex items-center gap-4 lg:gap-8">
+            <nav className="hidden md:flex items-center gap-8">
               {navigationItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => setCurrentView(item.id as any)}
-                  className="relative group py-4"
+                  className="relative group py-5"
                 >
                   <div className="flex items-center gap-2">
                     <item.icon className={`w-4 h-4 transition-colors ${
-                      currentView === item.id ? "text-purple-600" : "text-gray-500 group-hover:text-gray-900"
+                      currentView === item.id ? "text-gray-900" : "text-gray-400 group-hover:text-gray-600"
                     }`} />
                     <span className={`text-sm font-medium transition-colors ${
-                      currentView === item.id ? "text-gray-900" : "text-gray-600 group-hover:text-gray-900"
+                      currentView === item.id ? "text-gray-900" : "text-gray-500 group-hover:text-gray-900"
                     }`}>
                       {item.label}
                     </span>
@@ -90,7 +90,7 @@ function App() {
                   {currentView === item.id && (
                     <motion.div
                       layoutId="navIndicator"
-                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-600 to-pink-600"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600"
                       transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
                     />
                   )}

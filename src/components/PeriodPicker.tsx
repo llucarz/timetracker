@@ -6,10 +6,11 @@ interface PeriodPickerProps {
   isOpen: boolean;
   period: "week" | "month" | "year";
   onClose: () => void;
+  onSelect: (date: Date) => void;
   anchorElement: HTMLElement;
 }
 
-export function PeriodPicker({ isOpen, period, onClose, anchorElement }: PeriodPickerProps) {
+export function PeriodPicker({ isOpen, period, onClose, onSelect, anchorElement }: PeriodPickerProps) {
   const [selectedYear, setSelectedYear] = useState(2025);
   const [selectedMonth, setSelectedMonth] = useState(10); // Novembre (0-indexed)
   const [hoveredWeek, setHoveredWeek] = useState<number | null>(null);
@@ -164,7 +165,10 @@ export function PeriodPicker({ isOpen, period, onClose, anchorElement }: PeriodP
                       {calendarWeeks.map((week, weekIndex) => (
                         <button
                           key={weekIndex}
-                          onClick={onClose}
+                          onClick={() => {
+                            onSelect(week[0].date);
+                            onClose();
+                          }}
                           onMouseEnter={() => setHoveredWeek(weekIndex)}
                           onMouseLeave={() => setHoveredWeek(null)}
                           className="grid grid-cols-7 gap-1 w-full py-0.5 rounded-lg transition-colors hover:bg-purple-50"
@@ -239,7 +243,11 @@ export function PeriodPicker({ isOpen, period, onClose, anchorElement }: PeriodP
                     {monthsFull.map((month, index) => (
                       <button
                         key={index}
-                        onClick={onClose}
+                        onClick={() => {
+                          const newDate = new Date(selectedYear, index, 1);
+                          onSelect(newDate);
+                          onClose();
+                        }}
                         className={`px-3 py-2 rounded-lg transition-all text-xs font-medium ${
                           index === selectedMonth
                             ? "bg-purple-100 text-purple-900 ring-2 ring-purple-200"
@@ -280,6 +288,8 @@ export function PeriodPicker({ isOpen, period, onClose, anchorElement }: PeriodP
                             key={year}
                             onClick={() => {
                               setSelectedYear(year);
+                              const newDate = new Date(year, 0, 1);
+                              onSelect(newDate);
                               onClose();
                             }}
                             className="w-full h-12 flex items-center justify-center snap-center transition-all duration-150"

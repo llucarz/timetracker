@@ -36,7 +36,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
       setPauseStart(entry.lunchStart || "");
       setPauseEnd(entry.lunchEnd || "");
       setDeparture(entry.end || "");
-      setNotes(entry.note || "");
+      setNotes(entry.notes || "");
       setStatus(entry.status || "work");
     }
   }, [entry]);
@@ -60,7 +60,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
         lunchStart: pauseStart,
         lunchEnd: pauseEnd,
         end: departure,
-        note: notes,
+        notes: notes,
         status: status as any,
       });
       

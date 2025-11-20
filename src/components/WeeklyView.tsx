@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { EditEntryModal } from "./EditEntryModal";
 import { PeriodPicker } from "./PeriodPicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { minToHM, computeMinutes } from "../lib/utils";
+import { minToHM, computeMinutes, hmToMin } from "../lib/utils";
 
 interface WeeklyViewProps {
   period: "week" | "month" | "year";
@@ -53,7 +53,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
 
     entries.forEach(entry => {
       const entryDate = new Date(entry.date);
-      const minutes = computeMinutes(entry.startTime, entry.endTime, entry.breakDuration);
+      const minutes = computeMinutes(entry);
 
       if (entry.date === today) {
         todayMinutes += minutes;
@@ -269,8 +269,11 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
                   {sortedEntries.map((entry, index) => {
-                    const duration = minToHM(computeMinutes(entry.startTime, entry.endTime, entry.breakDuration));
-                    const breakDisplay = entry.breakDuration > 0 ? `${entry.breakDuration} min` : "—";
+                    const duration = minToHM(computeMinutes(entry));
+                    const breakDuration = (entry.lunchStart && entry.lunchEnd) 
+                      ? hmToMin(entry.lunchEnd) - hmToMin(entry.lunchStart) 
+                      : 0;
+                    const breakDisplay = breakDuration > 0 ? `${breakDuration} min` : "—";
                     
                     return (
                     <motion.tr
@@ -294,30 +297,30 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                         </div>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className="font-mono text-sm text-gray-700">{entry.startTime || "—"}</span>
+                        <span className="font-mono text-sm text-gray-700">{entry.start || "—"}</span>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className="font-mono text-sm text-gray-700">{breakDisplay}</span>
+                        <span className="font-mono text-sm text-gray-700">{entry.lunchStart || "—"}</span>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className="font-mono text-sm text-gray-700">—</span>
+                        <span className="font-mono text-sm text-gray-700">{entry.lunchEnd || "—"}</span>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className="font-mono text-sm text-gray-700">{entry.endTime || "—"}</span>
+                        <span className="font-mono text-sm text-gray-700">{entry.end || "—"}</span>
                       </td>
                       <td className="px-3 py-2.5">
                         <span className="font-semibold text-gray-900">{duration}</span>
                       </td>
                       <td className="px-3 py-2.5">
                         <Badge 
-                          variant={entry.type === "work" ? "default" : "secondary"}
+                          variant={entry.status === "work" ? "default" : "secondary"}
                           className="rounded-full text-xs font-medium capitalize"
                         >
-                          {entry.type}
+                          {entry.status}
                         </Badge>
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className="text-sm text-gray-500">{entry.note || "—"}</span>
+                        <span className="text-sm text-gray-500">{entry.notes || "—"}</span>
                       </td>
                       <td className="px-3 py-2.5 text-center">
                         <button
@@ -338,8 +341,11 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             <div className="lg:hidden overflow-y-auto flex-1 p-2">
               <div className="space-y-3">
                 {sortedEntries.map((entry, index) => {
-                  const duration = minToHM(computeMinutes(entry.startTime, entry.endTime, entry.breakDuration));
-                  const breakDisplay = entry.breakDuration > 0 ? `${entry.breakDuration} min` : "—";
+                  const duration = minToHM(computeMinutes(entry));
+                  const breakDuration = (entry.lunchStart && entry.lunchEnd) 
+                    ? hmToMin(entry.lunchEnd) - hmToMin(entry.lunchStart) 
+                    : 0;
+                  const breakDisplay = breakDuration > 0 ? `${breakDuration} min` : "—";
 
                   return (
                   <motion.div
@@ -359,10 +365,10 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                           })}
                         </p>
                         <Badge 
-                          variant={entry.type === "work" ? "default" : "secondary"}
+                          variant={entry.status === "work" ? "default" : "secondary"}
                           className="rounded-full text-xs font-medium mt-1 capitalize"
                         >
-                          {entry.type}
+                          {entry.status}
                         </Badge>
                       </div>
                       <div className="text-right">
@@ -376,30 +382,30 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                       </div>
                     </div>
                     
-                    {entry.type === "work" && (
+                    {entry.status === "work" && (
                       <div className="grid grid-cols-2 gap-3 text-xs">
                         <div>
                           <p className="text-gray-500">Arrivée</p>
-                          <p className="font-mono text-gray-900 mt-0.5">{entry.startTime || "—"}</p>
+                          <p className="font-mono text-gray-900 mt-0.5">{entry.start || "—"}</p>
                         </div>
                         <div>
                           <p className="text-gray-500">Départ</p>
-                          <p className="font-mono text-gray-900 mt-0.5">{entry.endTime || "—"}</p>
+                          <p className="font-mono text-gray-900 mt-0.5">{entry.end || "—"}</p>
                         </div>
                         <div>
                           <p className="text-gray-500">Pause</p>
-                          <p className="font-mono text-gray-900 mt-0.5">{breakDisplay}</p>
+                          <p className="font-mono text-gray-900 mt-0.5">{entry.lunchStart || "—"}</p>
                         </div>
                         <div>
                           <p className="text-gray-500">Reprise</p>
-                          <p className="font-mono text-gray-900 mt-0.5">—</p>
+                          <p className="font-mono text-gray-900 mt-0.5">{entry.lunchEnd || "—"}</p>
                         </div>
                       </div>
                     )}
                     
-                    {entry.note && (
+                    {entry.notes && (
                       <p className="text-xs text-gray-600 italic border-t border-gray-200 pt-2">
-                        {entry.note}
+                        {entry.notes}
                       </p>
                     )}
                   </motion.div>

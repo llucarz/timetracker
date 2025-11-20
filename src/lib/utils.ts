@@ -1,4 +1,6 @@
 import { Entry } from "./types";
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -144,4 +146,24 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
   }
 
   return totalDelta;
+}
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export function normalizeString(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove accents
+    .replace(/[^a-z0-9\s]/g, "") // Remove non-alphanumeric except spaces
+    .trim()
+    .replace(/\s+/g, "-"); // Replace spaces with dashes
+}
+
+export function generateAccountKey(company: string, name: string): string {
+  const normCompany = normalizeString(company);
+  const normName = normalizeString(name);
+  return `acct:${normCompany}:${normName}`;
 }

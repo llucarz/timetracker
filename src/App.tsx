@@ -7,7 +7,6 @@ import { OvertimePanel } from "./components/OvertimePanel";
 import { ProfileModal } from "./components/ProfileModal";
 import { UserMenu } from "./components/UserMenu";
 import { Onboarding } from "./components/Onboarding";
-import { LoginPage } from "./components/LoginPage";
 import { Toaster } from "./components/ui/sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { LayoutDashboard, Clock, TrendingUp, Menu, X } from "lucide-react";
@@ -16,7 +15,7 @@ function App() {
   const { settings, updateSettings } = useTimeTracker();
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<"dashboard" | "history" | "overtime" | "login">("dashboard");
+  const [currentView, setCurrentView] = useState<"dashboard" | "history" | "overtime">("dashboard");
   const [isScrolled, setIsScrolled] = useState(false);
   const [period, setPeriod] = useState<"week" | "month" | "year">("week");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -106,7 +105,6 @@ function App() {
                 userName={settings.account?.name || "Utilisateur"} 
                 company={settings.account?.company || "Entreprise"}
                 onOpenProfile={() => setIsProfileOpen(true)}
-                onLoginClick={() => setCurrentView("login")}
               />
               
               {/* Mobile menu button */}
@@ -198,22 +196,6 @@ function App() {
               className="h-full overflow-hidden"
             >
               <OvertimePanel />
-            </motion.div>
-          )}
-
-          {currentView === "login" && (
-            <motion.div
-              key="login"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="h-full"
-            >
-              <LoginPage 
-                onLoginSuccess={() => setCurrentView("dashboard")} 
-                onCancel={() => setCurrentView("dashboard")}
-              />
             </motion.div>
           )}
         </AnimatePresence>

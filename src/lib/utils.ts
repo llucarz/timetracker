@@ -117,6 +117,34 @@ export function checkOverlap(
   return { blocked: false };
 }
 
+export function getRecoveryState(date: string, events: OvertimeEvent[]) {
+  const state = {
+    arrival: { value: "", locked: false },
+    pauseStart: { value: "", locked: false },
+    pauseEnd: { value: "", locked: false },
+    departure: { value: "", locked: false },
+  };
+
+  const dayEvents = events.filter(e => e.date === date && e.start && e.end);
+
+  for (const event of dayEvents) {
+    const startH = parseInt(event.start!.split(":")[0], 10);
+    
+    // Heuristic: Starts before 12:00 -> Morning block
+    if (startH < 12) {
+      state.arrival = { value: event.start!, locked: true };
+      state.pauseStart = { value: event.end!, locked: true };
+    } 
+    // Heuristic: Starts at or after 12:00 -> Afternoon block
+    else {
+      state.pauseEnd = { value: event.start!, locked: true };
+      state.departure = { value: event.end!, locked: true };
+    }
+  }
+
+  return state;
+}
+
 export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, workDays: number): number {
   const dailyTarget = weeklyTarget / workDays;
 

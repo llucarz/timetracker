@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -8,7 +8,7 @@ import { Calendar, Save, RotateCcw, Copy, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { checkOverlap } from "../lib/utils";
+import { checkOverlap, getRecoveryState, cn } from "../lib/utils";
 
 interface DailyEntryProps {
   defaultSchedule?: {
@@ -28,6 +28,29 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
   const [departure, setDeparture] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("work");
+  
+  const [locks, setLocks] = useState({
+    arrival: false,
+    pauseStart: false,
+    pauseEnd: false,
+    departure: false
+  });
+
+  useEffect(() => {
+    const recovery = getRecoveryState(date, otState.events);
+    
+    if (recovery.arrival.locked) setArrival(recovery.arrival.value);
+    if (recovery.pauseStart.locked) setPauseStart(recovery.pauseStart.value);
+    if (recovery.pauseEnd.locked) setPauseEnd(recovery.pauseEnd.value);
+    if (recovery.departure.locked) setDeparture(recovery.departure.value);
+
+    setLocks({
+      arrival: recovery.arrival.locked,
+      pauseStart: recovery.pauseStart.locked,
+      pauseEnd: recovery.pauseEnd.locked,
+      departure: recovery.departure.locked
+    });
+  }, [date, otState.events]);
 
   const handleFillDefault = () => {
     if (defaultSchedule) {
@@ -182,44 +205,68 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs text-gray-600">Arrival</Label>
+                <Label className={cn("text-xs text-gray-600", locks.arrival && "text-red-600 font-medium")}>
+                  Arrival {locks.arrival && "(Recovery)"}
+                </Label>
                 <Input
                   type="time"
                   value={arrival}
                   onChange={(e) => setArrival(e.target.value)}
-                  className="h-11 rounded-xl border-gray-200 font-mono text-sm"
+                  className={cn(
+                    "h-11 rounded-xl border-gray-200 font-mono text-sm",
+                    locks.arrival && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed"
+                  )}
                   required
+                  readOnly={locks.arrival}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs text-gray-600">Departure</Label>
+                <Label className={cn("text-xs text-gray-600", locks.departure && "text-red-600 font-medium")}>
+                  Departure {locks.departure && "(Recovery)"}
+                </Label>
                 <Input
                   type="time"
                   value={departure}
                   onChange={(e) => setDeparture(e.target.value)}
-                  className="h-11 rounded-xl border-gray-200 font-mono text-sm"
+                  className={cn(
+                    "h-11 rounded-xl border-gray-200 font-mono text-sm",
+                    locks.departure && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed"
+                  )}
                   required
+                  readOnly={locks.departure}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs text-gray-600">Lunch Start</Label>
+                <Label className={cn("text-xs text-gray-600", locks.pauseStart && "text-red-600 font-medium")}>
+                  Lunch Start {locks.pauseStart && "(Recovery)"}
+                </Label>
                 <Input
                   type="time"
                   value={pauseStart}
                   onChange={(e) => setPauseStart(e.target.value)}
-                  className="h-11 rounded-xl border-gray-200 font-mono text-sm"
+                  className={cn(
+                    "h-11 rounded-xl border-gray-200 font-mono text-sm",
+                    locks.pauseStart && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed"
+                  )}
+                  readOnly={locks.pauseStart}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs text-gray-600">Lunch End</Label>
+                <Label className={cn("text-xs text-gray-600", locks.pauseEnd && "text-red-600 font-medium")}>
+                  Lunch End {locks.pauseEnd && "(Recovery)"}
+                </Label>
                 <Input
                   type="time"
                   value={pauseEnd}
                   onChange={(e) => setPauseEnd(e.target.value)}
-                  className="h-11 rounded-xl border-gray-200 font-mono text-sm"
+                  className={cn(
+                    "h-11 rounded-xl border-gray-200 font-mono text-sm",
+                    locks.pauseEnd && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed"
+                  )}
+                  readOnly={locks.pauseEnd}
                 />
               </div>
             </div>

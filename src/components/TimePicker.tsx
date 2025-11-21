@@ -7,9 +7,10 @@ interface TimePickerProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  disabled?: boolean;
 }
 
-export function TimePicker({ value, onChange, className = "" }: TimePickerProps) {
+export function TimePicker({ value, onChange, className = "", disabled = false }: TimePickerProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value || "");
   
@@ -222,15 +223,17 @@ export function TimePicker({ value, onChange, className = "" }: TimePickerProps)
         onChange={handleInputChange}
         onBlur={handleInputBlur}
         placeholder="09:00"
+        disabled={disabled}
         className={`h-11 rounded-xl border-gray-200 font-mono text-sm pr-10 ${className}`}
       />
       
       {/* Clock icon trigger for picker */}
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open && !disabled} onOpenChange={(val) => !disabled && setOpen(val)}>
         <PopoverTrigger asChild>
           <button 
             type="button"
-            className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-gray-100 rounded p-1 transition-colors"
+            disabled={disabled}
+            className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-gray-100 rounded p-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Clock className="h-4 w-4 text-gray-400 hover:text-gray-600" />
           </button>

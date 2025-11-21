@@ -11,7 +11,7 @@ import { DatePicker } from "./DatePicker";
 import { TimePicker } from "./TimePicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { Entry } from "../lib/types";
-import { computeMinutesFromTimes, minToHM, checkOverlap } from "../lib/utils";
+import { computeMinutesFromTimes, minToHM, checkOverlap, getRecoveryState, cn } from "../lib/utils";
 
 interface EditEntryModalProps {
   isOpen: boolean;
@@ -29,6 +29,13 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("work");
 
+  const [locks, setLocks] = useState({
+    arrival: false,
+    pauseStart: false,
+    pauseEnd: false,
+    departure: false
+  });
+
   useEffect(() => {
     if (entry) {
       setDate(entry.date);
@@ -40,6 +47,25 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
       setStatus(entry.status || "work");
     }
   }, [entry]);
+
+  useEffect(() => {
+    if (!date) return;
+    
+    const recovery = getRecoveryState(date, otState.events);
+    
+    // Only override if locked
+    if (recovery.arrival.locked) setArrival(recovery.arrival.value);
+    if (recovery.pauseStart.locked) setPauseStart(recovery.pauseStart.value);
+    if (recovery.pauseEnd.locked) setPauseEnd(recovery.pauseEnd.value);
+    if (recovery.departure.locked) setDeparture(recovery.departure.value);
+
+    setLocks({
+      arrival: recovery.arrival.locked,
+      pauseStart: recovery.pauseStart.locked,
+      pauseEnd: recovery.pauseEnd.locked,
+      departure: recovery.departure.locked
+    });
+  }, [date, otState.events]);
 
   const handleSave = () => {
     if (!date) {
@@ -204,34 +230,50 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-600">Arrivée</Label>
+                          <Label className={cn("text-xs text-gray-600", locks.arrival && "text-red-600 font-medium")}>
+                            Arrivée {locks.arrival && "(Récupération)"}
+                          </Label>
                           <TimePicker
                             value={arrival}
                             onChange={setArrival}
+                            disabled={locks.arrival}
+                            className={cn(locks.arrival && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed")}
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-600">Départ</Label>
+                          <Label className={cn("text-xs text-gray-600", locks.departure && "text-red-600 font-medium")}>
+                            Départ {locks.departure && "(Récupération)"}
+                          </Label>
                           <TimePicker
                             value={departure}
                             onChange={setDeparture}
+                            disabled={locks.departure}
+                            className={cn(locks.departure && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed")}
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-600">Début pause</Label>
+                          <Label className={cn("text-xs text-gray-600", locks.pauseStart && "text-red-600 font-medium")}>
+                            Début pause {locks.pauseStart && "(Récupération)"}
+                          </Label>
                           <TimePicker
                             value={pauseStart}
                             onChange={setPauseStart}
+                            disabled={locks.pauseStart}
+                            className={cn(locks.pauseStart && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed")}
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-600">Fin pause</Label>
+                          <Label className={cn("text-xs text-gray-600", locks.pauseEnd && "text-red-600 font-medium")}>
+                            Fin pause {locks.pauseEnd && "(Récupération)"}
+                          </Label>
                           <TimePicker
                             value={pauseEnd}
                             onChange={setPauseEnd}
+                            disabled={locks.pauseEnd}
+                            className={cn(locks.pauseEnd && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed")}
                           />
                         </div>
                       </div>

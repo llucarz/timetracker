@@ -132,7 +132,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
 
   // Actions
   const addEntry = (entry: Omit<Entry, 'id'>) => {
-    const newEntry = { ...entry, id: crypto.randomUUID() };
+    const newEntry = { ...entry, id: crypto.randomUUID(), updatedAt: Date.now() };
     setEntries(prev => {
       // Remove existing entry for same date if any
       const filtered = prev.filter(e => e.date !== entry.date);
@@ -141,7 +141,8 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   };
 
   const updateEntry = (entry: Entry) => {
-    setEntries(prev => prev.map(e => e.id === entry.id ? entry : e).sort((a, b) => a.date.localeCompare(b.date)));
+    const updatedEntry = { ...entry, updatedAt: Date.now() };
+    setEntries(prev => prev.map(e => e.id === entry.id ? updatedEntry : e).sort((a, b) => a.date.localeCompare(b.date)));
   };
 
   const deleteEntry = (id: string) => {
@@ -184,7 +185,11 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
       const merged = [...prev];
       newEntries.forEach(entry => {
         const idx = merged.findIndex(e => e.date === entry.date);
-        const entryWithId = { ...entry, id: idx > -1 ? merged[idx].id : crypto.randomUUID() };
+        const entryWithId = { 
+          ...entry, 
+          id: idx > -1 ? merged[idx].id : crypto.randomUUID(),
+          updatedAt: Date.now()
+        };
         if (idx > -1) {
           merged[idx] = entryWithId as Entry;
         } else {

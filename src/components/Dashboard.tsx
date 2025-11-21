@@ -43,7 +43,7 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
 
   const recentEntries = useMemo(() => {
     return [...entries]
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
       .slice(0, 5)
       .map(e => {
         const mins = computeMinutes(e);

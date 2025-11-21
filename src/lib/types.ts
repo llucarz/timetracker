@@ -7,6 +7,7 @@ export interface Entry {
   end: string;
   notes: string;
   status: "work" | "school" | "vacation" | "sick" | "holiday";
+  updatedAt?: number;
 }
 
 export interface Settings {

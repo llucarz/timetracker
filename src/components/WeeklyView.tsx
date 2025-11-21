@@ -77,18 +77,24 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
   const stats = useMemo(() => {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
+    const anchor = new Date(currentDate);
     
-    // Start of week (Monday)
-    const startOfWeek = new Date(now);
+    // Start of week (Monday) based on currentDate
+    const startOfWeek = new Date(anchor);
     const day = startOfWeek.getDay() || 7; // Get current day number, converting Sun (0) to 7
     if (day !== 1) startOfWeek.setHours(-24 * (day - 1));
     startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
 
-    // Start of month
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Start of month based on currentDate
+    const startOfMonth = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const endOfMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1);
 
-    // Start of year
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    // Start of year based on currentDate
+    const startOfYear = new Date(anchor.getFullYear(), 0, 1);
+    const endOfYear = new Date(anchor.getFullYear() + 1, 0, 1);
 
     let todayMinutes = 0;
     let weekMinutes = 0;
@@ -102,13 +108,13 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
       if (entry.date === today) {
         todayMinutes += minutes;
       }
-      if (entryDate >= startOfWeek) {
+      if (entryDate >= startOfWeek && entryDate < endOfWeek) {
         weekMinutes += minutes;
       }
-      if (entryDate >= startOfMonth) {
+      if (entryDate >= startOfMonth && entryDate < endOfMonth) {
         monthMinutes += minutes;
       }
-      if (entryDate >= startOfYear) {
+      if (entryDate >= startOfYear && entryDate < endOfYear) {
         yearMinutes += minutes;
       }
     });
@@ -123,9 +129,9 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
 
     // Calculate Monthly Target
     let workDaysInMonth = 0;
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
     for (let i = 1; i <= daysInMonth; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth(), i);
+      const d = new Date(anchor.getFullYear(), anchor.getMonth(), i);
       const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
       if (dayOfWeek !== 0 && dayOfWeek !== 6) workDaysInMonth++;
     }
@@ -143,7 +149,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
       weeklySubtitle,
       monthlySubtitle
     };
-  }, [entries, settings]);
+  }, [entries, settings, currentDate]);
 
   const handleEditEntry = (entry: any) => {
     setSelectedEntry(entry);
@@ -182,7 +188,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
           />
           <StatCard
             icon={<Calendar className="w-4 h-4" />}
-            label="Cette semaine"
+            label="Semaine"
             value={stats.week}
             subtitle={stats.weeklySubtitle}
             color="teal"
@@ -190,7 +196,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
           />
           <StatCard
             icon={<TrendingUp className="w-4 h-4" />}
-            label="Ce mois"
+            label="Mois"
             value={stats.month}
             subtitle={stats.monthlySubtitle}
             color="pink"
@@ -198,7 +204,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
           />
           <StatCard
             icon={<Zap className="w-4 h-4" />}
-            label="Cette année"
+            label="Année"
             value={stats.year}
             subtitle="Sur la bonne voie"
             color="yellow"

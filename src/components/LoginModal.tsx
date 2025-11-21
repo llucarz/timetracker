@@ -49,6 +49,29 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         toast.success("Connexion réussie !", {
           description: `Bon retour, ${data.settings.account.name}`
         });
+      } else if (data.entries && data.entries.length > 0) {
+        // Legacy account (only entries) - Migrate
+        const newAccount = { 
+          name: name.trim(), 
+          company: company.trim(), 
+          key 
+        };
+        
+        // Merge existing entries with new settings
+        login({
+          entries: data.entries,
+          settings: { 
+            account: newAccount,
+            isOnboarded: true,
+            weeklyTarget: 35,
+            workDays: 5
+          },
+          overtime: { balanceMinutes: 0, earnedMinutes: 0, usedMinutes: 0, events: [] }
+        });
+
+        toast.success("Compte migré !", {
+          description: "Vos anciennes données ont été récupérées"
+        });
       } else {
         // Account doesn't exist - Create new
         const newAccount = { 

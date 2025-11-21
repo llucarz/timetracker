@@ -16,7 +16,10 @@ import {
   AlertDialogTrigger,
 } from "./ui/alert-dialog";
 
+import { useTimeTracker } from "../context/TimeTrackerContext";
+
 export function AccountSettings() {
+  const { logout } = useTimeTracker();
   const [userName, setUserName] = useState("Léo");
   const [company, setCompany] = useState("Cybeary");
   const [cloudKey] = useState("ck_1a2b3c4d5e6f7g8h9i0j");
@@ -65,6 +68,7 @@ export function AccountSettings() {
   };
 
   const handleLogout = () => {
+    logout();
     toast.success("Déconnexion réussie");
   };
 

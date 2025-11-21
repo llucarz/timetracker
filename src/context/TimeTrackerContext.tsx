@@ -15,6 +15,8 @@ interface TimeTrackerContextType {
   importEntries: (newEntries: Omit<Entry, 'id'>[]) => void;
   syncWithCloud: () => Promise<void>;
   loadFromCloud: () => Promise<void>;
+  logout: () => void;
+  login: (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => void;
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | undefined>(undefined);
@@ -225,6 +227,39 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const logout = () => {
+    setEntries([]);
+    setSettings({
+      isOnboarded: false,
+      weeklyTarget: 35,
+      workDays: 5,
+      baseHours: {
+        mode: "same",
+        same: { start: "", lunchStart: "", lunchEnd: "", end: "" },
+        days: {
+          mon: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+          tue: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+          wed: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+          thu: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+          fri: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+          sat: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+          sun: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+        }
+      }
+    });
+    setOtState({ balanceMinutes: 0, earnedMinutes: 0, usedMinutes: 0, events: [] });
+    
+    localStorage.removeItem(STORE_KEY);
+    localStorage.removeItem(SETTINGS_KEY);
+    localStorage.removeItem(OT_STORE_KEY);
+  };
+
+  const login = (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => {
+    if (data.entries) setEntries(data.entries);
+    if (data.settings) setSettings(data.settings);
+    if (data.overtime) setOtState(data.overtime);
+  };
+
   // Auto-sync when data changes
   useEffect(() => {
     if (settings.account?.key) {
@@ -248,7 +283,9 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
       deleteOvertimeEvent,
       importEntries,
       syncWithCloud,
-      loadFromCloud
+      loadFromCloud,
+      logout,
+      login
     }}>
       {children}
     </TimeTrackerContext.Provider>

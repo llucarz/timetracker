@@ -14,7 +14,7 @@ interface LoginModalProps {
 }
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
-  const { updateSettings } = useTimeTracker();
+  const { updateSettings, login } = useTimeTracker();
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +36,11 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       
       if (data.settings?.account) {
         // Account exists - Login
-        updateSettings(data.settings);
+        login({
+          entries: data.entries,
+          settings: data.settings,
+          overtime: data.overtime
+        });
         toast.success("Connexion réussie !", {
           description: `Bon retour, ${data.settings.account.name}`
         });

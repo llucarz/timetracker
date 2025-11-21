@@ -14,7 +14,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenuProps) {
-  const { entries, importEntries, updateSettings, settings } = useTimeTracker();
+  const { entries, importEntries, updateSettings, settings, logout } = useTimeTracker();
   const [isOpen, setIsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -28,7 +28,7 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
   const totalHours = minToHM(totalMinutes);
 
   const handleLogout = () => {
-    updateSettings({ isOnboarded: false, account: null });
+    logout();
     setIsOpen(false);
     toast.success("Déconnexion réussie");
   };

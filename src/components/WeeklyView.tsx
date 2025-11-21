@@ -103,7 +103,8 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
     
     let absenceDaysInWeek = 0;
     let absenceDaysInMonth = 0;
-    const workDaysSet = new Set<string>();
+    const workDaysInWeekSet = new Set<string>();
+    const workDaysInMonthSet = new Set<string>();
 
     const dailyTargetMinutes = (settings.weeklyTarget / settings.workDays) * 60;
 
@@ -126,7 +127,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
           absenceDaysInWeek++;
         }
         if (isWork) {
-          workDaysSet.add(entry.date);
+          workDaysInWeekSet.add(entry.date);
         }
       }
       
@@ -135,6 +136,9 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
         monthMinutes += minutes;
         if (isAbsence && !isWeekend) {
           absenceDaysInMonth++;
+        }
+        if (isWork) {
+          workDaysInMonthSet.add(entry.date);
         }
       }
       
@@ -145,7 +149,6 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
     });
 
     // Calculate Weekly Overtime
-    // Check if we are viewing the current week
     const nowStartOfWeek = new Date();
     const currentDay = nowStartOfWeek.getDay() || 7;
     if (currentDay !== 1) nowStartOfWeek.setHours(-24 * (currentDay - 1));
@@ -155,12 +158,10 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
     let adjustedWeeklyTargetMinutes;
 
     if (isCurrentWeek) {
-      // For current week, target is based on logged days + absences
-      const workDaysLogged = workDaysSet.size;
+      const workDaysLogged = workDaysInWeekSet.size;
       const effectiveSlots = Math.min(workDaysLogged + absenceDaysInWeek, settings.workDays);
       adjustedWeeklyTargetMinutes = effectiveSlots * dailyTargetMinutes;
     } else {
-      // For past weeks, target is full week minus absences
       adjustedWeeklyTargetMinutes = (settings.weeklyTarget * 60) - (absenceDaysInWeek * dailyTargetMinutes);
     }
 
@@ -170,18 +171,39 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
       ? `+${weeklyOvertimeStr} vs objectif` 
       : `${weeklyOvertimeStr} vs objectif`;
 
-    // Calculate Monthly Target
-    let workDaysInMonth = 0;
-    const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
-    for (let i = 1; i <= daysInMonth; i++) {
-      const d = new Date(anchor.getFullYear(), anchor.getMonth(), i);
-      const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) workDaysInMonth++;
+    // Calculate Monthly Overtime
+    const isCurrentMonth = now.getMonth() === anchor.getMonth() && now.getFullYear() === anchor.getFullYear();
+    let adjustedMonthlyTargetMinutes;
+
+    if (isCurrentMonth) {
+      const workDaysLogged = workDaysInMonthSet.size;
+      adjustedMonthlyTargetMinutes = (workDaysLogged + absenceDaysInMonth) * dailyTargetMinutes;
+    } else {
+      let workDaysInMonth = 0;
+      const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
+      for (let i = 1; i <= daysInMonth; i++) {
+        const d = new Date(anchor.getFullYear(), anchor.getMonth(), i);
+        const dayOfWeek = d.getDay(); 
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) workDaysInMonth++;
+      }
+      adjustedMonthlyTargetMinutes = (workDaysInMonth * dailyTargetMinutes) - (absenceDaysInMonth * dailyTargetMinutes);
     }
     
-    const monthlyTargetMinutes = (workDaysInMonth * dailyTargetMinutes) - (absenceDaysInMonth * dailyTargetMinutes);
-    const monthlyProgress = monthlyTargetMinutes > 0 ? Math.round((monthMinutes / monthlyTargetMinutes) * 100) : 0;
-    const monthlySubtitle = `${monthlyProgress}% de l'objectif`;
+    const monthlyOvertime = monthMinutes - Math.max(0, adjustedMonthlyTargetMinutes);
+    const monthlyOvertimeStr = formatDuration(monthlyOvertime);
+    const monthlySubtitle = monthlyOvertime > 0 
+      ? `+${monthlyOvertimeStr} vs objectif` 
+      : `${monthlyOvertimeStr} vs objectif`;
+
+    return {
+      today: minToHM(todayMinutes),
+      week: minToHM(weekMinutes),
+      month: minToHM(monthMinutes),
+      year: minToHM(yearMinutes),
+      weeklySubtitle,
+      monthlySubtitle
+    };
+  }, [entries, settings, currentDate]);
 
     return {
       today: minToHM(todayMinutes),

@@ -582,10 +582,10 @@ function StatCard({ icon, label, value, subtitle, color, delay = 0 }: StatCardPr
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
-      className="bg-white rounded-xl p-2.5 sm:p-3 card-shadow hover:card-shadow-hover transition-all"
+      className="bg-white rounded-xl p-2.5 sm:p-3 card-shadow hover:card-shadow-hover transition-all group"
     >
       <div className="flex items-start justify-between mb-1.5">
-        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center text-white shadow-lg`}>
+        <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
           {icon}
         </div>
       </div>

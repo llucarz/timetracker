@@ -81,7 +81,7 @@ function App() {
                   className="relative group py-4"
                 >
                   <div className="flex items-center gap-2">
-                    <item.icon className={`w-4 h-4 transition-colors ${
+                    <item.icon className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 ${
                       currentView === item.id ? "text-purple-600" : "text-gray-500 group-hover:text-gray-900"
                     }`} />
                     <span className={`text-sm font-medium transition-colors ${

@@ -19,10 +19,10 @@ import {
 import { useTimeTracker } from "../context/TimeTrackerContext";
 
 export function AccountSettings() {
-  const { logout } = useTimeTracker();
-  const [userName, setUserName] = useState("Léo");
-  const [company, setCompany] = useState("Cybeary");
-  const [cloudKey] = useState("ck_1a2b3c4d5e6f7g8h9i0j");
+  const { logout, settings } = useTimeTracker();
+  const [userName, setUserName] = useState(settings.account?.name || "");
+  const [company, setCompany] = useState(settings.account?.company || "");
+  const [cloudKey] = useState(settings.account?.key || "");
   const [keyCopied, setKeyCopied] = useState(false);
 
   const handleSave = () => {

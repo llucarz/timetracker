@@ -124,6 +124,10 @@ OvertimeState: {
 - Methods: POST (sync), GET (load)
 - Auto-syncs with 2s debounce after state changes
 - Account key format: `acct:<company>:<name>` (normalized)
+- **Local Development**: The API requires a backend.
+  - Run with `vercel dev` to serve `api/data.js` locally.
+  - OR configure `server.proxy` in `vite.config.ts` to point to a deployed instance.
+  - Without this, `fetch('/api/data')` will 404 and app will fallback to offline mode.
 
 ## Testing & Debugging
 - No test suite configured yet

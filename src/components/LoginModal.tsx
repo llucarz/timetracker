@@ -31,7 +31,12 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       
       // Try to fetch existing data
       const res = await fetch(`/api/data?key=${key}`);
-      if (!res.ok) throw new Error("Failed to fetch");
+      if (!res.ok) {
+        if (res.status === 404) {
+          console.warn("API endpoint not found (404). Are you running 'vercel dev' or a proxy?");
+        }
+        throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
+      }
       const data = await res.json();
       
       if (data.settings?.account) {

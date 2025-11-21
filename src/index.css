@@ -461,13 +461,7 @@
   }
 
   body {
-    --tw-gradient-position: to bottom right in oklab;
-    background-image: linear-gradient(var(--tw-gradient-stops));
-    --tw-gradient-from: var(--color-purple-50);
-    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
-    --tw-gradient-via: var(--color-pink-50);
-    --tw-gradient-via-stops: var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-via) var(--tw-gradient-via-position), var(--tw-gradient-to) var(--tw-gradient-to-position);
-    --tw-gradient-to: var(--color-blue-50);
+    background-color: hsl(0, 0%, 93%);
     color: oklch(.145 0 0);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

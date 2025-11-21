@@ -103,6 +103,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
     
     let absenceDaysInWeek = 0;
     let absenceDaysInMonth = 0;
+    const workDaysSet = new Set<string>();
 
     const dailyTargetMinutes = (settings.weeklyTarget / settings.workDays) * 60;
 
@@ -112,6 +113,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
       const dayOfWeek = entryDate.getDay();
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isAbsence = ["school", "vacation", "sick", "holiday"].includes(entry.status);
+      const isWork = !entry.status || entry.status === "work";
 
       if (entry.date === today) {
         todayMinutes += minutes;
@@ -122,6 +124,9 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
         weekMinutes += minutes;
         if (isAbsence && !isWeekend) {
           absenceDaysInWeek++;
+        }
+        if (isWork) {
+          workDaysSet.add(entry.date);
         }
       }
       
@@ -140,8 +145,25 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
     });
 
     // Calculate Weekly Overtime
-    // Target is reduced by absence days (only if they fall on workdays)
-    const adjustedWeeklyTargetMinutes = (settings.weeklyTarget * 60) - (absenceDaysInWeek * dailyTargetMinutes);
+    // Check if we are viewing the current week
+    const nowStartOfWeek = new Date();
+    const currentDay = nowStartOfWeek.getDay() || 7;
+    if (currentDay !== 1) nowStartOfWeek.setHours(-24 * (currentDay - 1));
+    nowStartOfWeek.setHours(0, 0, 0, 0);
+    
+    const isCurrentWeek = startOfWeek.getTime() === nowStartOfWeek.getTime();
+    let adjustedWeeklyTargetMinutes;
+
+    if (isCurrentWeek) {
+      // For current week, target is based on logged days + absences
+      const workDaysLogged = workDaysSet.size;
+      const effectiveSlots = Math.min(workDaysLogged + absenceDaysInWeek, settings.workDays);
+      adjustedWeeklyTargetMinutes = effectiveSlots * dailyTargetMinutes;
+    } else {
+      // For past weeks, target is full week minus absences
+      adjustedWeeklyTargetMinutes = (settings.weeklyTarget * 60) - (absenceDaysInWeek * dailyTargetMinutes);
+    }
+
     const weeklyOvertime = weekMinutes - Math.max(0, adjustedWeeklyTargetMinutes);
     const weeklyOvertimeStr = formatDuration(weeklyOvertime);
     const weeklySubtitle = weeklyOvertime > 0 

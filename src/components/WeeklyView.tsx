@@ -149,47 +149,18 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
     });
 
     // Calculate Weekly Overtime
-    const nowStartOfWeek = new Date();
-    const currentDay = nowStartOfWeek.getDay() || 7;
-    if (currentDay !== 1) nowStartOfWeek.setHours(-24 * (currentDay - 1));
-    nowStartOfWeek.setHours(0, 0, 0, 0);
-    
-    const isCurrentWeek = startOfWeek.getTime() === nowStartOfWeek.getTime();
-    let adjustedWeeklyTargetMinutes;
-
-    if (isCurrentWeek) {
-      const workDaysLogged = workDaysInWeekSet.size;
-      const effectiveSlots = Math.min(workDaysLogged + absenceDaysInWeek, settings.workDays);
-      adjustedWeeklyTargetMinutes = effectiveSlots * dailyTargetMinutes;
-    } else {
-      adjustedWeeklyTargetMinutes = (settings.weeklyTarget * 60) - (absenceDaysInWeek * dailyTargetMinutes);
-    }
-
-    const weeklyOvertime = weekMinutes - Math.max(0, adjustedWeeklyTargetMinutes);
+    // Target is based on logged work days only (no penalty for absences or missing days)
+    const adjustedWeeklyTargetMinutes = workDaysInWeekSet.size * dailyTargetMinutes;
+    const weeklyOvertime = weekMinutes - adjustedWeeklyTargetMinutes;
     const weeklyOvertimeStr = formatDuration(weeklyOvertime);
     const weeklySubtitle = weeklyOvertime > 0 
       ? `+${weeklyOvertimeStr} vs objectif` 
       : `${weeklyOvertimeStr} vs objectif`;
 
     // Calculate Monthly Overtime
-    const isCurrentMonth = now.getMonth() === anchor.getMonth() && now.getFullYear() === anchor.getFullYear();
-    let adjustedMonthlyTargetMinutes;
-
-    if (isCurrentMonth) {
-      const workDaysLogged = workDaysInMonthSet.size;
-      adjustedMonthlyTargetMinutes = (workDaysLogged + absenceDaysInMonth) * dailyTargetMinutes;
-    } else {
-      let workDaysInMonth = 0;
-      const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate();
-      for (let i = 1; i <= daysInMonth; i++) {
-        const d = new Date(anchor.getFullYear(), anchor.getMonth(), i);
-        const dayOfWeek = d.getDay(); 
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) workDaysInMonth++;
-      }
-      adjustedMonthlyTargetMinutes = (workDaysInMonth * dailyTargetMinutes) - (absenceDaysInMonth * dailyTargetMinutes);
-    }
-    
-    const monthlyOvertime = monthMinutes - Math.max(0, adjustedMonthlyTargetMinutes);
+    // Target is based on logged work days only
+    const adjustedMonthlyTargetMinutes = workDaysInMonthSet.size * dailyTargetMinutes;
+    const monthlyOvertime = monthMinutes - adjustedMonthlyTargetMinutes;
     const monthlyOvertimeStr = formatDuration(monthlyOvertime);
     const monthlySubtitle = monthlyOvertime > 0 
       ? `+${monthlyOvertimeStr} vs objectif` 

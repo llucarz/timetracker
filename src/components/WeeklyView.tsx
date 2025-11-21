@@ -205,16 +205,6 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
     };
   }, [entries, settings, currentDate]);
 
-    return {
-      today: minToHM(todayMinutes),
-      week: minToHM(weekMinutes),
-      month: minToHM(monthMinutes),
-      year: minToHM(yearMinutes),
-      weeklySubtitle,
-      monthlySubtitle
-    };
-  }, [entries, settings, currentDate]);
-
   const handleEditEntry = (entry: any) => {
     setSelectedEntry(entry);
     setIsEditModalOpen(true);

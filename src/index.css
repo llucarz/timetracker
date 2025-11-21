@@ -461,7 +461,8 @@
   }
 
   body {
-    @apply bg-[#ededed] text-gray-900;
+    background-color: #ededed;
+    @apply text-gray-900;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-family: Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;

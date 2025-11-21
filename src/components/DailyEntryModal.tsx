@@ -190,19 +190,22 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
                     <motion.div 
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
-                      className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex gap-3 items-start"
+                      className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2.5 items-start"
                     >
-                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="text-sm font-semibold text-amber-900">Recovery Scheduled</h4>
-                        <div className="text-sm text-amber-700 mt-1">
-                          <p>You have {formatDuration(recoveryMinutes)} of recovery scheduled for this day.</p>
+                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-semibold text-red-900">
+                          Récupération planifiée : {formatDuration(recoveryMinutes)}
+                        </p>
+                        <div className="mt-1 text-xs text-red-800 space-y-0.5">
                           {recoveryEvents.map((event, i) => (
-                            <p key={i} className="text-xs mt-1 font-medium">
+                            <p key={i}>
                               • {event.start} - {event.end} ({formatDuration(event.minutes)})
                             </p>
                           ))}
-                          <p className="mt-1">Make sure your worked hours are consistent with this recovery.</p>
+                          <p className="mt-1.5 opacity-90 italic">
+                            Vérifiez la cohérence avec vos heures travaillées.
+                          </p>
                         </div>
                       </div>
                     </motion.div>

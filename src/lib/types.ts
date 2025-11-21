@@ -41,6 +41,8 @@ export interface OvertimeEvent {
   id: string;
   date: string;
   minutes: number;
+  start?: string;
+  end?: string;
   note: string;
 }
 

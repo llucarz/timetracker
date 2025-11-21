@@ -1,4 +1,4 @@
-import { Entry } from "./types";
+import { Entry, OvertimeEvent } from "./types";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -85,6 +85,36 @@ export function computeMinutesFromTimes(obj: { start: string; lunchStart: string
   const first = Math.max(0, b - a);
   const second = Math.max(0, d - c);
   return first + second;
+}
+
+export function checkOverlap(
+  date: string,
+  start: string,
+  end: string,
+  events: OvertimeEvent[]
+): { blocked: boolean; reason?: string } {
+  if (!start || !end) return { blocked: false };
+
+  const workStart = hmToMin(start);
+  const workEnd = hmToMin(end);
+
+  // Filter events for the same date that have start/end times
+  const dayEvents = events.filter(e => e.date === date && e.start && e.end);
+
+  for (const event of dayEvents) {
+    const eventStart = hmToMin(event.start!);
+    const eventEnd = hmToMin(event.end!);
+
+    // Check overlap: (StartA < EndB) and (EndA > StartB)
+    if (workStart < eventEnd && workEnd > eventStart) {
+      return {
+        blocked: true,
+        reason: `Conflit avec récupération (${event.start} - ${event.end})`
+      };
+    }
+  }
+
+  return { blocked: false };
 }
 
 export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, workDays: number): number {

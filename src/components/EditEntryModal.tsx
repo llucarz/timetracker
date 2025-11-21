@@ -11,7 +11,7 @@ import { DatePicker } from "./DatePicker";
 import { TimePicker } from "./TimePicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { Entry } from "../lib/types";
-import { computeMinutesFromTimes, minToHM } from "../lib/utils";
+import { computeMinutesFromTimes, minToHM, checkOverlap } from "../lib/utils";
 
 interface EditEntryModalProps {
   isOpen: boolean;
@@ -20,7 +20,7 @@ interface EditEntryModalProps {
 }
 
 export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) {
-  const { updateEntry, deleteEntry } = useTimeTracker();
+  const { updateEntry, deleteEntry, otState } = useTimeTracker();
   const [date, setDate] = useState("");
   const [arrival, setArrival] = useState("");
   const [pauseStart, setPauseStart] = useState("");
@@ -50,6 +50,26 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
     if (status === "work" && (!arrival || !departure)) {
       toast.error("Veuillez entrer au moins l'arrivée et le départ");
       return;
+    }
+
+    if (status === "work") {
+      // Check morning session
+      if (arrival && (pauseStart || departure)) {
+        const end = pauseStart || departure;
+        const overlap = checkOverlap(date, arrival, end, otState.events);
+        if (overlap.blocked) {
+          toast.error(overlap.reason);
+          return;
+        }
+      }
+      // Check afternoon session
+      if (pauseEnd && departure) {
+        const overlap = checkOverlap(date, pauseEnd, departure, otState.events);
+        if (overlap.blocked) {
+          toast.error(overlap.reason);
+          return;
+        }
+      }
     }
 
     if (entry) {

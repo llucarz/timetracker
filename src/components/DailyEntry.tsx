@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Calendar, Save, RotateCcw, Copy, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
+import { useTimeTracker } from "../context/TimeTrackerContext";
+import { checkOverlap } from "../lib/utils";
 
 interface DailyEntryProps {
   defaultSchedule?: {
@@ -18,6 +20,7 @@ interface DailyEntryProps {
 }
 
 export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
+  const { otState } = useTimeTracker();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [arrival, setArrival] = useState("");
   const [pauseStart, setPauseStart] = useState("");
@@ -47,6 +50,26 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
     if (status === "work" && (!arrival || !departure)) {
       toast.error("Please enter at least arrival and departure times");
       return;
+    }
+
+    if (status === "work") {
+      // Check morning session
+      if (arrival && (pauseStart || departure)) {
+        const end = pauseStart || departure;
+        const overlap = checkOverlap(date, arrival, end, otState.events);
+        if (overlap.blocked) {
+          toast.error(overlap.reason);
+          return;
+        }
+      }
+      // Check afternoon session
+      if (pauseEnd && departure) {
+        const overlap = checkOverlap(date, pauseEnd, departure, otState.events);
+        if (overlap.blocked) {
+          toast.error(overlap.reason);
+          return;
+        }
+      }
     }
 
     toast.success("Day saved successfully", {

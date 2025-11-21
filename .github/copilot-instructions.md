@@ -129,6 +129,14 @@ OvertimeState: {
   - OR configure `server.proxy` in `vite.config.ts` to point to a deployed instance.
   - Without this, `fetch('/api/data')` will 404 and app will fallback to offline mode.
 
+### Troubleshooting Cloud Sync
+- **500 Internal Server Error**: Usually missing environment variables in Vercel.
+  - Check `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel Project Settings.
+  - Check Vercel Function Logs for specific error details.
+- **404 Not Found**: API not accessible.
+  - Local: Run `vercel dev` or check proxy config.
+  - Prod: Check if `api/data.js` deployed successfully.
+
 ## Testing & Debugging
 - No test suite configured yet
 - Use browser DevTools → Application → localStorage for data inspection

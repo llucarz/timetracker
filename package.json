@@ -45,7 +45,8 @@
             "sonner": "^2.0.3",
             "tailwind-merge": "*",
             "tailwindcss": "*",
-            "vaul": "^1.1.2"
+            "vaul": "^1.1.2",
+            "@upstash/redis": "^1.34.3"
       },
       "devDependencies": {
             "@types/node": "^20.10.0",

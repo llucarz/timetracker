@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { EditEntryModal } from "./EditEntryModal";
 import { PeriodPicker } from "./PeriodPicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { minToHM, computeMinutes, hmToMin } from "../lib/utils";
+import { minToHM, computeMinutes, hmToMin, formatDuration } from "../lib/utils";
 
 interface WeeklyViewProps {
   period: "week" | "month" | "year";
@@ -15,7 +15,7 @@ interface WeeklyViewProps {
 }
 
 export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
-  const { entries } = useTimeTracker();
+  const { entries, settings } = useTimeTracker();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -113,13 +113,37 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
       }
     });
 
+    // Calculate Weekly Overtime
+    const weeklyTargetMinutes = settings.weeklyTarget * 60;
+    const weeklyOvertime = weekMinutes - weeklyTargetMinutes;
+    const weeklyOvertimeStr = formatDuration(weeklyOvertime);
+    const weeklySubtitle = weeklyOvertime > 0 
+      ? `+${weeklyOvertimeStr} vs objectif` 
+      : `${weeklyOvertimeStr} vs objectif`;
+
+    // Calculate Monthly Target
+    let workDaysInMonth = 0;
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), i);
+      const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) workDaysInMonth++;
+    }
+    
+    const dailyTargetMinutes = (settings.weeklyTarget / settings.workDays) * 60;
+    const monthlyTargetMinutes = workDaysInMonth * dailyTargetMinutes;
+    const monthlyProgress = monthlyTargetMinutes > 0 ? Math.round((monthMinutes / monthlyTargetMinutes) * 100) : 0;
+    const monthlySubtitle = `${monthlyProgress}% de l'objectif`;
+
     return {
       today: minToHM(todayMinutes),
       week: minToHM(weekMinutes),
       month: minToHM(monthMinutes),
-      year: minToHM(yearMinutes) // Approximate for year if needed, or just use HM
+      year: minToHM(yearMinutes),
+      weeklySubtitle,
+      monthlySubtitle
     };
-  }, [entries]);
+  }, [entries, settings]);
 
   const handleEditEntry = (entry: any) => {
     setSelectedEntry(entry);
@@ -160,7 +184,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             icon={<Calendar className="w-4 h-4" />}
             label="Cette semaine"
             value={stats.week}
-            subtitle="+2h30 vs objectif"
+            subtitle={stats.weeklySubtitle}
             color="teal"
             delay={0.1}
           />
@@ -168,7 +192,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             icon={<TrendingUp className="w-4 h-4" />}
             label="Ce mois"
             value={stats.month}
-            subtitle="95% de l'objectif"
+            subtitle={stats.monthlySubtitle}
             color="pink"
             delay={0.2}
           />

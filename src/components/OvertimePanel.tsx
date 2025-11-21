@@ -7,7 +7,7 @@ import { TrendingUp, TrendingDown, Plus, Calendar, Clock, Trash2, Minimize2, Max
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { minToHM } from "../lib/utils";
+import { minToHM, formatDuration } from "../lib/utils";
 
 interface Recovery {
   id: string;
@@ -42,9 +42,9 @@ export function OvertimePanel() {
   const [comment, setComment] = useState("");
   
   // Calculate stats from context
-  const overtimeBalance = parseFloat((otState.balanceMinutes / 60).toFixed(2));
-  const overtimeEarned = parseFloat((otState.earnedMinutes / 60).toFixed(2));
-  const overtimeRecovered = parseFloat((otState.usedMinutes / 60).toFixed(2));
+  const overtimeBalance = otState.balanceMinutes;
+  const overtimeEarned = otState.earnedMinutes;
+  const overtimeRecovered = otState.usedMinutes;
 
   // Map events to recoveries for display
   const recoveries: Recovery[] = otState.events.map(event => {
@@ -128,8 +128,8 @@ export function OvertimePanel() {
               </div>
               <div className="text-right">
                 <p className="text-xs text-white/80">Solde actuel</p>
-                <p className="text-2xl font-bold mt-0.5">+{overtimeBalance}h</p>
-                <p className="text-xs text-white/70 mt-0.5">{convertHoursToDays(overtimeBalance)}</p>
+                <p className="text-2xl font-bold mt-0.5">{overtimeBalance > 0 ? "+" : ""}{formatDuration(overtimeBalance)}</p>
+                <p className="text-xs text-white/70 mt-0.5">{convertHoursToDays(overtimeBalance / 60)}</p>
               </div>
             </div>
             <div className="pt-2 border-t border-white/20">
@@ -151,8 +151,8 @@ export function OvertimePanel() {
               </div>
               <div className="text-right">
                 <p className="text-xs text-gray-500">Heures cumulées</p>
-                <p className="text-2xl font-bold text-gray-900 mt-0.5">+{overtimeEarned}h</p>
-                <p className="text-xs text-emerald-600 mt-0.5 font-medium">{convertHoursToDays(overtimeEarned)}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">+{formatDuration(overtimeEarned)}</p>
+                <p className="text-xs text-emerald-600 mt-0.5 font-medium">{convertHoursToDays(overtimeEarned / 60)}</p>
               </div>
             </div>
             <div className="pt-2 border-t border-gray-100">
@@ -172,8 +172,8 @@ export function OvertimePanel() {
               </div>
               <div className="text-right">
                 <p className="text-xs text-gray-500">Heures récupérées</p>
-                <p className="text-2xl font-bold text-gray-900 mt-0.5">-{overtimeRecovered}h</p>
-                <p className="text-xs text-blue-600 mt-0.5 font-medium">{convertHoursToDays(overtimeRecovered)}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">-{formatDuration(overtimeRecovered)}</p>
+                <p className="text-xs text-blue-600 mt-0.5 font-medium">{convertHoursToDays(overtimeRecovered / 60)}</p>
               </div>
             </div>
             <div className="pt-2 border-t border-gray-100">
@@ -364,7 +364,7 @@ export function OvertimePanel() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <div className="text-right">
                         <p className="text-base sm:text-lg font-semibold text-purple-600">
-                          -{recovery.amount * (recovery.type === "days" ? 7.5 : 1)}h
+                          -{formatDuration(recovery.amount * (recovery.type === "days" ? 450 : 60))}
                         </p>
                       </div>
                       <button

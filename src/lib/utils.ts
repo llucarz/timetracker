@@ -18,6 +18,17 @@ export function minToHM(min: number): string {
   return `${sign}${h}h${pad(m)}`;
 }
 
+export function formatDuration(minutes: number): string {
+  const sign = minutes < 0 ? "- " : "";
+  const abs = Math.abs(minutes);
+  const h = Math.floor(abs / 60);
+  const m = Math.round(abs % 60);
+  
+  if (h === 0) return `${sign}${m} min`;
+  if (m === 0) return `${sign}${h}h`;
+  return `${sign}${h}h ${pad(m)}min`;
+}
+
 export function toDateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }

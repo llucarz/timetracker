@@ -34,7 +34,7 @@ function convertHoursToDays(hours: number) {
 }
 
 export function OvertimePanel() {
-  const { otState, addOvertimeEvent, deleteOvertimeEvent, entries, settings } = useTimeTracker();
+  const { otState, addOvertimeEvent, deleteOvertimeEvent, entries, settings, addEntry } = useTimeTracker();
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [recoveredDays, setRecoveredDays] = useState("");
@@ -104,14 +104,27 @@ export function OvertimePanel() {
       minutes = parseFloat(recoveredHours) * 60;
     }
 
+    // 1. Add overtime event (deduct from balance)
     addOvertimeEvent({
       date: recoveryDate,
       minutes: minutes,
       note: comment
     });
 
+    // 2. Add entry to calendar (mark as vacation/recovery)
+    // We use "vacation" status for recovery days
+    addEntry({
+      date: recoveryDate,
+      status: "vacation",
+      start: "",
+      lunchStart: "",
+      lunchEnd: "",
+      end: "",
+      notes: comment ? `Récupération: ${comment}` : "Récupération"
+    });
+
     toast.success("Récupération enregistrée", {
-      description: "Votre demande de récupération a été ajoutée",
+      description: "Votre demande de récupération a été ajoutée et le jour marqué comme non travaillé",
     });
 
     setRecoveredDays("");
@@ -371,12 +384,12 @@ export function OvertimePanel() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        item.type === "earned" ? "bg-emerald-100" : "bg-purple-100"
+                        item.type === "earned" ? "bg-emerald-100" : "bg-red-100"
                       }`}>
                         {item.type === "earned" ? (
                           <ArrowUpRight className="w-5 h-5 text-emerald-600" />
                         ) : (
-                          <Clock className="w-5 h-5 text-purple-600" />
+                          <Clock className="w-5 h-5 text-red-600" />
                         )}
                       </div>
 
@@ -403,7 +416,7 @@ export function OvertimePanel() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <div className="text-right">
                         <p className={`text-base sm:text-lg font-semibold ${
-                          item.type === "earned" ? "text-emerald-600" : "text-purple-600"
+                          item.type === "earned" ? "text-emerald-600" : "text-red-600"
                         }`}>
                           {item.type === "earned" ? "+" : "-"}{formatDuration(item.minutes)}
                         </p>

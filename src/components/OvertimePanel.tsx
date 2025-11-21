@@ -7,7 +7,7 @@ import { TrendingUp, TrendingDown, Plus, Calendar, Clock, Trash2, Minimize2, Max
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { minToHM, formatDuration, computeMinutes, hmToMin, checkOverlap } from "../lib/utils";
+import { minToHM, formatDuration, computeMinutes, hmToMin, checkOverlap, getRecoveryMinutesForDay } from "../lib/utils";
 
 interface HistoryItem {
   id: string;
@@ -77,8 +77,10 @@ export function OvertimePanel() {
     entries.forEach(entry => {
       if (entry.status && entry.status !== "work") return; // Only work days
       
-      const minutes = computeMinutes(entry);
-      const delta = minutes - dailyTargetMinutes;
+      const workMinutes = computeMinutes(entry);
+      const recoveryMinutes = getRecoveryMinutesForDay(entry.date, otState.events);
+      const totalMinutes = workMinutes + recoveryMinutes;
+      const delta = totalMinutes - dailyTargetMinutes;
       
       if (delta > 0) {
         items.push({

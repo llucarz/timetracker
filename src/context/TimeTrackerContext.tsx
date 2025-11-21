@@ -106,8 +106,8 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(entries));
-      // Recalculate overtime whenever entries or settings change
-      const earned = computeOvertimeEarned(entries, settings.weeklyTarget, settings.workDays);
+      // Recalculate overtime whenever entries, settings, or recovery events change
+      const earned = computeOvertimeEarned(entries, settings.weeklyTarget, settings.workDays, otState.events);
       setOtState(prev => {
         const newState = {
           ...prev,
@@ -120,7 +120,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Failed to update overtime state:", error);
     }
-  }, [entries, settings.weeklyTarget, settings.workDays]);
+  }, [entries, settings.weeklyTarget, settings.workDays, otState.events]);
 
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));

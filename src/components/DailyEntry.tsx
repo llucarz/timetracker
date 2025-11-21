@@ -4,11 +4,11 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Calendar, Save, RotateCcw, Copy, Sparkles } from "lucide-react";
+import { Calendar, Save, RotateCcw, Copy, Sparkles, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { checkOverlap, getRecoveryState, cn } from "../lib/utils";
+import { checkOverlap, getRecoveryMinutesForDay, formatDuration, cn } from "../lib/utils";
 
 interface DailyEntryProps {
   defaultSchedule?: {
@@ -28,29 +28,6 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
   const [departure, setDeparture] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("work");
-  
-  const [locks, setLocks] = useState({
-    arrival: false,
-    pauseStart: false,
-    pauseEnd: false,
-    departure: false
-  });
-
-  useEffect(() => {
-    const recovery = getRecoveryState(date, otState.events);
-    
-    if (recovery.arrival.locked) setArrival(recovery.arrival.value);
-    if (recovery.pauseStart.locked) setPauseStart(recovery.pauseStart.value);
-    if (recovery.pauseEnd.locked) setPauseEnd(recovery.pauseEnd.value);
-    if (recovery.departure.locked) setDeparture(recovery.departure.value);
-
-    setLocks({
-      arrival: recovery.arrival.locked,
-      pauseStart: recovery.pauseStart.locked,
-      pauseEnd: recovery.pauseEnd.locked,
-      departure: recovery.departure.locked
-    });
-  }, [date, otState.events]);
 
   const handleFillDefault = () => {
     if (defaultSchedule) {
@@ -96,7 +73,7 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
     }
 
     toast.success("Day saved successfully", {
-      description: `${date} - ${calculateDuration()} worked`,
+      description: `${date} - ${formatDuration(creditedMinutes)} credited`,
     });
     
     handleClear();
@@ -110,8 +87,8 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
     setNotes("");
   };
 
-  const calculateDuration = () => {
-    if (!arrival || !departure) return "0h00";
+  const calculateMinutes = () => {
+    if (!arrival || !departure) return 0;
     
     const [aH, aM] = arrival.split(':').map(Number);
     const [dH, dM] = departure.split(':').map(Number);
@@ -125,13 +102,12 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
       minutes -= pauseMinutes;
     }
     
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    
-    return `${hours}h${mins.toString().padStart(2, '0')}`;
+    return Math.max(0, minutes);
   };
 
-  const duration = calculateDuration();
+  const workMinutes = calculateMinutes();
+  const recoveryMinutes = getRecoveryMinutesForDay(date, otState.events);
+  const creditedMinutes = workMinutes + recoveryMinutes;
   const isWorkDay = status === "work";
 
   return (
@@ -163,6 +139,24 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
             className="h-11 rounded-xl border-gray-200 focus:border-purple-300 focus:ring-purple-200"
           />
         </div>
+
+        {/* Warning Banner */}
+        {recoveryMinutes > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex gap-3 items-start"
+          >
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-sm font-semibold text-amber-900">Recovery Scheduled</h4>
+              <p className="text-sm text-amber-700 mt-1">
+                You have {formatDuration(recoveryMinutes)} of recovery scheduled for this day.
+                Make sure your worked hours are consistent with this recovery.
+              </p>
+            </div>
+          </motion.div>
+        )}
 
         {/* Status */}
         <div className="space-y-2">
@@ -205,74 +199,50 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className={cn("text-xs text-gray-600", locks.arrival && "text-red-600 font-medium")}>
-                  Arrival {locks.arrival && "(Recovery)"}
-                </Label>
+                <Label className="text-xs text-gray-600">Arrival</Label>
                 <Input
                   type="time"
                   value={arrival}
                   onChange={(e) => setArrival(e.target.value)}
-                  className={cn(
-                    "h-11 rounded-xl border-gray-200 font-mono text-sm",
-                    locks.arrival && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed"
-                  )}
+                  className="h-11 rounded-xl border-gray-200 font-mono text-sm"
                   required
-                  readOnly={locks.arrival}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className={cn("text-xs text-gray-600", locks.departure && "text-red-600 font-medium")}>
-                  Departure {locks.departure && "(Recovery)"}
-                </Label>
+                <Label className="text-xs text-gray-600">Departure</Label>
                 <Input
                   type="time"
                   value={departure}
                   onChange={(e) => setDeparture(e.target.value)}
-                  className={cn(
-                    "h-11 rounded-xl border-gray-200 font-mono text-sm",
-                    locks.departure && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed"
-                  )}
+                  className="h-11 rounded-xl border-gray-200 font-mono text-sm"
                   required
-                  readOnly={locks.departure}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className={cn("text-xs text-gray-600", locks.pauseStart && "text-red-600 font-medium")}>
-                  Lunch Start {locks.pauseStart && "(Recovery)"}
-                </Label>
+                <Label className="text-xs text-gray-600">Lunch Start</Label>
                 <Input
                   type="time"
                   value={pauseStart}
                   onChange={(e) => setPauseStart(e.target.value)}
-                  className={cn(
-                    "h-11 rounded-xl border-gray-200 font-mono text-sm",
-                    locks.pauseStart && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed"
-                  )}
-                  readOnly={locks.pauseStart}
+                  className="h-11 rounded-xl border-gray-200 font-mono text-sm"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className={cn("text-xs text-gray-600", locks.pauseEnd && "text-red-600 font-medium")}>
-                  Lunch End {locks.pauseEnd && "(Recovery)"}
-                </Label>
+                <Label className="text-xs text-gray-600">Lunch End</Label>
                 <Input
                   type="time"
                   value={pauseEnd}
                   onChange={(e) => setPauseEnd(e.target.value)}
-                  className={cn(
-                    "h-11 rounded-xl border-gray-200 font-mono text-sm",
-                    locks.pauseEnd && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed"
-                  )}
-                  readOnly={locks.pauseEnd}
+                  className="h-11 rounded-xl border-gray-200 font-mono text-sm"
                 />
               </div>
             </div>
 
             {/* Duration Display */}
-            {arrival && departure && (
+            {(arrival && departure) || recoveryMinutes > 0 ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -280,10 +250,15 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-600 mb-1">Duration</p>
+                    <p className="text-xs text-gray-600 mb-1">Credited (Work + Recov.)</p>
                     <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                      {duration}
+                      {formatDuration(creditedMinutes)}
                     </p>
+                    <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                      <span>Work: {formatDuration(workMinutes)}</span>
+                      <span>•</span>
+                      <span>Recov: {formatDuration(recoveryMinutes)}</span>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-600 mb-1">Target</p>
@@ -291,7 +266,7 @@ export function DailyEntry({ defaultSchedule }: DailyEntryProps) {
                   </div>
                 </div>
               </motion.div>
-            )}
+            ) : null}
           </motion.div>
         )}
 

@@ -145,7 +145,12 @@ export function getRecoveryState(date: string, events: OvertimeEvent[]) {
   return state;
 }
 
-export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, workDays: number): number {
+export function getRecoveryMinutesForDay(date: string, events: OvertimeEvent[]): number {
+  const dayEvents = events.filter(e => e.date === date);
+  return dayEvents.reduce((acc, e) => acc + (e.minutes || 0), 0);
+}
+
+export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, workDays: number, events: OvertimeEvent[] = []): number {
   const dailyTarget = weeklyTarget / workDays;
 
   // Regroupe par semaine : minutes, jours d'absence, et jours de travail réellement saisis
@@ -167,7 +172,13 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
     }
 
     // Minutes travaillées pour cette entrée
-    obj.minutes += computeMinutes(e);
+    const workMinutes = computeMinutes(e);
+    
+    // Minutes de récupération pour ce jour
+    const recoveryMinutes = getRecoveryMinutesForDay(e.date, events);
+    
+    // Total crédité
+    obj.minutes += workMinutes + recoveryMinutes;
 
     // Jours d'absence qui réduisent la cible
     if (
@@ -180,6 +191,8 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
     }
 
     // Jours de travail réellement saisis (on ignore les week-ends sans entrée)
+    // Note: si on a de la récup mais pas d'entrée "work", ça compte quand même comme jour travaillé ?
+    // Pour l'instant, on garde la logique existante : il faut une entrée.
     if (!e.status || e.status === "work") {
       obj.workDates.add(e.date);
     }

@@ -11,7 +11,7 @@ import { DatePicker } from "./DatePicker";
 import { TimePicker } from "./TimePicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { Entry } from "../lib/types";
-import { computeMinutesFromTimes, minToHM, checkOverlap, getRecoveryState, cn } from "../lib/utils";
+import { computeMinutesFromTimes, minToHM, checkOverlap, getRecoveryMinutesForDay, formatDuration, cn } from "../lib/utils";
 
 interface EditEntryModalProps {
   isOpen: boolean;
@@ -29,13 +29,6 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("work");
 
-  const [locks, setLocks] = useState({
-    arrival: false,
-    pauseStart: false,
-    pauseEnd: false,
-    departure: false
-  });
-
   useEffect(() => {
     if (entry) {
       setDate(entry.date);
@@ -47,25 +40,6 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
       setStatus(entry.status || "work");
     }
   }, [entry]);
-
-  useEffect(() => {
-    if (!date) return;
-    
-    const recovery = getRecoveryState(date, otState.events);
-    
-    // Only override if locked
-    if (recovery.arrival.locked) setArrival(recovery.arrival.value);
-    if (recovery.pauseStart.locked) setPauseStart(recovery.pauseStart.value);
-    if (recovery.pauseEnd.locked) setPauseEnd(recovery.pauseEnd.value);
-    if (recovery.departure.locked) setDeparture(recovery.departure.value);
-
-    setLocks({
-      arrival: recovery.arrival.locked,
-      pauseStart: recovery.pauseStart.locked,
-      pauseEnd: recovery.pauseEnd.locked,
-      departure: recovery.departure.locked
-    });
-  }, [date, otState.events]);
 
   const handleSave = () => {
     if (!date) {
@@ -110,9 +84,17 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
         status: status as any,
       });
       
-      const duration = calculateDuration();
+      const workMins = computeMinutesFromTimes({
+        start: arrival,
+        lunchStart: pauseStart,
+        lunchEnd: pauseEnd,
+        end: departure
+      });
+      const recovMins = getRecoveryMinutesForDay(date, otState.events);
+      const totalMins = workMins + recovMins;
+
       toast.success("Entrée mise à jour avec succès", {
-        description: `${date} - ${duration} travaillées`,
+        description: `${date} - ${formatDuration(totalMins)} credited`,
       });
     }
     
@@ -129,17 +111,19 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
     }
   };
 
-  const calculateDuration = () => {
-    const mins = computeMinutesFromTimes({
+  const calculateMinutes = () => {
+    return computeMinutesFromTimes({
       start: arrival,
       lunchStart: pauseStart,
       lunchEnd: pauseEnd,
       end: departure
     });
-    return minToHM(mins);
   };
 
-  const duration = calculateDuration();
+  const workMinutes = calculateMinutes();
+  const recoveryMinutes = getRecoveryMinutesForDay(date, otState.events);
+  const creditedMinutes = workMinutes + recoveryMinutes;
+  const duration = formatDuration(creditedMinutes);
   const isWorkDay = status === "work";
 
   if (!entry) return null;
@@ -218,6 +202,24 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                     </div>
                   </div>
 
+                  {/* Warning Banner */}
+                  {recoveryMinutes > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex gap-3 items-start"
+                    >
+                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-amber-900">Recovery Scheduled</h4>
+                        <p className="text-sm text-amber-700 mt-1">
+                          You have {formatDuration(recoveryMinutes)} of recovery scheduled for this day.
+                          Make sure your worked hours are consistent with this recovery.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+
                   {/* Work Hours */}
                   {isWorkDay && (
                     <motion.div
@@ -230,56 +232,40 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className={cn("text-xs text-gray-600", locks.arrival && "text-red-600 font-medium")}>
-                            Arrivée {locks.arrival && "(Récupération)"}
-                          </Label>
+                          <Label className="text-xs text-gray-600">Arrivée</Label>
                           <TimePicker
                             value={arrival}
                             onChange={setArrival}
-                            disabled={locks.arrival}
-                            className={cn(locks.arrival && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed")}
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <Label className={cn("text-xs text-gray-600", locks.departure && "text-red-600 font-medium")}>
-                            Départ {locks.departure && "(Récupération)"}
-                          </Label>
+                          <Label className="text-xs text-gray-600">Départ</Label>
                           <TimePicker
                             value={departure}
                             onChange={setDeparture}
-                            disabled={locks.departure}
-                            className={cn(locks.departure && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed")}
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <Label className={cn("text-xs text-gray-600", locks.pauseStart && "text-red-600 font-medium")}>
-                            Début pause {locks.pauseStart && "(Récupération)"}
-                          </Label>
+                          <Label className="text-xs text-gray-600">Début pause</Label>
                           <TimePicker
                             value={pauseStart}
                             onChange={setPauseStart}
-                            disabled={locks.pauseStart}
-                            className={cn(locks.pauseStart && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed")}
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <Label className={cn("text-xs text-gray-600", locks.pauseEnd && "text-red-600 font-medium")}>
-                            Fin pause {locks.pauseEnd && "(Récupération)"}
-                          </Label>
+                          <Label className="text-xs text-gray-600">Fin pause</Label>
                           <TimePicker
                             value={pauseEnd}
                             onChange={setPauseEnd}
-                            disabled={locks.pauseEnd}
-                            className={cn(locks.pauseEnd && "bg-red-50 border-red-200 text-red-600 cursor-not-allowed")}
                           />
                         </div>
                       </div>
 
                       {/* Duration Display */}
-                      {arrival && departure && (
+                      {(arrival && departure) || recoveryMinutes > 0 ? (
                         <motion.div
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
@@ -287,10 +273,15 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-gray-600 mb-1">Durée totale</p>
+                              <p className="text-sm text-gray-600 mb-1">Credited (Work + Recov.)</p>
                               <p className="text-4xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                                {duration}
+                                {formatDuration(creditedMinutes)}
                               </p>
+                              <div className="flex gap-3 mt-1 text-sm text-gray-500">
+                                <span>Work: {formatDuration(workMinutes)}</span>
+                                <span>•</span>
+                                <span>Recov: {formatDuration(recoveryMinutes)}</span>
+                              </div>
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-gray-600 mb-1">Objectif journalier</p>
@@ -298,7 +289,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                             </div>
                           </div>
                         </motion.div>
-                      )}
+                      ) : null}
                     </motion.div>
                   )}
 

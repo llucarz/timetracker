@@ -17,6 +17,8 @@ interface TimeTrackerContextType {
   loadFromCloud: () => Promise<void>;
   logout: () => void;
   login: (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => void;
+  isSyncing: boolean;
+  lastSyncError: string | null;
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | undefined>(undefined);
@@ -101,6 +103,9 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
       return { balanceMinutes: 0, earnedMinutes: 0, usedMinutes: 0, events: [] };
     }
   });
+
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
 
   // Persistence Effects
   useEffect(() => {
@@ -202,8 +207,10 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
 
   const syncWithCloud = async () => {
     if (!settings.account?.key) return;
+    setIsSyncing(true);
+    setLastSyncError(null);
     try {
-      await fetch(`/api/data?key=${settings.account.key}`, {
+      const res = await fetch(`/api/data?key=${settings.account.key}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -212,8 +219,14 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
           overtime: otState,
         }),
       });
+      if (!res.ok) {
+        throw new Error(`Sync failed: ${res.status}`);
+      }
     } catch (error) {
       console.error("Cloud sync failed:", error);
+      setLastSyncError(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -290,7 +303,9 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
       syncWithCloud,
       loadFromCloud,
       logout,
-      login
+      login,
+      isSyncing,
+      lastSyncError
     }}>
       {children}
     </TimeTrackerContext.Provider>

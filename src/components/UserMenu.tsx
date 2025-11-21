@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { Button } from "./ui/button";
-import { Download, Upload, LogOut, Settings, User, LogIn } from "lucide-react";
+import { Download, Upload, LogOut, Settings, User, LogIn, Loader2, CloudOff, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { computeMinutes, minToHM } from "../lib/utils";
@@ -14,7 +14,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenuProps) {
-  const { entries, importEntries, updateSettings, settings, logout } = useTimeTracker();
+  const { entries, importEntries, updateSettings, settings, logout, isSyncing, lastSyncError } = useTimeTracker();
   const [isOpen, setIsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -113,7 +113,20 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
         className="flex items-center gap-3 px-4 py-1 rounded-xl transition-colors duration-200 hover:bg-gray-200 cursor-pointer"
       >
         <div className="text-right hidden sm:block">
-          <p className="text-sm font-semibold text-gray-900">{displayUserName}</p>
+          <div className="flex items-center justify-end gap-2">
+            <p className="text-sm font-semibold text-gray-900">{displayUserName}</p>
+            {isLoggedIn && (
+              <>
+                {isSyncing ? (
+                  <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
+                ) : lastSyncError ? (
+                  <CloudOff className="w-3 h-3 text-red-500" title="Erreur de synchronisation" />
+                ) : (
+                  <CheckCircle2 className="w-3 h-3 text-emerald-500" title="Synchronisé" />
+                )}
+              </>
+            )}
+          </div>
           <p className="text-xs text-gray-500">{displayCompany}</p>
         </div>
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold shadow-lg shadow-purple-200">
@@ -140,9 +153,31 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
             >
               {/* User Info */}
               <div className="px-4 py-4 bg-gradient-to-br from-purple-50 to-pink-50 border-b border-purple-100">
-                <p className="text-sm font-semibold text-gray-900">
-                  {isLoggedIn ? "Connecté en tant que" : "Mode Invité"}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {isLoggedIn ? "Connecté en tant que" : "Mode Invité"}
+                  </p>
+                  {isLoggedIn && (
+                    <div className="flex items-center gap-1.5">
+                      {isSyncing ? (
+                        <>
+                          <Loader2 className="w-3 h-3 text-purple-600 animate-spin" />
+                          <span className="text-xs text-purple-600">Sync...</span>
+                        </>
+                      ) : lastSyncError ? (
+                        <>
+                          <CloudOff className="w-3 h-3 text-red-500" />
+                          <span className="text-xs text-red-500">Erreur</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span className="text-xs text-emerald-600">Sync</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <p className="text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   {displayUserName}
                 </p>

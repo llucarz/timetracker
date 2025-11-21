@@ -100,28 +100,49 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
     let weekMinutes = 0;
     let monthMinutes = 0;
     let yearMinutes = 0;
+    
+    let absenceDaysInWeek = 0;
+    let absenceDaysInMonth = 0;
+
+    const dailyTargetMinutes = (settings.weeklyTarget / settings.workDays) * 60;
 
     entries.forEach(entry => {
       const entryDate = new Date(entry.date);
       const minutes = computeMinutes(entry);
+      const dayOfWeek = entryDate.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isAbsence = ["school", "vacation", "sick", "holiday"].includes(entry.status);
 
       if (entry.date === today) {
         todayMinutes += minutes;
       }
+      
+      // Week stats
       if (entryDate >= startOfWeek && entryDate < endOfWeek) {
         weekMinutes += minutes;
+        if (isAbsence && !isWeekend) {
+          absenceDaysInWeek++;
+        }
       }
+      
+      // Month stats
       if (entryDate >= startOfMonth && entryDate < endOfMonth) {
         monthMinutes += minutes;
+        if (isAbsence && !isWeekend) {
+          absenceDaysInMonth++;
+        }
       }
+      
+      // Year stats
       if (entryDate >= startOfYear && entryDate < endOfYear) {
         yearMinutes += minutes;
       }
     });
 
     // Calculate Weekly Overtime
-    const weeklyTargetMinutes = settings.weeklyTarget * 60;
-    const weeklyOvertime = weekMinutes - weeklyTargetMinutes;
+    // Target is reduced by absence days (only if they fall on workdays)
+    const adjustedWeeklyTargetMinutes = (settings.weeklyTarget * 60) - (absenceDaysInWeek * dailyTargetMinutes);
+    const weeklyOvertime = weekMinutes - Math.max(0, adjustedWeeklyTargetMinutes);
     const weeklyOvertimeStr = formatDuration(weeklyOvertime);
     const weeklySubtitle = weeklyOvertime > 0 
       ? `+${weeklyOvertimeStr} vs objectif` 
@@ -136,8 +157,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
       if (dayOfWeek !== 0 && dayOfWeek !== 6) workDaysInMonth++;
     }
     
-    const dailyTargetMinutes = (settings.weeklyTarget / settings.workDays) * 60;
-    const monthlyTargetMinutes = workDaysInMonth * dailyTargetMinutes;
+    const monthlyTargetMinutes = (workDaysInMonth * dailyTargetMinutes) - (absenceDaysInMonth * dailyTargetMinutes);
     const monthlyProgress = monthlyTargetMinutes > 0 ? Math.round((monthMinutes / monthlyTargetMinutes) * 100) : 0;
     const monthlySubtitle = `${monthlyProgress}% de l'objectif`;
 

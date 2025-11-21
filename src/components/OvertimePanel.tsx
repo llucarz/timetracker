@@ -1,20 +1,21 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { TrendingUp, TrendingDown, Plus, Calendar, Clock, Trash2, Minimize2, Maximize2, X } from "lucide-react";
+import { TrendingUp, TrendingDown, Plus, Calendar, Clock, Trash2, Minimize2, Maximize2, X, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { minToHM, formatDuration } from "../lib/utils";
+import { minToHM, formatDuration, computeMinutes } from "../lib/utils";
 
-interface Recovery {
+interface HistoryItem {
   id: string;
   date: string;
-  type: "days" | "hours";
-  amount: number;
+  type: "earned" | "recovered";
+  minutes: number;
   comment?: string;
+  isManual: boolean;
 }
 
 // Fonction pour convertir les heures en jours et heures
@@ -33,7 +34,7 @@ function convertHoursToDays(hours: number) {
 }
 
 export function OvertimePanel() {
-  const { otState, addOvertimeEvent, deleteOvertimeEvent } = useTimeTracker();
+  const { otState, addOvertimeEvent, deleteOvertimeEvent, entries, settings } = useTimeTracker();
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [recoveredDays, setRecoveredDays] = useState("");
@@ -46,17 +47,49 @@ export function OvertimePanel() {
   const overtimeEarned = otState.earnedMinutes;
   const overtimeRecovered = otState.usedMinutes;
 
-  // Map events to recoveries for display
-  const recoveries: Recovery[] = otState.events.map(event => {
-    const isDay = event.minutes % 450 === 0 && event.minutes > 0;
-    return {
-      id: event.id,
-      date: event.date,
-      type: isDay ? "days" : "hours",
-      amount: isDay ? event.minutes / 450 : parseFloat((event.minutes / 60).toFixed(2)),
-      comment: event.note
-    };
-  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Calculate daily target
+  const dailyTargetMinutes = useMemo(() => {
+    if (!settings.workDays) return 0;
+    return (settings.weeklyTarget / settings.workDays) * 60;
+  }, [settings.weeklyTarget, settings.workDays]);
+
+  // Combine events and earned overtime
+  const historyItems = useMemo(() => {
+    const items: HistoryItem[] = [];
+
+    // 1. Recoveries (Manual events)
+    otState.events.forEach(event => {
+      items.push({
+        id: event.id,
+        date: event.date,
+        type: "recovered",
+        minutes: event.minutes,
+        comment: event.note,
+        isManual: true
+      });
+    });
+
+    // 2. Earned (Daily positive delta)
+    entries.forEach(entry => {
+      if (entry.status && entry.status !== "work") return; // Only work days
+      
+      const minutes = computeMinutes(entry);
+      const delta = minutes - dailyTargetMinutes;
+      
+      if (delta > 0) {
+        items.push({
+          id: `earned-${entry.id}`,
+          date: entry.date,
+          type: "earned",
+          minutes: delta,
+          comment: "Heures supplémentaires",
+          isManual: false
+        });
+      }
+    });
+
+    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [otState.events, entries, dailyTargetMinutes]);
 
   const handleSaveRecovery = () => {
     if (!recoveryDate || (!recoveredDays && !recoveredHours)) {
@@ -291,9 +324,9 @@ export function OvertimePanel() {
       >
         <div className="flex items-center justify-between mb-3 sm:mb-4 flex-shrink-0">
           <div>
-            <h3 className="font-semibold text-gray-900 text-base">Historique des récupérations</h3>
+            <h3 className="font-semibold text-gray-900 text-base">Historique</h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              {recoveries.length} récupération{recoveries.length > 1 ? "s" : ""} enregistrée{recoveries.length > 1 ? "s" : ""}
+              {historyItems.length} mouvement{historyItems.length > 1 ? "s" : ""} enregistré{historyItems.length > 1 ? "s" : ""}
             </p>
           </div>
           
@@ -317,19 +350,19 @@ export function OvertimePanel() {
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {recoveries.length === 0 ? (
+          {historyItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-6 py-12">
               <div className="w-14 sm:w-16 h-14 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <Clock className="w-7 sm:w-8 h-7 sm:h-8 text-gray-400" />
               </div>
-              <p className="text-gray-600 font-medium text-sm sm:text-base">Aucune récupération</p>
-              <p className="text-xs sm:text-sm text-gray-500 mt-1">Commencez par enregistrer votre première récupération</p>
+              <p className="text-gray-600 font-medium text-sm sm:text-base">Aucun historique</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">Vos heures supplémentaires et récupérations apparaîtront ici</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {recoveries.map((recovery, index) => (
+              {historyItems.map((item, index) => (
                 <motion.div
-                  key={recovery.id}
+                  key={item.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
@@ -337,45 +370,57 @@ export function OvertimePanel() {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                        <Clock className="w-5 h-5 text-purple-600" />
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        item.type === "earned" ? "bg-emerald-100" : "bg-purple-100"
+                      }`}>
+                        {item.type === "earned" ? (
+                          <ArrowUpRight className="w-5 h-5 text-emerald-600" />
+                        ) : (
+                          <Clock className="w-5 h-5 text-purple-600" />
+                        )}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-gray-900 text-sm">
-                          {recovery.amount} {recovery.type === "days" ? "jour(s)" : "heure(s)"}
+                          {item.type === "earned" ? "Heures supplémentaires" : "Récupération"}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
                           <p className="text-xs text-gray-500 truncate">
-                            {new Date(recovery.date).toLocaleDateString("fr-FR", {
+                            {new Date(item.date).toLocaleDateString("fr-FR", {
                               day: "numeric",
                               month: "long",
                               year: "numeric"
                             })}
                           </p>
                         </div>
-                        {recovery.comment && (
-                          <p className="text-xs text-gray-600 mt-1.5 italic line-clamp-2">"{recovery.comment}"</p>
+                        {item.comment && (
+                          <p className="text-xs text-gray-600 mt-1.5 italic line-clamp-2">"{item.comment}"</p>
                         )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <div className="text-right">
-                        <p className="text-base sm:text-lg font-semibold text-purple-600">
-                          -{formatDuration(recovery.amount * (recovery.type === "days" ? 450 : 60))}
+                        <p className={`text-base sm:text-lg font-semibold ${
+                          item.type === "earned" ? "text-emerald-600" : "text-purple-600"
+                        }`}>
+                          {item.type === "earned" ? "+" : "-"}{formatDuration(item.minutes)}
                         </p>
                       </div>
-                      <button
-                        onClick={() => {
-                          deleteOvertimeEvent(recovery.id);
-                          toast.success("Récupération supprimée");
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 rounded-lg hover:bg-red-50 flex items-center justify-center"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                      </button>
+                      {item.isManual ? (
+                        <button
+                          onClick={() => {
+                            deleteOvertimeEvent(item.id);
+                            toast.success("Récupération supprimée");
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 rounded-lg hover:bg-red-50 flex items-center justify-center"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                        </button>
+                      ) : (
+                        <div className="w-8 h-8" /> // Spacer
+                      )}
                     </div>
                   </div>
                 </motion.div>

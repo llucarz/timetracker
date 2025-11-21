@@ -208,20 +208,20 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                     <motion.div 
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
-                      className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-2.5 items-start"
+                      className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-3 items-start"
                     >
-                      <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
                       <div className="text-sm">
-                        <p className="font-semibold text-red-900">
+                        <p className="font-bold text-red-900 leading-5">
                           Récupération planifiée : {formatDuration(recoveryMinutes)}
                         </p>
-                        <div className="mt-1 text-xs text-red-800 space-y-0.5">
+                        <div className="mt-0.5 text-red-800">
                           {recoveryEvents.map((event, i) => (
-                            <p key={i}>
+                            <p key={i} className="text-xs leading-tight">
                               • {event.start} - {event.end} ({formatDuration(event.minutes)})
                             </p>
                           ))}
-                          <p className="mt-1.5 opacity-90 italic">
+                          <p className="text-xs mt-0.5 opacity-90 italic leading-tight">
                             Vérifiez la cohérence avec vos heures travaillées.
                           </p>
                         </div>

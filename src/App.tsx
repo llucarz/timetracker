@@ -59,7 +59,7 @@ function App() {
   ] as const;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "#EDEDED" }}>
+    <div className="h-screen flex flex-col overflow-hidden" style={{ backgroundColor: "hsl(0, 0%, 93%)" }}>
       {/* Header - Ultra moderne et responsive */}
       <header className="sticky top-0 z-50 border-b border-gray-200/50 bg-white/80 backdrop-blur-xl">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">

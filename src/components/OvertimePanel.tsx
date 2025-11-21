@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { DatePicker } from "./DatePicker";
 import { TrendingUp, TrendingDown, Plus, Calendar, Clock, Trash2, Minimize2, Maximize2, X, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
@@ -287,10 +288,9 @@ export function OvertimePanel() {
 
             <div className="space-y-2 md:col-span-2">
               <Label className="text-sm font-medium text-gray-700">Date de récupération</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={recoveryDate}
-                onChange={(e) => setRecoveryDate(e.target.value)}
+                onChange={setRecoveryDate}
                 className="h-10 rounded-lg border-gray-200"
               />
             </div>

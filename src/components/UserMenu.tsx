@@ -19,8 +19,12 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoggedIn = !!settings.account?.key;
-  const displayUserName = isLoggedIn ? settings.account?.name : "Invité";
-  const displayCompany = isLoggedIn ? settings.account?.company : "Mode local";
+  const rawUserName = isLoggedIn ? settings.account?.name : "Invité";
+  const rawCompany = isLoggedIn ? settings.account?.company : "Mode local";
+
+  // Formatage pour l'affichage
+  const displayUserName = rawUserName ? rawUserName.charAt(0).toUpperCase() + rawUserName.slice(1) : "";
+  const displayCompany = rawCompany ? rawCompany.toUpperCase() : "";
 
   const totalMinutes = entries.reduce((acc, entry) => {
     return acc + computeMinutes(entry.startTime, entry.endTime, entry.breakDuration);

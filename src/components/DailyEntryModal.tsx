@@ -4,13 +4,13 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Calendar, Save, RotateCcw, X, Sparkles } from "lucide-react";
+import { Calendar, Save, RotateCcw, X, Sparkles, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { DatePicker } from "./DatePicker";
 import { TimePicker } from "./TimePicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { computeMinutesFromTimes, minToHM } from "../lib/utils";
+import { computeMinutesFromTimes, minToHM, getRecoveryMinutesForDay, formatDuration } from "../lib/utils";
 
 interface DailyEntryModalProps {
   isOpen: boolean;
@@ -24,7 +24,7 @@ interface DailyEntryModalProps {
 }
 
 export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntryModalProps) {
-  const { addEntry } = useTimeTracker();
+  const { addEntry, otState } = useTimeTracker();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [arrival, setArrival] = useState("");
   const [pauseStart, setPauseStart] = useState("");
@@ -101,6 +101,16 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
   const duration = calculateDuration();
   const isWorkDay = status === "work";
 
+  const recoveryMinutes = getRecoveryMinutesForDay(date, otState.events);
+  const recoveryEvents = otState.events.filter(e => e.date === date);
+  const workMinutes = computeMinutesFromTimes({
+    start: arrival,
+    lunchStart: pauseStart,
+    lunchEnd: pauseEnd,
+    end: departure
+  });
+  const creditedMinutes = workMinutes + recoveryMinutes;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -175,6 +185,29 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
                     </div>
                   </div>
 
+                  {/* Warning Banner */}
+                  {recoveryMinutes > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex gap-3 items-start"
+                    >
+                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-semibold text-amber-900">Recovery Scheduled</h4>
+                        <div className="text-sm text-amber-700 mt-1">
+                          <p>You have {formatDuration(recoveryMinutes)} of recovery scheduled for this day.</p>
+                          {recoveryEvents.map((event, i) => (
+                            <p key={i} className="text-xs mt-1 font-medium">
+                              • {event.start} - {event.end} ({formatDuration(event.minutes)})
+                            </p>
+                          ))}
+                          <p className="mt-1">Make sure your worked hours are consistent with this recovery.</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
                   {/* Work Hours */}
                   {isWorkDay && (
                     <motion.div
@@ -231,7 +264,7 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
                       </div>
 
                       {/* Duration Display */}
-                      {arrival && departure && (
+                      {(arrival && departure) || recoveryMinutes > 0 ? (
                         <motion.div
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
@@ -239,10 +272,19 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-gray-600 mb-1">Durée totale</p>
-                              <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                                {duration}
+                              <p className="text-sm text-gray-600 mb-1">
+                                {recoveryMinutes > 0 ? "Credited (Work + Recov.)" : "Durée totale"}
                               </p>
+                              <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                                {formatDuration(creditedMinutes)}
+                              </p>
+                              {recoveryMinutes > 0 && (
+                                <div className="flex gap-3 mt-1 text-sm text-gray-500">
+                                  <span>Work: {formatDuration(workMinutes)}</span>
+                                  <span>•</span>
+                                  <span>Recov: {formatDuration(recoveryMinutes)}</span>
+                                </div>
+                              )}
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-gray-600 mb-1">Objectif journalier</p>
@@ -250,7 +292,7 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
                             </div>
                           </div>
                         </motion.div>
-                      )}
+                      ) : null}
                     </motion.div>
                   )}
 

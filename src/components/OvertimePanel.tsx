@@ -39,6 +39,7 @@ export function OvertimePanel() {
   const { otState, addOvertimeEvent, deleteOvertimeEvent, entries, settings, addEntry } = useTimeTracker();
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [recoveryDate, setRecoveryDate] = useState("");
@@ -97,7 +98,9 @@ export function OvertimePanel() {
     return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [otState.events, entries, dailyTargetMinutes]);
 
-  const handleSaveRecovery = () => {
+  const handleSaveRecovery = async () => {
+    if (isSubmitting) return;
+    
     if (!recoveryDate || !startTime || !endTime) {
       toast.error("Veuillez remplir la date et les heures de début/fin");
       return;
@@ -118,98 +121,31 @@ export function OvertimePanel() {
       return;
     }
 
-    const minutes = endMin - startMin;
+    setIsSubmitting(true);
+    try {
+      const minutes = endMin - startMin;
 
-    // 1. Add overtime event (deduct from balance)
-    addOvertimeEvent({
-      date: recoveryDate,
-      minutes: minutes,
-      note: comment,
-      start: startTime,
-      end: endTime
-    });
+      // 1. Add overtime event (deduct from balance)
+      addOvertimeEvent({
+        date: recoveryDate,
+        minutes: minutes,
+        note: comment,
+        start: startTime,
+        end: endTime
+      });
 
-    // 2. Add entry to calendar (mark as vacation/recovery)
-    // We use "vacation" status for recovery days
-    // Note: This might overwrite existing entry for the day. 
-    // Ideally we should check if entry exists and maybe append note or handle partial day recovery differently in calendar.
-    // For now, we keep existing behavior but maybe we should warn user?
-    // The user requirement says "Recovery must be treated as a time range".
-    // If it's a partial day, maybe we shouldn't mark the WHOLE day as vacation?
-    // But the current logic marks it as vacation. 
-    // Let's stick to the request: "user must NOT be able to enter work hours that overlap".
-    // So we just add the event. The calendar entry part is tricky if it's partial day.
-    // If I mark it as vacation, it might clear work hours?
-    // Let's check addEntry implementation in context... I don't have it here.
-    // Assuming addEntry replaces the entry.
-    // If it's a partial recovery, maybe we shouldn't call addEntry with "vacation" status if the user intends to work the rest of the day?
-    // But the previous code did: status: "vacation".
-    // If I change this, I might break "full day recovery" logic.
-    // However, if I recover 2 hours, I shouldn't mark the whole day as vacation.
-    // I will comment out the addEntry part for now, or make it optional?
-    // Actually, the user said "Recovery must be treated as a time range".
-    // If I add a recovery event, it is stored in `otState.events`.
-    // The `computeOvertimeEarned` uses `entries`.
-    // If I don't add an entry to `entries`, the day is treated as normal work day (or empty).
-    // If it's empty, it's fine.
-    // If I add "vacation", it reduces the target for the week.
-    // But a partial recovery shouldn't reduce the target for the WHOLE day, it just counts as "time worked" (or rather "time paid but not worked")?
-    // Wait, recovery means I use my overtime balance to NOT work.
-    // So it should count towards the target?
-    // In `computeOvertimeEarned`:
-    // `obj.minutes += computeMinutes(e);`
-    // If I don't work, minutes is 0.
-    // If I recover 2 hours, I want those 2 hours to count as if I worked them?
-    // OR I want the target to be reduced by 2 hours?
-    // The previous logic was: `status: "vacation"` -> `obj.absenceDays += 1`.
-    // This reduces the target by 1 day (e.g. 7h).
-    // If I recover only 2 hours, I shouldn't reduce target by 7h.
-    // So the previous logic was only good for FULL DAY recovery.
-    // Now we support partial recovery.
-    // So we should probably NOT add a "vacation" entry for partial recovery.
-    // AND we should probably update `computeOvertimeEarned` to include recovery minutes as "worked" minutes?
-    // OR we should update `computeOvertimeEarned` to reduce the target by the recovery amount?
-    // Reducing target seems cleaner.
-    
-    // But wait, `computeOvertimeEarned` is in `utils.ts`. I can modify it.
-    // But I need to pass `otState.events` to it.
-    // Currently it only takes `entries`, `weeklyTarget`, `workDays`.
-    // I should update `computeOvertimeEarned` signature to take `events` as well.
-    
-    // Let's stick to the requested changes first: UI for range input and overlap check.
-    // I will remove the `addEntry` call for now to avoid the "full day vacation" issue, 
-    // OR I will only call it if the duration is close to a full day? No that's magic.
-    // I'll remove `addEntry` call and just add the event.
-    // The user can manually add a "work" entry for the rest of the day if they want.
-    // But wait, if they don't add a work entry, they have 0 hours.
-    // If they add a work entry, they have X hours.
-    // The overlap check will prevent them from adding work during recovery.
-    
-    // I will remove the `addEntry` call. The user is managing "Overtime Recovery" events.
-    // These are stored in `otState`.
-    
-    // I will update `OvertimePanel.tsx` now.
-    
-    addOvertimeEvent({
-      date: recoveryDate,
-      minutes: minutes,
-      note: comment,
-      start: startTime,
-      end: endTime
-    });
+      toast.success("Récupération enregistrée", {
+        description: "Votre demande de récupération a été ajoutée.",
+      });
 
-    // Removed addEntry call to avoid overwriting daily entry with full-day vacation status.
-    // Partial recoveries should not mark the whole day as vacation.
-
-    toast.success("Récupération enregistrée", {
-      description: "Votre demande de récupération a été ajoutée.",
-    });
-
-    setStartTime("");
-    setEndTime("");
-    setRecoveryDate("");
-    setComment("");
-    setShowRecoveryModal(false);
+      setStartTime("");
+      setEndTime("");
+      setRecoveryDate("");
+      setComment("");
+      setShowRecoveryModal(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -373,9 +309,10 @@ export function OvertimePanel() {
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 mt-4">
             <Button
               onClick={handleSaveRecovery}
-              className="flex-1 h-10 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg shadow-lg shadow-purple-200 text-sm"
+              disabled={isSubmitting}
+              className="flex-1 h-10 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg shadow-lg shadow-purple-200 text-sm disabled:opacity-50"
             >
-              Enregistrer
+              {isSubmitting ? "Enregistrement..." : "Enregistrer"}
             </Button>
           </div>
         </motion.div>

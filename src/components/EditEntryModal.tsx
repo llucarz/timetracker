@@ -122,6 +122,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
 
   const workMinutes = calculateMinutes();
   const recoveryMinutes = getRecoveryMinutesForDay(date, otState.events);
+  const recoveryEvents = otState.events.filter(e => e.date === date);
   const creditedMinutes = workMinutes + recoveryMinutes;
   const duration = formatDuration(creditedMinutes);
   const isWorkDay = status === "work";
@@ -212,10 +213,15 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                       <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                       <div>
                         <h4 className="text-sm font-semibold text-amber-900">Recovery Scheduled</h4>
-                        <p className="text-sm text-amber-700 mt-1">
-                          You have {formatDuration(recoveryMinutes)} of recovery scheduled for this day.
-                          Make sure your worked hours are consistent with this recovery.
-                        </p>
+                        <div className="text-sm text-amber-700 mt-1">
+                          <p>You have {formatDuration(recoveryMinutes)} of recovery scheduled for this day.</p>
+                          {recoveryEvents.map((event, i) => (
+                            <p key={i} className="text-xs mt-1 font-medium">
+                              • {event.start} - {event.end} ({formatDuration(event.minutes)})
+                            </p>
+                          ))}
+                          <p className="mt-1">Make sure your worked hours are consistent with this recovery.</p>
+                        </div>
                       </div>
                     </motion.div>
                   )}

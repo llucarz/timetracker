@@ -44,6 +44,15 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
     // Si le mode est "different" et qu'on a des horaires pour ce jour
     if (settings.baseHours?.mode === "different" && settings.baseHours?.days?.[dayKey]) {
       const daySchedule = settings.baseHours.days[dayKey];
+      
+      // Vérifier si le jour est activé (enabled)
+      if (!daySchedule.enabled) {
+        toast.error("Jour non travaillé", {
+          description: "Ce jour n'est pas configuré comme jour travaillé dans votre profil"
+        });
+        return;
+      }
+      
       scheduleToUse = {
         arrival: daySchedule.start || "09:00",
         pauseStart: daySchedule.lunchStart || "12:30",

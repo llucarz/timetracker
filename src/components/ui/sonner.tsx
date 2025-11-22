@@ -9,6 +9,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       position="top-center"
       expand={true}
       richColors
+      closeButton
       className="toaster group"
       toastOptions={{
         duration: 4000,
@@ -17,6 +18,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           description: "group-[.toast]:text-gray-600 group-[.toast]:text-sm",
           actionButton: "group-[.toast]:bg-purple-600 group-[.toast]:text-white group-[.toast]:rounded-xl group-[.toast]:font-semibold",
           cancelButton: "group-[.toast]:bg-gray-100 group-[.toast]:text-gray-600 group-[.toast]:rounded-xl",
+          closeButton: "group-[.toast]:bg-gray-100/50 group-[.toast]:hover:bg-gray-200/50 group-[.toast]:border-0 group-[.toast]:text-gray-500 group-[.toast]:hover:text-gray-700",
           success: "group-[.toast]:!border-emerald-300 group-[.toast]:!bg-emerald-50",
           error: "group-[.toast]:!border-red-300 group-[.toast]:!bg-red-50",
           warning: "group-[.toast]:!border-amber-300 group-[.toast]:!bg-amber-50",

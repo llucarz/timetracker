@@ -24,7 +24,7 @@ interface DailyEntryModalProps {
 }
 
 export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntryModalProps) {
-  const { addEntry, otState } = useTimeTracker();
+  const { addEntry, otState, settings } = useTimeTracker();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [arrival, setArrival] = useState("");
   const [pauseStart, setPauseStart] = useState("");
@@ -34,11 +34,29 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
   const [status, setStatus] = useState("work");
 
   const handleFillDefault = () => {
-    if (defaultSchedule) {
-      setArrival(defaultSchedule.arrival);
-      setPauseStart(defaultSchedule.pauseStart);
-      setPauseEnd(defaultSchedule.pauseEnd);
-      setDeparture(defaultSchedule.departure);
+    const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    const selectedDate = new Date(date + 'T00:00:00');
+    const dayOfWeek = selectedDate.getDay();
+    const dayKey = dayKeys[dayOfWeek] as keyof typeof settings.baseHours.days;
+
+    let scheduleToUse = defaultSchedule;
+
+    // Si le mode est "different" et qu'on a des horaires pour ce jour
+    if (settings.baseHours?.mode === "different" && settings.baseHours?.days?.[dayKey]) {
+      const daySchedule = settings.baseHours.days[dayKey];
+      scheduleToUse = {
+        arrival: daySchedule.start || "09:00",
+        pauseStart: daySchedule.lunchStart || "12:30",
+        pauseEnd: daySchedule.lunchEnd || "13:30",
+        departure: daySchedule.end || "18:00",
+      };
+    }
+
+    if (scheduleToUse) {
+      setArrival(scheduleToUse.arrival);
+      setPauseStart(scheduleToUse.pauseStart);
+      setPauseEnd(scheduleToUse.pauseEnd);
+      setDeparture(scheduleToUse.departure);
       toast.success("Horaires habituels remplis", {
         description: "Vous pouvez maintenant ajuster si nécessaire"
       });

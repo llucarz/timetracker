@@ -4082,6 +4082,7 @@
 /* Custom toast close button positioning */
 [data-sonner-toast] [data-close-button] {
   position: absolute !important;
+  left: auto !important;
   right: 8px !important;
   top: 50% !important;
   transform: translateY(-50%) !important;

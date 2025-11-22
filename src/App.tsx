@@ -222,8 +222,6 @@ function App() {
         isOpen={isLoginModalOpen} 
         onClose={() => setIsLoginModalOpen(false)} 
       />
-
-      <Toaster />
     </div>
   );
 }

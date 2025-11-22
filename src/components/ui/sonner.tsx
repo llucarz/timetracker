@@ -18,7 +18,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           description: "group-[.toast]:text-gray-600 group-[.toast]:text-sm",
           actionButton: "group-[.toast]:bg-purple-600 group-[.toast]:text-white group-[.toast]:rounded-xl group-[.toast]:font-semibold",
           cancelButton: "group-[.toast]:bg-gray-100 group-[.toast]:text-gray-600 group-[.toast]:rounded-xl",
-          closeButton: "group-[.toast]:bg-gray-100/50 group-[.toast]:hover:bg-gray-200/50 group-[.toast]:border-0 group-[.toast]:text-gray-500 group-[.toast]:hover:text-gray-700",
+          closeButton: "!absolute !right-2 !top-1/2 !-translate-y-1/2 !bg-transparent hover:!bg-gray-100 !border-0 !text-gray-400 hover:!text-gray-600 !w-6 !h-6 !rounded-lg !transition-colors",
           success: "group-[.toast]:!border-emerald-300 group-[.toast]:!bg-emerald-50",
           error: "group-[.toast]:!border-red-300 group-[.toast]:!bg-red-50",
           warning: "group-[.toast]:!border-amber-300 group-[.toast]:!bg-amber-50",

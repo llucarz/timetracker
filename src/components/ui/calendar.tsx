@@ -72,6 +72,10 @@ function Calendar({
                           date.getMonth() === today.getMonth() &&
                           date.getFullYear() === today.getFullYear();
           
+          if (isToday) {
+            console.log("Calendar rendering TODAY:", date.toLocaleDateString());
+          }
+
           return (
             <div className="relative flex items-center justify-center w-full h-full">
               <span>{date.getDate()}</span>

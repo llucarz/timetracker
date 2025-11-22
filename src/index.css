@@ -4080,6 +4080,10 @@
 }
 
 /* Custom toast close button positioning */
+[data-sonner-toast] {
+  padding-right: 40px !important;
+}
+
 [data-sonner-toast] [data-close-button] {
   position: absolute !important;
   left: auto !important;
@@ -4093,6 +4097,7 @@
   height: 24px !important;
   border-radius: 0.5rem !important;
   transition: all 0.2s !important;
+  flex-shrink: 0 !important;
 }
 
 [data-sonner-toast] [data-close-button]:hover {

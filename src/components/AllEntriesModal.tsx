@@ -20,8 +20,8 @@ const statusLabels: Record<string, string> = {
 export function AllEntriesModal({ isOpen, onClose }: AllEntriesModalProps) {
   const { entries } = useTimeTracker();
 
-  // Trier les entrées de la plus récente à la plus ancienne
-  const sortedEntries = [...entries].sort((a, b) => b.date.localeCompare(a.date));
+  // Trier les entrées par ordre de saisie (updatedAt), du plus récent au plus ancien
+  const sortedEntries = [...entries].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
   return (
     <AnimatePresence>

@@ -3,6 +3,7 @@ import { Button } from "./ui/button";
 import { motion } from "motion/react";
 import { useState, useMemo } from "react";
 import { EditEntryModal } from "./EditEntryModal";
+import { AllEntriesModal } from "./AllEntriesModal";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { computeMinutes, minToHM, toDateKey, weekRangeOf } from "../lib/utils";
 import { Entry } from "../lib/types";
@@ -15,6 +16,7 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
   const { entries, otState, settings } = useTimeTracker();
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAllEntriesModalOpen, setIsAllEntriesModalOpen] = useState(false);
 
   const stats = useMemo(() => {
     const today = toDateKey(new Date());
@@ -178,7 +180,11 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
             <h3 className="text-lg sm:text-xl font-bold text-gray-900">Entrées récentes</h3>
             <p className="text-gray-500 text-xs sm:text-sm mt-1">Vos 5 derniers jours travaillés</p>
           </div>
-          <Button variant="ghost" className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-xl w-full sm:w-auto">
+          <Button 
+            variant="ghost" 
+            onClick={() => setIsAllEntriesModalOpen(true)}
+            className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-xl w-full sm:w-auto"
+          >
             Tout voir
             <ArrowRight className="w-4 h-4" />
           </Button>
@@ -253,6 +259,12 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
           onClose={() => setIsEditModalOpen(false)}
         />
       )}
+
+      {/* All Entries Modal */}
+      <AllEntriesModal
+        isOpen={isAllEntriesModalOpen}
+        onClose={() => setIsAllEntriesModalOpen(false)}
+      />
     </div>
   );
 }

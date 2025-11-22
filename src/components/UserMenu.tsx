@@ -190,10 +190,6 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
                   {displayUserName}
                 </p>
                 <p className="text-sm text-gray-600">{displayCompany}</p>
-                <div className="mt-3 pt-3 border-t border-purple-100">
-                  <p className="text-xs text-gray-500">Total heures suivies</p>
-                  <p className="text-xl font-bold text-gray-900">{totalHours}</p>
-                </div>
               </div>
 
               {/* Menu Items */}

@@ -203,15 +203,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-sm text-gray-700">Heure de départ</Label>
-                            <Input
-                              type="time"
-                              value={departure}
-                              onChange={(e) => setDeparture(e.target.value)}
-                              className="h-11 rounded-xl border-gray-200 font-mono"
-                            />
-                          </div>
-                          <div className="space-y-2">
                             <Label className="text-sm text-gray-700">Début pause</Label>
                             <Input
                               type="time"
@@ -226,6 +217,15 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                               type="time"
                               value={pauseEnd}
                               onChange={(e) => setPauseEnd(e.target.value)}
+                              className="h-11 rounded-xl border-gray-200 font-mono"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm text-gray-700">Heure de départ</Label>
+                            <Input
+                              type="time"
+                              value={departure}
+                              onChange={(e) => setDeparture(e.target.value)}
                               className="h-11 rounded-xl border-gray-200 font-mono"
                             />
                           </div>
@@ -275,7 +275,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                               {schedule.isWorkday && (
                                 <div className="grid grid-cols-2 gap-4">
                                   <div className="space-y-2">
-                                    <Label className="text-sm text-gray-700">Arrival Time</Label>
+                                    <Label className="text-sm text-gray-700">Heure d'arrivée</Label>
                                     <Input
                                       type="time"
                                       value={schedule.arrival}
@@ -288,20 +288,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                                     />
                                   </div>
                                   <div className="space-y-2">
-                                    <Label className="text-sm text-gray-700">Departure Time</Label>
-                                    <Input
-                                      type="time"
-                                      value={schedule.departure}
-                                      onChange={(e) => {
-                                        const newSchedules = [...daySchedules];
-                                        newSchedules[index].departure = e.target.value;
-                                        setDaySchedules(newSchedules);
-                                      }}
-                                      className="h-11 rounded-xl border-gray-200 font-mono"
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <Label className="text-sm text-gray-700">Lunch Start</Label>
+                                    <Label className="text-sm text-gray-700">Début pause</Label>
                                     <Input
                                       type="time"
                                       value={schedule.pauseStart}
@@ -314,13 +301,26 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                                     />
                                   </div>
                                   <div className="space-y-2">
-                                    <Label className="text-sm text-gray-700">Lunch End</Label>
+                                    <Label className="text-sm text-gray-700">Fin pause</Label>
                                     <Input
                                       type="time"
                                       value={schedule.pauseEnd}
                                       onChange={(e) => {
                                         const newSchedules = [...daySchedules];
                                         newSchedules[index].pauseEnd = e.target.value;
+                                        setDaySchedules(newSchedules);
+                                      }}
+                                      className="h-11 rounded-xl border-gray-200 font-mono"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label className="text-sm text-gray-700">Heure de départ</Label>
+                                    <Input
+                                      type="time"
+                                      value={schedule.departure}
+                                      onChange={(e) => {
+                                        const newSchedules = [...daySchedules];
+                                        newSchedules[index].departure = e.target.value;
                                         setDaySchedules(newSchedules);
                                       }}
                                       className="h-11 rounded-xl border-gray-200 font-mono"

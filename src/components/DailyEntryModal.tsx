@@ -260,14 +260,6 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-600">Départ</Label>
-                          <TimePicker
-                            value={departure}
-                            onChange={setDeparture}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
                           <Label className="text-xs text-gray-600">Début pause</Label>
                           <TimePicker
                             value={pauseStart}
@@ -280,6 +272,14 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
                           <TimePicker
                             value={pauseEnd}
                             onChange={setPauseEnd}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-600">Départ</Label>
+                          <TimePicker
+                            value={departure}
+                            onChange={setDeparture}
                           />
                         </div>
                       </div>

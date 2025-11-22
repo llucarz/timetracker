@@ -206,7 +206,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   };
 
   const syncWithCloud = async () => {
-    if (!settings.account?.key) return;
+    if (!settings.account?.key || settings.account.isOffline) return;
     setIsSyncing(true);
     setLastSyncError(null);
     try {
@@ -231,7 +231,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   };
 
   const loadFromCloud = async () => {
-    if (!settings.account?.key) return;
+    if (!settings.account?.key || settings.account.isOffline) return;
     try {
       const res = await fetch(`/api/data?key=${settings.account.key}`);
       if (!res.ok) return;

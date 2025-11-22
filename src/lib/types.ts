@@ -19,6 +19,7 @@ export interface Settings {
     name: string;
     company: string;
     key: string;
+    isOffline?: boolean;
   } | null;
   baseHours?: {
     mode: "same" | "per-day";

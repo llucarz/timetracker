@@ -19,6 +19,7 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLoggedIn = !!settings.account?.key;
+  const isOffline = settings.account?.isOffline;
   const rawUserName = isLoggedIn ? settings.account?.name : "Invité";
   const rawCompany = isLoggedIn ? settings.account?.company : "Mode local";
 
@@ -117,7 +118,9 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
             <p className="text-sm font-semibold text-gray-900">{displayUserName}</p>
             {isLoggedIn && (
               <>
-                {isSyncing ? (
+                {isOffline ? (
+                  <CloudOff className="w-3 h-3 text-gray-400" title="Mode hors ligne" />
+                ) : isSyncing ? (
                   <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
                 ) : lastSyncError ? (
                   <CloudOff className="w-3 h-3 text-red-500" title="Erreur de synchronisation" />
@@ -159,7 +162,12 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
                   </p>
                   {isLoggedIn && (
                     <div className="flex items-center gap-1.5">
-                      {isSyncing ? (
+                      {isOffline ? (
+                        <>
+                          <CloudOff className="w-3 h-3 text-gray-400" />
+                          <span className="text-xs text-gray-400">Hors ligne</span>
+                        </>
+                      ) : isSyncing ? (
                         <>
                           <Loader2 className="w-3 h-3 text-purple-600 animate-spin" />
                           <span className="text-xs text-purple-600">Sync...</span>

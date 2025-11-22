@@ -100,7 +100,8 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       const newAccount = { 
         name: name.trim(), 
         company: company.trim(), 
-        key 
+        key,
+        isOffline: true
       };
       
       updateSettings({ 

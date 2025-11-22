@@ -14,7 +14,7 @@ interface ProfileModalProps {
   onClose: () => void;
 }
 
-const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const daysOfWeek = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
@@ -105,8 +105,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       baseHours: newBaseHours
     });
 
-    toast.success("Profile saved", {
-      description: "Your work schedule has been updated",
+    toast.success("Profil enregistré", {
+      description: "Votre horaire de travail a été mis à jour",
     });
     onClose();
   };
@@ -137,8 +137,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Work Profile Settings</h2>
-                    <p className="text-sm text-gray-600 mt-1">Configure your default working hours</p>
+                    <h2 className="text-2xl font-bold text-gray-900">Paramètres de profil</h2>
+                    <p className="text-sm text-gray-600 mt-1">Configurez vos horaires de travail par défaut</p>
                   </div>
                   <button
                     onClick={onClose}
@@ -155,7 +155,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   {/* Schedule Mode */}
                   <div>
                     <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                      Schedule Type
+                      Type d'horaire
                     </Label>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -166,8 +166,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             : "border-gray-200 hover:border-gray-300"
                         }`}
                       >
-                        <p className="font-semibold text-gray-900 mb-1">Same Every Day</p>
-                        <p className="text-sm text-gray-600">Use identical hours for all workdays</p>
+                        <p className="font-semibold text-gray-900 mb-1">Identique chaque jour</p>
+                        <p className="text-sm text-gray-600">Utiliser les mêmes horaires pour tous les jours travaillés</p>
                       </button>
                       <button
                         onClick={() => setMode("different")}
@@ -177,8 +177,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             : "border-gray-200 hover:border-gray-300"
                         }`}
                       >
-                        <p className="font-semibold text-gray-900 mb-1">Different Per Day</p>
-                        <p className="text-sm text-gray-600">Set custom hours for each day</p>
+                        <p className="font-semibold text-gray-900 mb-1">Différent par jour</p>
+                        <p className="text-sm text-gray-600">Définir des horaires personnalisés pour chaque jour</p>
                       </button>
                     </div>
                   </div>
@@ -191,10 +191,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       className="space-y-4"
                     >
                       <div className="bg-gray-50 rounded-xl p-6">
-                        <h4 className="font-semibold text-gray-900 mb-4">Default Working Hours</h4>
+                        <h4 className="font-semibold text-gray-900 mb-4">Horaires de travail par défaut</h4>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label className="text-sm text-gray-700">Arrival Time</Label>
+                            <Label className="text-sm text-gray-700">Heure d'arrivée</Label>
                             <Input
                               type="time"
                               value={arrival}
@@ -203,7 +203,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-sm text-gray-700">Departure Time</Label>
+                            <Label className="text-sm text-gray-700">Heure de départ</Label>
                             <Input
                               type="time"
                               value={departure}
@@ -212,7 +212,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-sm text-gray-700">Lunch Start</Label>
+                            <Label className="text-sm text-gray-700">Début pause</Label>
                             <Input
                               type="time"
                               value={pauseStart}
@@ -221,7 +221,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-sm text-gray-700">Lunch End</Label>
+                            <Label className="text-sm text-gray-700">Fin pause</Label>
                             <Input
                               type="time"
                               value={pauseEnd}
@@ -241,7 +241,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-4"
                     >
-                      <Tabs defaultValue="Monday" className="w-full">
+                      <Tabs defaultValue="Lundi" className="w-full">
                         <TabsList className="w-full grid grid-cols-7 bg-gray-100 p-1 rounded-xl">
                           {daysOfWeek.map((day) => (
                             <TabsTrigger
@@ -268,7 +268,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                                   id={`workday-${schedule.day}`}
                                 />
                                 <Label htmlFor={`workday-${schedule.day}`} className="font-semibold text-gray-900">
-                                  This is a workday
+                                  Ceci est un jour travaillé
                                 </Label>
                               </div>
 
@@ -331,7 +331,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
                               {!schedule.isWorkday && (
                                 <div className="text-center py-8 text-gray-500">
-                                  <p>This day is marked as non-working</p>
+                                  <p>Ce jour est marqué comme non travaillé</p>
                                 </div>
                               )}
                             </div>
@@ -343,10 +343,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
                   {/* Weekly Target */}
                   <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
-                    <h4 className="font-semibold text-gray-900 mb-4">Weekly Targets</h4>
+                    <h4 className="font-semibold text-gray-900 mb-4">Objectifs hebdomadaires</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-sm text-gray-700">Weekly Target Hours</Label>
+                        <Label className="text-sm text-gray-700">Heures cibles hebdomadaires</Label>
                         <Input
                           type="number"
                           value={weeklyTarget}
@@ -356,7 +356,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-sm text-gray-700">Workdays Per Week</Label>
+                        <Label className="text-sm text-gray-700">Jours travaillés par semaine</Label>
                         <Input
                           type="number"
                           value={workdaysPerWeek}
@@ -378,14 +378,14 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   className="flex-1 h-12 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-semibold shadow-lg shadow-purple-200"
                 >
                   <Save className="w-4 h-4" />
-                  Save Profile
+                  Enregistrer
                 </Button>
                 <Button
                   onClick={onClose}
                   variant="outline"
                   className="h-12 px-8 rounded-xl border-gray-200 hover:bg-white"
                 >
-                  Cancel
+                  Annuler
                 </Button>
               </div>
             </motion.div>

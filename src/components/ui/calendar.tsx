@@ -17,6 +17,15 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
+      modifiers={{
+        today: new Date(),
+      }}
+      modifiersStyles={{
+        today: {
+          fontWeight: 'bold',
+          position: 'relative',
+        }
+      }}
       classNames={{
         months: "flex flex-col sm:flex-row gap-2",
         month: "flex flex-col gap-4",
@@ -66,25 +75,14 @@ function Calendar({
         IconRight: ({ className, ...props }) => (
           <ChevronRight className={cn("size-4", className)} {...props} />
         ),
-        Day: ({ date, displayMonth, ...props }) => {
-          const today = new Date();
-          const isToday = 
-            date.getDate() === today.getDate() &&
-            date.getMonth() === today.getMonth() &&
-            date.getFullYear() === today.getFullYear();
-
-          return (
-            <div className="relative">
-              <button {...props} />
-              {isToday && (
-                <span 
-                  className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-purple-600 rounded-full pointer-events-none"
-                  aria-hidden="true"
-                />
-              )}
-            </div>
-          );
-        },
+        DayContent: (props) => (
+          <div className="relative w-full h-full flex items-center justify-center">
+            <span>{props.date.getDate()}</span>
+            {props.activeModifiers.today && !props.activeModifiers.selected && (
+              <span className="absolute w-1 h-1 bg-purple-600 rounded-full" style={{ bottom: '2px', left: '50%', transform: 'translateX(-50%)' }} />
+            )}
+          </div>
+        ),
       }}
       {...props}
     />

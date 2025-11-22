@@ -114,7 +114,7 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
       />
       
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 px-4 py-1 rounded-xl transition-colors duration-200 hover:bg-gray-200 cursor-pointer">
+        <button className="flex items-center gap-3 px-4 py-1 rounded-xl transition-colors duration-200 hover:bg-gray-200 cursor-pointer outline-none focus:outline-none focus-visible:ring-0">
           <div className="text-right hidden sm:block">
             <div className="flex items-center justify-end gap-2">
               <p className="text-sm font-semibold text-gray-900">{displayUserName}</p>

@@ -55,11 +55,15 @@ export function DatePicker({ value, onChange, className = "" }: DatePickerProps)
           selected={dateValue}
           onSelect={handleSelect}
           initialFocus
+          weekStartsOn={1}
           locale={{
             localize: {
               day: (n: number) => ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][n],
               month: (n: number) => ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][n],
             },
+            formatLong: {
+              date: () => 'dd/MM/yyyy',
+            }
           } as any}
         />
       </PopoverContent>

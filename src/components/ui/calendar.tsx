@@ -50,7 +50,7 @@ function Calendar({
           "day-range-end aria-selected:bg-primary aria-selected:text-primary-foreground",
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "font-bold text-gray-900",
+        day_today: "bg-accent text-accent-foreground font-bold relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-purple-600 after:rounded-full",
         day_outside:
           "day-outside text-muted-foreground aria-selected:text-muted-foreground",
         day_disabled: "text-muted-foreground opacity-50",
@@ -66,25 +66,6 @@ function Calendar({
         IconRight: ({ className, ...props }) => (
           <ChevronRight className={cn("size-4", className)} {...props} />
         ),
-        DayContent: ({ date, activeModifiers }: DayContentProps) => {
-          const today = new Date();
-          const isToday = date.getDate() === today.getDate() &&
-                          date.getMonth() === today.getMonth() &&
-                          date.getFullYear() === today.getFullYear();
-          
-          if (isToday) {
-            console.log("Calendar rendering TODAY:", date.toLocaleDateString());
-          }
-
-          return (
-            <div className="relative flex items-center justify-center w-full h-full">
-              <span>{date.getDate()}</span>
-              {isToday && (
-                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-purple-600 rounded-full" />
-              )}
-            </div>
-          );
-        },
       }}
       {...props}
     />

@@ -66,14 +66,21 @@ function Calendar({
         IconRight: ({ className, ...props }) => (
           <ChevronRight className={cn("size-4", className)} {...props} />
         ),
-        DayContent: ({ date, activeModifiers }: DayContentProps) => (
-          <div className="relative flex items-center justify-center w-full h-full">
-            {date.getDate()}
-            {activeModifiers.today && (
-              <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-purple-600 rounded-full" />
-            )}
-          </div>
-        ),
+        DayContent: ({ date, activeModifiers }: DayContentProps) => {
+          const today = new Date();
+          const isToday = date.getDate() === today.getDate() &&
+                          date.getMonth() === today.getMonth() &&
+                          date.getFullYear() === today.getFullYear();
+          
+          return (
+            <div className="relative flex items-center justify-center w-full h-full">
+              <span>{date.getDate()}</span>
+              {isToday && (
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-purple-600 rounded-full" />
+              )}
+            </div>
+          );
+        },
       }}
       {...props}
     />

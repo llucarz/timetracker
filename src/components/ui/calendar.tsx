@@ -50,7 +50,7 @@ function Calendar({
           "day-range-end aria-selected:bg-primary aria-selected:text-primary-foreground",
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "bg-accent text-accent-foreground font-bold relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-purple-600 after:rounded-full",
+        day_today: "bg-transparent text-gray-900 font-bold",
         day_outside:
           "day-outside text-muted-foreground aria-selected:text-muted-foreground",
         day_disabled: "text-muted-foreground opacity-50",
@@ -66,6 +66,25 @@ function Calendar({
         IconRight: ({ className, ...props }) => (
           <ChevronRight className={cn("size-4", className)} {...props} />
         ),
+        Day: ({ date, displayMonth, ...props }) => {
+          const today = new Date();
+          const isToday = 
+            date.getDate() === today.getDate() &&
+            date.getMonth() === today.getMonth() &&
+            date.getFullYear() === today.getFullYear();
+
+          return (
+            <div className="relative">
+              <button {...props} />
+              {isToday && (
+                <span 
+                  className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-purple-600 rounded-full pointer-events-none"
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+          );
+        },
       }}
       {...props}
     />

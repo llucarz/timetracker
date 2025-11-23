@@ -118,7 +118,7 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
           <div className="text-right hidden sm:block">
             <div className="flex items-center justify-end gap-2">
               <p className="text-sm font-semibold text-gray-900">{displayUserName}</p>
-              {isLoggedIn && (
+              {isLoggedIn ? (
                 <>
                   {isOffline ? (
                     <CloudOff className="w-3 h-3 text-gray-400" title="Mode hors ligne" />
@@ -130,6 +130,8 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
                     <CheckCircle2 className="w-3 h-3 text-emerald-500" title="Synchronisé" />
                   )}
                 </>
+              ) : (
+                <CloudOff className="w-3 h-3 text-gray-400" title="Mode local" />
               )}
             </div>
             <p className="text-xs text-gray-500">{displayCompany}</p>
@@ -147,7 +149,7 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
             <p className="text-sm font-semibold text-gray-900">
               {isLoggedIn ? "Connecté en tant que" : "Mode Invité"}
             </p>
-            {isLoggedIn && (
+            {isLoggedIn ? (
               <div className="flex items-center gap-1.5">
                 {isOffline ? (
                   <>
@@ -170,6 +172,11 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
                     <span className="text-xs text-emerald-600">Sync</span>
                   </>
                 )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <CloudOff className="w-3 h-3 text-gray-400" />
+                <span className="text-xs text-gray-400">Local</span>
               </div>
             )}
           </div>

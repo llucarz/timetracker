@@ -25,6 +25,16 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
   const [periodButtonRef, setPeriodButtonRef] = useState<HTMLButtonElement | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Traduction des statuts
+  const statusTranslations: Record<string, string> = {
+    work: "Travail",
+    school: "École",
+    vacation: "Congés",
+    sick: "Maladie",
+    holiday: "Férié",
+    off: "Repos"
+  };
+
   // Filter and sort entries based on period and currentDate
   const filteredEntries = useMemo(() => {
     const start = new Date(currentDate);
@@ -420,7 +430,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                           variant={entry.status === "work" ? "default" : "secondary"}
                           className="rounded-full text-xs font-medium capitalize"
                         >
-                          {entry.status}
+                          {statusTranslations[entry.status] || entry.status}
                         </Badge>
                       </td>
                       <td className="px-3 py-2.5">
@@ -472,7 +482,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                           variant={entry.status === "work" ? "default" : "secondary"}
                           className="rounded-full text-xs font-medium mt-1 capitalize"
                         >
-                          {entry.status}
+                          {statusTranslations[entry.status] || entry.status}
                         </Badge>
                       </div>
                       <div className="text-right">

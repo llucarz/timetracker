@@ -18,6 +18,16 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAllEntriesModalOpen, setIsAllEntriesModalOpen] = useState(false);
 
+  // Traduction des statuts
+  const statusTranslations: Record<string, string> = {
+    work: "Travail",
+    school: "École",
+    vacation: "Congés",
+    sick: "Maladie",
+    holiday: "Férié",
+    off: "Repos"
+  };
+
   const stats = useMemo(() => {
     const today = toDateKey(new Date());
     const { start: weekStart, end: weekEnd } = weekRangeOf(today);
@@ -61,7 +71,7 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
         return {
           ...e,
           day: capitalizedDay,
-          hours: e.status === 'work' ? minToHM(mins) : (e.status === 'off' ? 'Repos' : e.status),
+          hours: e.status === 'work' ? minToHM(mins) : statusTranslations[e.status] || e.status,
           overtime: otStr,
           displayStatus: e.status === 'work' ? 'Work' : 'Other'
         };

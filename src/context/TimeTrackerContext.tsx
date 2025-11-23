@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Entry, Settings, OvertimeState, OvertimeEvent } from '../lib/types';
 import { computeOvertimeEarned } from '../lib/utils';
+import { storage } from '../lib/storage';
 
 interface TimeTrackerContextType {
   entries: Entry[];
@@ -19,127 +20,134 @@ interface TimeTrackerContextType {
   login: (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => void;
   isSyncing: boolean;
   lastSyncError: string | null;
+  storageType: "localStorage" | "indexedDB";
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | undefined>(undefined);
 
-const STORE_KEY = "tt_entries_v2";
-const SETTINGS_KEY = "tt_settings_v1";
-const OT_STORE_KEY = "tt_overtime_v1";
+const defaultSettings: Settings = {
+  isOnboarded: false,
+  weeklyTarget: 35,
+  workDays: 5,
+  baseHours: {
+    mode: "same",
+    same: { start: "", lunchStart: "", lunchEnd: "", end: "" },
+    days: {
+      mon: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+      tue: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+      wed: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+      thu: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+      fri: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
+      sat: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+      sun: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
+    }
+  }
+};
+
+const defaultOtState: OvertimeState = { 
+  balanceMinutes: 0, 
+  earnedMinutes: 0, 
+  usedMinutes: 0, 
+  events: [] 
+};
 
 export function TimeTrackerProvider({ children }: { children: ReactNode }) {
-  // Load initial state
-  const [entries, setEntries] = useState<Entry[]>(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
-      if (!Array.isArray(raw)) return [];
-      return raw
-        .filter((e: any) => e && typeof e === 'object')
-        .map((e: any) => ({
-          ...e,
-          status: e.status || "work",
-          id: e.id || crypto.randomUUID(),
-        }));
-    } catch {
-      return [];
-    }
-  });
-
-  const [settings, setSettings] = useState<Settings>(() => {
-    try {
-      const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
-      return {
-        isOnboarded: s.isOnboarded || false,
-        weeklyTarget: typeof s.weeklyTarget === "number" ? s.weeklyTarget : 35,
-        workDays: typeof s.workDays === "number" ? s.workDays : 5,
-        cloudKey: s.cloudKey || "",
-        account: s.account || null,
-        baseHours: s.baseHours || {
-          mode: "same",
-          same: { start: "", lunchStart: "", lunchEnd: "", end: "" },
-          days: {
-            mon: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            tue: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            wed: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            thu: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            fri: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            sat: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            sun: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
-          }
-        }
-      };
-    } catch {
-      return {
-        isOnboarded: false,
-        weeklyTarget: 35,
-        workDays: 5,
-        baseHours: {
-          mode: "same",
-          same: { start: "", lunchStart: "", lunchEnd: "", end: "" },
-          days: {
-            mon: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            tue: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            wed: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            thu: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            fri: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            sat: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
-            sun: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
-          }
-        }
-      };
-    }
-  });
-
-  const [otState, setOtState] = useState<OvertimeState>(() => {
-    try {
-      const o = JSON.parse(localStorage.getItem(OT_STORE_KEY) || "{}");
-      return {
-        balanceMinutes: o.balanceMinutes || 0,
-        earnedMinutes: o.earnedMinutes || 0,
-        usedMinutes: o.usedMinutes || 0,
-        events: Array.isArray(o.events) ? o.events : [],
-      };
-    } catch {
-      return { balanceMinutes: 0, earnedMinutes: 0, usedMinutes: 0, events: [] };
-    }
-  });
-
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [otState, setOtState] = useState<OvertimeState>(defaultOtState);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [storageType, setStorageType] = useState<"localStorage" | "indexedDB">("localStorage");
 
-  // Persistence Effects
+  // Load initial data from storage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(entries));
-      // Recalculate overtime whenever entries, settings, or recovery events change
-      const earned = computeOvertimeEarned(entries, settings.weeklyTarget, settings.workDays, otState.events);
-      setOtState(prev => {
-        const newState = {
-          ...prev,
+    const loadData = async () => {
+      try {
+        const [loadedEntries, loadedSettings, loadedOtState] = await Promise.all([
+          storage.getEntries(),
+          storage.getSettings(),
+          storage.getOvertimeState()
+        ]);
+
+        setEntries(loadedEntries);
+        setSettings(loadedSettings || defaultSettings);
+        setOtState(loadedOtState || defaultOtState);
+        setStorageType(storage.getStorageType());
+        setIsLoaded(true);
+      } catch (error) {
+        console.error("Failed to load data:", error);
+        setIsLoaded(true);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Persist entries and recalculate overtime
+  useEffect(() => {
+    if (!isLoaded) return;
+    
+    const persist = async () => {
+      try {
+        await storage.importEntries(entries);
+        
+        // Recalculate overtime
+        const earned = computeOvertimeEarned(entries, settings.weeklyTarget, settings.workDays, otState.events);
+        const newOtState = {
+          ...otState,
           earnedMinutes: earned,
-          balanceMinutes: earned - prev.usedMinutes
+          balanceMinutes: earned - otState.usedMinutes
         };
-        localStorage.setItem(OT_STORE_KEY, JSON.stringify(newState));
-        return newState;
-      });
-    } catch (error) {
-      console.error("Failed to update overtime state:", error);
-    }
-  }, [entries, settings.weeklyTarget, settings.workDays, otState.events]);
+        
+        if (newOtState.earnedMinutes !== otState.earnedMinutes || 
+            newOtState.balanceMinutes !== otState.balanceMinutes) {
+          setOtState(newOtState);
+          await storage.updateOvertimeState(newOtState);
+        }
+      } catch (error) {
+        console.error("Failed to persist entries:", error);
+      }
+    };
+    persist();
+  }, [entries, settings.weeklyTarget, settings.workDays, isLoaded]);
 
+  // Persist settings
   useEffect(() => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  }, [settings]);
+    if (!isLoaded) return;
+    
+    const persist = async () => {
+      try {
+        await storage.updateSettings(settings);
+        // Check if storage type changed (login/logout)
+        const newType = storage.getStorageType();
+        if (newType !== storageType) {
+          setStorageType(newType);
+        }
+      } catch (error) {
+        console.error("Failed to persist settings:", error);
+      }
+    };
+    persist();
+  }, [settings, isLoaded]);
 
+  // Persist overtime state
   useEffect(() => {
-    localStorage.setItem(OT_STORE_KEY, JSON.stringify(otState));
-  }, [otState]);
+    if (!isLoaded) return;
+    
+    const persist = async () => {
+      try {
+        await storage.updateOvertimeState(otState);
+      } catch (error) {
+        console.error("Failed to persist overtime state:", error);
+      }
+    };
+    persist();
+  }, [otState, isLoaded]);
 
   // Actions
   const addEntry = (entry: Omit<Entry, 'id'>) => {
     const newEntry = { ...entry, id: crypto.randomUUID(), updatedAt: Date.now() };
     setEntries(prev => {
-      // Remove existing entry for same date if any
       const filtered = prev.filter(e => e.date !== entry.date);
       return [...filtered, newEntry].sort((a, b) => a.date.localeCompare(b.date));
     });
@@ -245,31 +253,16 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     setEntries([]);
-    setSettings({
-      isOnboarded: false,
-      weeklyTarget: 35,
-      workDays: 5,
-      baseHours: {
-        mode: "same",
-        same: { start: "", lunchStart: "", lunchEnd: "", end: "" },
-        days: {
-          mon: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-          tue: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-          wed: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-          thu: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-          fri: { enabled: true, start: "", lunchStart: "", lunchEnd: "", end: "" },
-          sat: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
-          sun: { enabled: false, start: "", lunchStart: "", lunchEnd: "", end: "" },
-        }
-      }
-    });
-    setOtState({ balanceMinutes: 0, earnedMinutes: 0, usedMinutes: 0, events: [] });
+    setSettings(defaultSettings);
+    setOtState(defaultOtState);
     
-    localStorage.removeItem(STORE_KEY);
-    localStorage.removeItem(SETTINGS_KEY);
-    localStorage.removeItem(OT_STORE_KEY);
+    try {
+      await storage.clear();
+    } catch (error) {
+      console.error("Failed to clear storage:", error);
+    }
   };
 
   const login = (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => {
@@ -280,13 +273,13 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
 
   // Auto-sync when data changes
   useEffect(() => {
-    if (settings.account?.key) {
-      const timeout = setTimeout(() => {
-        syncWithCloud();
-      }, 2000); // Debounce 2s
-      return () => clearTimeout(timeout);
-    }
-  }, [entries, settings, otState]);
+    if (!isLoaded || !settings.account?.key) return;
+    
+    const timeout = setTimeout(() => {
+      syncWithCloud();
+    }, 2000); // Debounce 2s
+    return () => clearTimeout(timeout);
+  }, [entries, settings, otState, isLoaded]);
 
   return (
     <TimeTrackerContext.Provider value={{
@@ -305,7 +298,8 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
       logout,
       login,
       isSyncing,
-      lastSyncError
+      lastSyncError,
+      storageType
     }}>
       {children}
     </TimeTrackerContext.Provider>

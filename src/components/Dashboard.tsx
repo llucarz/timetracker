@@ -117,7 +117,6 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
               size="lg"
               className="h-12 sm:h-14 px-6 sm:px-8 bg-white text-purple-600 hover:bg-gray-50 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-2xl shadow-black/20 group"
             >
-              <Play className="w-4 sm:w-5 h-4 sm:h-5 group-hover:scale-110 transition-transform" />
               Saisir mes heures
               <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 group-hover:translate-x-1 transition-transform" />
             </Button>

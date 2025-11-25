@@ -188,11 +188,11 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
       e.status === "holiday"
     ) {
       obj.absenceDays += 1;
+      // Ajouter aussi dans workDates pour la semaine en cours
+      obj.workDates.add(e.date);
     }
 
-    // Jours de travail réellement saisis (on ignore les week-ends sans entrée)
-    // Note: si on a de la récup mais pas d'entrée "work", ça compte quand même comme jour travaillé ?
-    // Pour l'instant, on garde la logique existante : il faut une entrée.
+    // Jours de travail réellement saisis
     if (!e.status || e.status === "work") {
       obj.workDates.add(e.date);
     }
@@ -210,10 +210,9 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
 
     if (isCurrentWeek) {
       // ➜ Pour la semaine EN COURS :
-      // on ne compte que les jours déjà saisis (travail) + les jours d'absence
-      const workDaysLogged = v.workDates ? v.workDates.size : 0;
-      const effectiveSlots = Math.min(workDaysLogged + v.absenceDays, workDays);
-      adjustedWeeklyHours  = Math.max(0, effectiveSlots * dailyTarget);
+      // on ne compte que les jours déjà saisis (travail + absences)
+      const daysLogged = v.workDates.size;
+      adjustedWeeklyHours = daysLogged * dailyTarget - (v.absenceDays * dailyTarget);
     } else {
       // ➜ Pour les semaines PASSÉES :
       // logique classique : 35h - (absences * cible journalière)

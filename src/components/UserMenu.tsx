@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Download, Upload, LogOut, Settings, User, LogIn, Loader2, CloudOff, CheckCircle2 } from "lucide-react";
 import { 
@@ -11,6 +11,7 @@ import {
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { computeMinutes, minToHM } from "../lib/utils";
 import { toast } from "sonner";
+import { ExportModal } from "./ExportModal";
 
 interface UserMenuProps {
   userName: string;
@@ -22,6 +23,7 @@ interface UserMenuProps {
 export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenuProps) {
   const { entries, importEntries, updateSettings, settings, logout, isSyncing, lastSyncError } = useTimeTracker();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const isLoggedIn = !!settings.account?.key;
   const isOffline = settings.account?.isOffline;
@@ -33,7 +35,7 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
   const displayCompany = rawCompany ? rawCompany.toUpperCase() : "";
 
   const totalMinutes = entries.reduce((acc, entry) => {
-    return acc + computeMinutes(entry.startTime, entry.endTime, entry.breakDuration);
+    return acc + computeMinutes(entry);
   }, 0);
   const totalHours = minToHM(totalMinutes);
 
@@ -43,24 +45,7 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
   };
 
   const handleExport = () => {
-    const headers = ["Date", "Arrivée", "Départ", "Pause (min)", "Type", "Note"];
-    const csvContent = [
-      headers.join(","),
-      ...entries.map(e => 
-        [e.date, e.startTime, e.endTime, e.breakDuration, e.type, `"${e.note || ""}"`].join(",")
-      )
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `time_entries_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Export réussi");
+    setIsExportModalOpen(true);
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,16 +89,17 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
   };
 
   return (
-    <DropdownMenu>
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleImport}
-        accept=".csv"
-        className="hidden"
-      />
-      
-      <DropdownMenuTrigger asChild>
+    <>
+      <DropdownMenu>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImport}
+          accept=".csv"
+          className="hidden"
+        />
+        
+        <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-3 px-4 py-1 rounded-xl transition-colors duration-200 hover:bg-gray-200 cursor-pointer outline-none focus:outline-none focus-visible:ring-0">
           <div className="text-right hidden sm:block">
             <div className="flex items-center justify-end gap-2">
@@ -259,5 +245,12 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    {/* Export Modal */}
+    <ExportModal 
+      isOpen={isExportModalOpen}
+      onClose={() => setIsExportModalOpen(false)}
+    />
+    </>
   );
 }

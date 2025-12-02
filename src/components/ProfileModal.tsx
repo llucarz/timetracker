@@ -3,11 +3,12 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { X, Save } from "lucide-react";
+import { X, Save, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { Checkbox } from "./ui/checkbox";
 import { useTimeTracker } from "../context/TimeTrackerContext";
+import { computeMinutesFromTimes, minToHM } from "../lib/utils";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [mode, setMode] = useState<"same" | "different">("same");
   const [weeklyTarget, setWeeklyTarget] = useState("35");
   const [workdaysPerWeek, setWorkdaysPerWeek] = useState("5");
+  const [selectedDay, setSelectedDay] = useState("Lundi");
 
   // Same schedule mode
   const [arrival, setArrival] = useState("09:00");
@@ -79,6 +81,64 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   }, [isOpen, settings]);
 
   const handleSave = () => {
+    const targetWeeklyMinutes = parseFloat(weeklyTarget) * 60;
+    let totalWeeklyMinutes = 0;
+
+    // Calculate total weekly minutes based on mode
+    if (mode === "same") {
+      const dailyMinutes = computeMinutesFromTimes({
+        start: arrival,
+        lunchStart: pauseStart,
+        lunchEnd: pauseEnd,
+        end: departure
+      });
+
+      // Validate daily hours don't exceed 24h
+      if (dailyMinutes > 1440) {
+        toast.error("Configuration invalide", {
+          description: "Les horaires quotidiens dépassent 24 heures. Veuillez vérifier votre saisie.",
+        });
+        return;
+      }
+
+      const workDays = parseInt(workdaysPerWeek);
+      totalWeeklyMinutes = dailyMinutes * workDays;
+    } else {
+      // Different mode - sum all enabled days
+      for (const schedule of daySchedules) {
+        if (schedule.isWorkday) {
+          const dailyMinutes = computeMinutesFromTimes({
+            start: schedule.arrival,
+            lunchStart: schedule.pauseStart,
+            lunchEnd: schedule.pauseEnd,
+            end: schedule.departure
+          });
+
+          // Validate each day doesn't exceed 24h
+          if (dailyMinutes > 1440) {
+            toast.error("Configuration invalide", {
+              description: `Les horaires du ${schedule.day} dépassent 24 heures. Veuillez vérifier.`,
+            });
+            return;
+          }
+
+          totalWeeklyMinutes += dailyMinutes;
+        }
+      }
+    }
+
+    // Validate total weekly hours must exactly match weekly target
+    if (totalWeeklyMinutes !== targetWeeklyMinutes) {
+      const totalWeeklyHours = totalWeeklyMinutes / 60;
+      const targetHours = parseFloat(weeklyTarget);
+      
+      toast.error("Impossible d'enregistrer", {
+        description: `Les heures hebdomadaires totales de vos horaires habituels (${minToHM(totalWeeklyMinutes)}) ne correspondent pas exactement à votre objectif de ${targetHours}h/semaine.`,
+        duration: 5000,
+      });
+      return;
+    }
+
     const newBaseHours = {
       mode,
       same: {
@@ -241,13 +301,13 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-4"
                     >
-                      <Tabs defaultValue="Lundi" className="w-full">
-                        <TabsList className="w-full grid grid-cols-7 bg-gray-100 p-1 rounded-xl">
+                      <Tabs value={selectedDay} onValueChange={setSelectedDay} className="w-full">
+                        <TabsList className="w-full grid grid-cols-7 bg-gray-100 p-1 rounded-xl h-auto">
                           {daysOfWeek.map((day) => (
                             <TabsTrigger
                               key={day}
                               value={day}
-                              className="rounded-lg text-xs px-2"
+                              className="rounded-lg text-xs px-2 py-2 transition-all duration-200 text-gray-600 hover:bg-gray-200 data-[state=active]:!bg-white data-[state=active]:!text-purple-600 data-[state=active]:!font-semibold data-[state=active]:!shadow cursor-pointer"
                             >
                               {day.slice(0, 3)}
                             </TabsTrigger>

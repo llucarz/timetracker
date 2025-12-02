@@ -3,12 +3,13 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { Checkbox } from "./ui/checkbox";
 import { DatePicker } from "./DatePicker";
 import { TrendingUp, TrendingDown, Plus, Calendar, Clock, Trash2, Minimize2, Maximize2, X, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { minToHM, formatDuration, computeMinutes, hmToMin, checkOverlap, getRecoveryMinutesForDay } from "../lib/utils";
+import { minToHM, formatDuration, computeMinutes, hmToMin, checkOverlap, getRecoveryMinutesForDay, computeMinutesFromTimes } from "../lib/utils";
 
 interface HistoryItem {
   id: string;
@@ -45,6 +46,7 @@ export function OvertimePanel() {
   const [endTime, setEndTime] = useState("");
   const [recoveryDate, setRecoveryDate] = useState("");
   const [comment, setComment] = useState("");
+  const [isFullDayRecovery, setIsFullDayRecovery] = useState(false);
   
   // Calculate stats from context
   const overtimeBalance = otState.balanceMinutes;
@@ -102,21 +104,81 @@ export function OvertimePanel() {
   const handleSaveRecovery = async () => {
     if (isSubmitting) return;
     
-    if (!recoveryDate || !startTime || !endTime) {
-      toast.error("Veuillez remplir la date et les heures de début/fin");
+    if (!recoveryDate) {
+      toast.error("Veuillez sélectionner une date");
       return;
     }
 
-    const startMin = hmToMin(startTime);
-    const endMin = hmToMin(endTime);
+    let finalStartTime = startTime;
+    let finalEndTime = endTime;
+    let minutes = 0;
 
-    if (endMin <= startMin) {
-      toast.error("L'heure de fin doit être après l'heure de début");
-      return;
+    if (isFullDayRecovery) {
+      // Calculate full day hours based on user's usual schedule
+      const selectedDate = new Date(recoveryDate + 'T00:00:00');
+      const dayOfWeek = selectedDate.getDay();
+      const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+      const dayKey = dayKeys[dayOfWeek] as keyof typeof settings.baseHours.days;
+
+      let schedule = null;
+
+      if (settings.baseHours?.mode === "same") {
+        schedule = settings.baseHours.same;
+      } else if (settings.baseHours?.mode === "different" && settings.baseHours?.days?.[dayKey]) {
+        const daySchedule = settings.baseHours.days[dayKey];
+        if (!daySchedule.enabled) {
+          toast.error("Jour non travaillé", {
+            description: "Ce jour n'est pas configuré comme jour travaillé dans votre profil"
+          });
+          return;
+        }
+        schedule = {
+          start: daySchedule.start,
+          lunchStart: daySchedule.lunchStart,
+          lunchEnd: daySchedule.lunchEnd,
+          end: daySchedule.end
+        };
+      }
+
+      if (!schedule || !schedule.start || !schedule.end) {
+        toast.error("Horaires non configurés", {
+          description: "Veuillez d'abord configurer vos horaires habituels dans votre profil"
+        });
+        return;
+      }
+
+      // Calculate full day minutes
+      minutes = computeMinutesFromTimes({
+        start: schedule.start,
+        lunchStart: schedule.lunchStart || "",
+        lunchEnd: schedule.lunchEnd || "",
+        end: schedule.end
+      });
+
+      finalStartTime = schedule.start;
+      finalEndTime = schedule.end;
+    } else {
+      // Manual time entry
+      if (!startTime || !endTime) {
+        toast.error("Veuillez remplir les heures de début/fin");
+        return;
+      }
+
+      const startMin = hmToMin(startTime);
+      const endMin = hmToMin(endTime);
+
+      if (endMin <= startMin) {
+        toast.error("L'heure de fin doit être après l'heure de début");
+        return;
+      }
+
+      minutes = endMin - startMin;
+      finalStartTime = startTime;
+      finalEndTime = endTime;
     }
 
     // Check for overlap with existing recoveries
-    const overlap = checkOverlap(recoveryDate, startTime, endTime, otState.events);
+    const overlap = checkOverlap(recoveryDate, finalStartTime, finalEndTime, otState.events);
     if (overlap.blocked) {
       toast.error(overlap.reason);
       return;
@@ -124,25 +186,24 @@ export function OvertimePanel() {
 
     setIsSubmitting(true);
     try {
-      const minutes = endMin - startMin;
-
-      // 1. Add overtime event (deduct from balance)
+      // Add overtime event (deduct from balance)
       addOvertimeEvent({
         date: recoveryDate,
         minutes: minutes,
-        note: comment,
-        start: startTime,
-        end: endTime
+        note: comment || (isFullDayRecovery ? "Récupération journée complète" : ""),
+        start: finalStartTime,
+        end: finalEndTime
       });
 
       toast.success("Récupération enregistrée", {
-        description: "Votre demande de récupération a été ajoutée.",
+        description: `${formatDuration(minutes)} ajoutées à vos récupérations.`,
       });
 
       setStartTime("");
       setEndTime("");
       setRecoveryDate("");
       setComment("");
+      setIsFullDayRecovery(false);
       setShowRecoveryModal(false);
     } finally {
       setIsSubmitting(false);
@@ -265,28 +326,8 @@ export function OvertimePanel() {
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">Heure de début</Label>
-              <Input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="h-10 rounded-lg border-gray-200"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">Heure de fin</Label>
-              <Input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="h-10 rounded-lg border-gray-200"
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
               <Label className="text-sm font-medium text-gray-700">Date de récupération</Label>
               <DatePicker
                 value={recoveryDate}
@@ -295,7 +336,59 @@ export function OvertimePanel() {
               />
             </div>
 
-            <div className="space-y-2 md:col-span-2">
+            <div className="flex items-center space-x-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
+              <Checkbox
+                id="fullDayRecovery"
+                checked={isFullDayRecovery}
+                onCheckedChange={(checked) => {
+                  setIsFullDayRecovery(checked as boolean);
+                  if (checked) {
+                    setStartTime("");
+                    setEndTime("");
+                  }
+                }}
+              />
+              <Label
+                htmlFor="fullDayRecovery"
+                className="text-sm font-medium text-gray-900 cursor-pointer"
+              >
+                Récupération journée complète
+              </Label>
+            </div>
+
+            {!isFullDayRecovery && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">Heure de début</Label>
+                  <Input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="h-10 rounded-lg border-gray-200"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">Heure de fin</Label>
+                  <Input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="h-10 rounded-lg border-gray-200"
+                  />
+                </div>
+              </div>
+            )}
+
+            {isFullDayRecovery && (
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-xs text-blue-900">
+                  ℹ️ Les horaires de cette journée seront automatiquement remplis selon votre configuration habituelle.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
               <Label className="text-sm font-medium text-gray-700">Commentaire (optionnel)</Label>
               <Textarea
                 placeholder="Ex: Rendez-vous médical, départ anticipé..."

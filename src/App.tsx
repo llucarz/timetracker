@@ -1,3 +1,20 @@
+/**
+ * App Component - Main Application Shell
+ * 
+ * Provides:
+ * - Header with navigation (Dashboard, History, Overtime)
+ * - Mobile menu with hamburger toggle
+ * - Three main views with AnimatePresence transitions
+ * - User menu with account/profile access
+ * - Modal management (entry, profile, login)
+ * 
+ * Features:
+ * - Responsive design (mobile-first with md:, lg: breakpoints)
+ * - Scroll-based header effects (dashboard view only)
+ * - Active indicator animation with layoutId
+ * - Auto-closes mobile menu on view change
+ */
+
 import { useState, useEffect, useRef } from "react";
 import { useTimeTracker } from "./context/TimeTrackerContext";
 import { Dashboard } from "./components/Dashboard";
@@ -7,7 +24,6 @@ import { OvertimePanel } from "./components/OvertimePanel";
 import { ProfileModal } from "./components/ProfileModal";
 import { LoginModal } from "./components/LoginModal";
 import { UserMenu } from "./components/UserMenu";
-import { Onboarding } from "./components/Onboarding";
 import { Toaster } from "./components/ui/sonner";
 import { motion, AnimatePresence } from "motion/react";
 import { LayoutDashboard, Clock, TrendingUp, Menu, X } from "lucide-react";

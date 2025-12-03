@@ -1,57 +1,82 @@
 /**
- * Storage Engine - Hybrid localStorage / IndexedDB
+ * Hybrid Storage System - localStorage + IndexedDB
  * 
- * Mode Invité : localStorage (simple, synchrone)
- * Mode Connecté : IndexedDB (performant, indexé)
+ * Automatically switches between storage backends based on usage:
+ * - GUEST MODE: localStorage (simple, synchronous, max ~5MB)
+ * - LOGGED-IN MODE: IndexedDB (async, indexed, unlimited quota)
+ * 
+ * Migration triggers:
+ * 1. Login → localStorage to IndexedDB (if entries > threshold)
+ * 2. Logout → IndexedDB to localStorage + clear IndexedDB
+ * 3. Entry count > 100 → automatic upgrade to IndexedDB
+ * 
+ * @module storage
  */
 
 import { Entry, Settings, OvertimeState } from "./types";
 
+/** IndexedDB database name */
 const DB_NAME = "TimeTrackerDB";
+
+/** Database schema version (increment when changing structure) */
 const DB_VERSION = 1;
+
+/** IndexedDB object store names */
 const STORES = {
-  ENTRIES: "entries",
-  SETTINGS: "settings",
-  OVERTIME: "overtime",
-  STATS_CACHE: "statsCache"
+  ENTRIES: "entries",        // Time entries with date/status indexes
+  SETTINGS: "settings",      // Single settings document
+  OVERTIME: "overtime",      // Single overtime state document
+  STATS_CACHE: "statsCache"  // Performance cache for expensive calculations
 };
 
-// Seuil pour passer à IndexedDB (nombre d'entrées)
+/** Entry count threshold for auto-migration to IndexedDB */
 const INDEXEDDB_THRESHOLD = 100;
 
+/**
+ * Storage engine interface - implemented by both LocalStorage and IndexedDB
+ */
 export interface StorageEngine {
-  // Entries
+  // Entry operations
   getEntries(): Promise<Entry[]>;
   addEntry(entry: Entry): Promise<void>;
   updateEntry(entry: Entry): Promise<void>;
   deleteEntry(id: string): Promise<void>;
   importEntries(entries: Entry[]): Promise<void>;
   
-  // Settings
+  // Settings operations
   getSettings(): Promise<Settings | null>;
   updateSettings(settings: Settings): Promise<void>;
   
-  // Overtime
+  // Overtime operations
   getOvertimeState(): Promise<OvertimeState | null>;
   updateOvertimeState(state: OvertimeState): Promise<void>;
   
-  // Stats Cache
+  // Stats cache operations (for performance optimization)
   getStatsCache(key: string): Promise<any>;
   setStatsCache(key: string, value: any): Promise<void>;
   clearStatsCache(): Promise<void>;
   
-  // Utils
+  // Utility operations
   clear(): Promise<void>;
   getStorageType(): "localStorage" | "indexedDB";
 }
 
 // ============================================================================
-// LocalStorage Implementation (Mode Invité)
+// LocalStorage Implementation - Guest Mode
+// Simple synchronous storage for small datasets
 // ============================================================================
 
+/**
+ * LocalStorage backend for guest mode
+ * - Stores data in browser localStorage (5-10MB limit)
+ * - Synchronous operations (async wrapper for consistency)
+ * - No indexes, full scan on queries
+ * - Suitable for <100 entries
+ */
 class LocalStorageEngine implements StorageEngine {
+  /** Storage key constants with versioning */
   private readonly KEYS = {
-    ENTRIES: "tt_entries_v2",
+    ENTRIES: "tt_entries_v2",      // v2: Added updatedAt field
     SETTINGS: "tt_settings_v1",
     OVERTIME: "tt_overtime_v1",
     STATS_CACHE: "tt_stats_cache_v1"
@@ -84,6 +109,7 @@ class LocalStorageEngine implements StorageEngine {
   }
 
   async importEntries(entries: Entry[]): Promise<void> {
+    // Replaces all existing entries with new set
     localStorage.setItem(this.KEYS.ENTRIES, JSON.stringify(entries));
   }
 
@@ -124,6 +150,7 @@ class LocalStorageEngine implements StorageEngine {
   }
 
   async clear(): Promise<void> {
+    // Remove all TimeTracker data from localStorage
     Object.values(this.KEYS).forEach(key => localStorage.removeItem(key));
   }
 
@@ -133,13 +160,25 @@ class LocalStorageEngine implements StorageEngine {
 }
 
 // ============================================================================
-// IndexedDB Implementation (Mode Connecté)
+// IndexedDB Implementation - Logged-in Mode
+// High-performance indexed database for large datasets
 // ============================================================================
 
+/**
+ * IndexedDB backend for logged-in mode
+ * - Stores data in browser IndexedDB (unlimited quota, subject to user agent)
+ * - Asynchronous operations (Promise-based)
+ * - Indexed by date, status, updatedAt for fast queries
+ * - Suitable for any number of entries (tested with 1000+)
+ */
 class IndexedDBEngine implements StorageEngine {
   private db: IDBDatabase | null = null;
   private initPromise: Promise<void> | null = null;
 
+  /**
+   * Initializes IndexedDB connection and creates schema if needed
+   * Idempotent: safe to call multiple times
+   */
   private async init(): Promise<void> {
     if (this.db) return;
     if (this.initPromise) return this.initPromise;
@@ -153,10 +192,11 @@ class IndexedDBEngine implements StorageEngine {
         resolve();
       };
 
+      // Schema creation/upgrade
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
 
-        // Store: entries
+        // Entries store with indexes for efficient queries
         if (!db.objectStoreNames.contains(STORES.ENTRIES)) {
           const entriesStore = db.createObjectStore(STORES.ENTRIES, { keyPath: "id" });
           entriesStore.createIndex("date", "date", { unique: false });
@@ -164,17 +204,17 @@ class IndexedDBEngine implements StorageEngine {
           entriesStore.createIndex("updatedAt", "updatedAt", { unique: false });
         }
 
-        // Store: settings (single document)
+        // Settings store (single document with key "settings")
         if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
           db.createObjectStore(STORES.SETTINGS);
         }
 
-        // Store: overtime (single document)
+        // Overtime store (single document with key "overtime")
         if (!db.objectStoreNames.contains(STORES.OVERTIME)) {
           db.createObjectStore(STORES.OVERTIME);
         }
 
-        // Store: stats cache
+        // Stats cache store with timestamp index
         if (!db.objectStoreNames.contains(STORES.STATS_CACHE)) {
           const cacheStore = db.createObjectStore(STORES.STATS_CACHE);
           cacheStore.createIndex("timestamp", "timestamp", { unique: false });
@@ -185,6 +225,11 @@ class IndexedDBEngine implements StorageEngine {
     return this.initPromise;
   }
 
+  /**
+   * Gets an object store for transaction
+   * @param storeName - Store to access
+   * @param mode - "readonly" or "readwrite"
+   */
   private async getStore(storeName: string, mode: IDBTransactionMode = "readonly"): Promise<IDBObjectStore> {
     await this.init();
     const transaction = this.db!.transaction(storeName, mode);
@@ -229,13 +274,15 @@ class IndexedDBEngine implements StorageEngine {
 
   async importEntries(entries: Entry[]): Promise<void> {
     const store = await this.getStore(STORES.ENTRIES, "readwrite");
-    // Clear existing
+    
+    // Clear existing entries
     await new Promise<void>((resolve, reject) => {
       const clearRequest = store.clear();
       clearRequest.onsuccess = () => resolve();
       clearRequest.onerror = () => reject(clearRequest.error);
     });
-    // Add all new
+    
+    // Bulk insert new entries
     for (const entry of entries) {
       await this.addEntry(entry);
     }
@@ -308,6 +355,8 @@ class IndexedDBEngine implements StorageEngine {
   async clear(): Promise<void> {
     await this.init();
     const storeNames = [STORES.ENTRIES, STORES.SETTINGS, STORES.OVERTIME, STORES.STATS_CACHE];
+    
+    // Clear all stores in sequence
     for (const storeName of storeNames) {
       const store = await this.getStore(storeName, "readwrite");
       await new Promise<void>((resolve, reject) => {
@@ -324,52 +373,71 @@ class IndexedDBEngine implements StorageEngine {
 }
 
 // ============================================================================
-// Smart Storage Manager - Choisit automatiquement le bon engine
+// Smart Storage Manager - Automatic Backend Selection
+// Transparently switches between localStorage and IndexedDB
 // ============================================================================
 
+/**
+ * Storage Manager - Intelligent storage backend selector
+ * 
+ * Automatically chooses and migrates between localStorage and IndexedDB based on:
+ * 1. User login status (logged-in → IndexedDB)
+ * 2. Entry count (>100 entries → IndexedDB)
+ * 
+ * Migration is transparent and happens automatically on method calls.
+ * All operations are proxied to the active engine.
+ */
 class StorageManager {
   private engine: StorageEngine;
   private useIndexedDB: boolean = false;
 
   constructor() {
-    // Détection initiale
+    // Initial detection on app load
     this.useIndexedDB = this.shouldUseIndexedDB();
     this.engine = this.useIndexedDB ? new IndexedDBEngine() : new LocalStorageEngine();
   }
 
+  /**
+   * Determines which storage backend should be used
+   * @returns true if IndexedDB should be used, false for localStorage
+   */
   private shouldUseIndexedDB(): boolean {
-    // Vérifier si mode connecté
+    // Check if user is logged in (account key exists)
     const settingsData = localStorage.getItem("tt_settings_v1");
     if (settingsData) {
       const settings = JSON.parse(settingsData);
       if (settings.account?.key) {
-        return true; // Mode connecté → IndexedDB
+        return true; // Logged in → use IndexedDB
       }
     }
 
-    // Vérifier le nombre d'entrées
+    // Check entry count against threshold
     const entriesData = localStorage.getItem("tt_entries_v2");
     if (entriesData) {
       const entries = JSON.parse(entriesData);
       if (entries.length > INDEXEDDB_THRESHOLD) {
-        return true; // Trop d'entrées → IndexedDB
+        return true; // Too many entries → use IndexedDB for performance
       }
     }
 
-    return false; // Mode invité avec peu de données → localStorage
+    return false; // Guest mode with few entries → use localStorage
   }
 
+  /**
+   * Migrates data between storage backends if needed
+   * Called automatically before operations to ensure correct backend
+   */
   async migrateIfNeeded(): Promise<void> {
     const shouldUseIDB = this.shouldUseIndexedDB();
     
+    // Migration: localStorage → IndexedDB
     if (shouldUseIDB && !this.useIndexedDB) {
-      // Migrer de localStorage vers IndexedDB
       console.log("🔄 Migration: localStorage → IndexedDB");
       const oldEngine = this.engine;
       this.engine = new IndexedDBEngine();
       this.useIndexedDB = true;
 
-      // Copier les données
+      // Copy data from old engine to new engine
       const entries = await oldEngine.getEntries();
       const settings = await oldEngine.getSettings();
       const overtime = await oldEngine.getOvertimeState();
@@ -378,15 +446,16 @@ class StorageManager {
       if (settings) await this.engine.updateSettings(settings);
       if (overtime) await this.engine.updateOvertimeState(overtime);
 
-      console.log("✅ Migration terminée");
-    } else if (!shouldUseIDB && this.useIndexedDB) {
-      // Migrer de IndexedDB vers localStorage (déconnexion)
+      console.log("✅ Migration complete: Now using IndexedDB");
+    } 
+    // Migration: IndexedDB → localStorage (logout)
+    else if (!shouldUseIDB && this.useIndexedDB) {
       console.log("🔄 Migration: IndexedDB → localStorage");
       const oldEngine = this.engine;
       this.engine = new LocalStorageEngine();
       this.useIndexedDB = false;
 
-      // Copier les données
+      // Copy data from IndexedDB to localStorage
       const entries = await oldEngine.getEntries();
       const settings = await oldEngine.getSettings();
       const overtime = await oldEngine.getOvertimeState();
@@ -395,13 +464,14 @@ class StorageManager {
       if (settings) await this.engine.updateSettings(settings);
       if (overtime) await this.engine.updateOvertimeState(overtime);
 
-      // Nettoyer IndexedDB
+      // Clean up IndexedDB after successful migration
       await oldEngine.clear();
-      console.log("✅ Migration terminée");
+      console.log("✅ Migration complete: Now using localStorage");
     }
   }
 
-  // Proxy toutes les méthodes vers l'engine actif
+  // Proxy all methods to active engine with automatic migration
+  
   async getEntries(): Promise<Entry[]> {
     await this.migrateIfNeeded();
     return this.engine.getEntries();
@@ -433,7 +503,8 @@ class StorageManager {
 
   async updateSettings(settings: Settings): Promise<void> {
     await this.engine.updateSettings(settings);
-    await this.migrateIfNeeded(); // Check si on doit migrer après la connexion
+    // Check if we need to migrate after login/logout
+    await this.migrateIfNeeded();
   }
 
   async getOvertimeState(): Promise<OvertimeState | null> {
@@ -465,5 +536,12 @@ class StorageManager {
   }
 }
 
-// Export singleton
+/**
+ * Singleton storage instance
+ * Import this to access storage throughout the application
+ * 
+ * @example
+ * import { storage } from '@/lib/storage';
+ * const entries = await storage.getEntries();
+ */
 export const storage = new StorageManager();

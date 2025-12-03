@@ -1,3 +1,14 @@
+/**
+ * Application Entry Point
+ * 
+ * Sets up:
+ * - React root with StrictMode
+ * - ErrorBoundary for crash recovery
+ * - TimeTrackerProvider for global state
+ * - Toaster for notifications (sonner)
+ * 
+ * Loads global styles from index.css
+ */
 
 import React from 'react'
 import ReactDOM from 'react-dom/client'

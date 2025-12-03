@@ -1,30 +1,61 @@
+/**
+ * TimeTracker Context - Global State Management
+ * 
+ * React Context provider that manages:
+ * - Time entries (work logs)
+ * - User settings (target hours, work days, base schedule)
+ * - Overtime state (balance, earned, used minutes, events)
+ * - Cloud sync (Vercel + Upstash Redis)
+ * - Automatic persistence (hybrid storage: localStorage/IndexedDB)
+ * 
+ * @module TimeTrackerContext
+ */
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Entry, Settings, OvertimeState, OvertimeEvent } from '../lib/types';
 import { computeOvertimeEarned } from '../lib/utils';
 import { storage } from '../lib/storage';
 
+/**
+ * Context value type - exposes state and actions to consumers
+ */
 interface TimeTrackerContextType {
+  // State
   entries: Entry[];
   settings: Settings;
   otState: OvertimeState;
-  addEntry: (entry: Omit<Entry, 'id'>) => void;
-  updateEntry: (entry: Entry) => void;
-  deleteEntry: (id: string) => void;
-  updateSettings: (newSettings: Partial<Settings>) => void;
-  addOvertimeEvent: (event: Omit<OvertimeEvent, 'id'>) => void;
-  deleteOvertimeEvent: (id: string) => void;
-  importEntries: (newEntries: Omit<Entry, 'id'>[]) => void;
-  syncWithCloud: () => Promise<void>;
-  loadFromCloud: () => Promise<void>;
-  logout: () => void;
-  login: (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => void;
   isSyncing: boolean;
   lastSyncError: string | null;
   storageType: "localStorage" | "indexedDB";
+  
+  // Entry actions
+  addEntry: (entry: Omit<Entry, 'id'>) => void;
+  updateEntry: (entry: Entry) => void;
+  deleteEntry: (id: string) => void;
+  importEntries: (newEntries: Omit<Entry, 'id'>[]) => void;
+  
+  // Settings actions
+  updateSettings: (newSettings: Partial<Settings>) => void;
+  
+  // Overtime actions
+  addOvertimeEvent: (event: Omit<OvertimeEvent, 'id'>) => void;
+  deleteOvertimeEvent: (id: string) => void;
+  
+  // Cloud sync actions
+  syncWithCloud: () => Promise<void>;
+  loadFromCloud: () => Promise<void>;
+  login: (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => void;
+  logout: () => void;
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | undefined>(undefined);
 
+/**
+ * Default settings for new users
+ * - 35h weekly target (French standard)
+ * - 5 working days (Monday-Friday)
+ * - Empty base hours (user sets during onboarding)
+ */
 const defaultSettings: Settings = {
   isOnboarded: false,
   weeklyTarget: 35,
@@ -44,6 +75,9 @@ const defaultSettings: Settings = {
   }
 };
 
+/**
+ * Default overtime state for new users
+ */
 const defaultOtState: OvertimeState = { 
   balanceMinutes: 0, 
   earnedMinutes: 0, 
@@ -51,16 +85,29 @@ const defaultOtState: OvertimeState = {
   events: [] 
 };
 
+/**
+ * TimeTracker Provider Component
+ * Wraps the app to provide state and actions via React Context
+ * 
+ * Features:
+ * - Loads data from storage on mount
+ * - Auto-persists changes to storage (useEffect hooks)
+ * - Auto-syncs with cloud every 2 seconds (debounced)
+ * - Recalculates overtime when entries/settings change
+ * - Handles login/logout with data migration
+ */
 export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [otState, setOtState] = useState<OvertimeState>(defaultOtState);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false); // Prevents persist loops during initial load
   const [storageType, setStorageType] = useState<"localStorage" | "indexedDB">("localStorage");
 
-  // Load initial data from storage
+  /**
+   * Initial data load from storage on mount
+   */
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -83,7 +130,12 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
-  // Persist entries and recalculate overtime
+  /**
+   * Persist entries and auto-recalculate overtime
+   * Triggers whenever entries or target settings change
+   * 
+   * Important: One entry per date - new entries replace existing ones
+   */
   useEffect(() => {
     if (!isLoaded) return;
     
@@ -91,7 +143,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
       try {
         await storage.importEntries(entries);
         
-        // Recalculate overtime
+        // Recalculate earned overtime based on entries + recovery events
         const earned = computeOvertimeEarned(entries, settings.weeklyTarget, settings.workDays, otState.events);
         const newOtState = {
           ...otState,
@@ -99,6 +151,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
           balanceMinutes: earned - otState.usedMinutes
         };
         
+        // Only update if values changed (prevents infinite loops)
         if (newOtState.earnedMinutes !== otState.earnedMinutes || 
             newOtState.balanceMinutes !== otState.balanceMinutes) {
           setOtState(newOtState);
@@ -111,14 +164,17 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     persist();
   }, [entries, settings.weeklyTarget, settings.workDays, isLoaded]);
 
-  // Persist settings
+  /**
+   * Persist settings changes
+   * Also checks for storage type migration (login/logout)
+   */
   useEffect(() => {
     if (!isLoaded) return;
     
     const persist = async () => {
       try {
         await storage.updateSettings(settings);
-        // Check if storage type changed (login/logout)
+        // Storage may have migrated after login/logout
         const newType = storage.getStorageType();
         if (newType !== storageType) {
           setStorageType(newType);
@@ -130,7 +186,9 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     persist();
   }, [settings, isLoaded]);
 
-  // Persist overtime state
+  /**
+   * Persist overtime state changes
+   */
   useEffect(() => {
     if (!isLoaded) return;
     
@@ -144,28 +202,50 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     persist();
   }, [otState, isLoaded]);
 
-  // Actions
+  // ========== ACTIONS ==========
+
+  /**
+   * Adds a new time entry
+   * If entry for same date exists, it will be replaced
+   * Auto-generates ID and updatedAt timestamp
+   */
   const addEntry = (entry: Omit<Entry, 'id'>) => {
     const newEntry = { ...entry, id: crypto.randomUUID(), updatedAt: Date.now() };
     setEntries(prev => {
+      // Remove any existing entry for this date (one entry per date rule)
       const filtered = prev.filter(e => e.date !== entry.date);
       return [...filtered, newEntry].sort((a, b) => a.date.localeCompare(b.date));
     });
   };
 
+  /**
+   * Updates an existing time entry
+   * Updates the updatedAt timestamp for sync conflict resolution
+   */
   const updateEntry = (entry: Entry) => {
     const updatedEntry = { ...entry, updatedAt: Date.now() };
     setEntries(prev => prev.map(e => e.id === entry.id ? updatedEntry : e).sort((a, b) => a.date.localeCompare(b.date)));
   };
 
+  /**
+   * Deletes a time entry by ID
+   */
   const deleteEntry = (id: string) => {
     setEntries(prev => prev.filter(e => e.id !== id));
   };
 
+  /**
+   * Updates user settings (partial update)
+   */
   const updateSettings = (newSettings: Partial<Settings>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
+  /**
+   * Adds an overtime event (consumption or recovery)
+   * - Negative minutes: consumption (reduces balance)
+   * - Positive minutes: recovery (adds to earned)
+   */
   const addOvertimeEvent = (event: Omit<OvertimeEvent, 'id'>) => {
     const newEvent = { ...event, id: crypto.randomUUID() };
     setOtState(prev => {
@@ -179,6 +259,10 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  /**
+   * Deletes an overtime event
+   * Adjusts usedMinutes and recalculates balance
+   */
   const deleteOvertimeEvent = (id: string) => {
     setOtState(prev => {
       const event = prev.events.find(e => e.id === id);
@@ -193,6 +277,10 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  /**
+   * Imports multiple entries (merge strategy: newer updatedAt wins)
+   * Used for data import/sync
+   */
   const importEntries = (newEntries: Omit<Entry, 'id'>[]) => {
     setEntries(prev => {
       const merged = [...prev];

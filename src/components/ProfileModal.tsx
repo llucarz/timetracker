@@ -302,12 +302,12 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       className="space-y-4"
                     >
                       <Tabs value={selectedDay} onValueChange={setSelectedDay} className="w-full">
-                        <TabsList className="w-full grid grid-cols-7 bg-gray-100 p-1 rounded-xl h-auto">
+                        <TabsList className="w-full grid grid-cols-7 bg-gray-100 p-1 rounded-xl">
                           {daysOfWeek.map((day) => (
                             <TabsTrigger
                               key={day}
                               value={day}
-                              className="rounded-lg text-xs px-2 py-2 transition-all duration-200 text-gray-600 hover:bg-gray-200 data-[state=active]:!bg-white data-[state=active]:!text-purple-600 data-[state=active]:!font-semibold data-[state=active]:!shadow cursor-pointer"
+                              className="text-xs"
                             >
                               {day.slice(0, 3)}
                             </TabsTrigger>

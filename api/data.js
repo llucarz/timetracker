@@ -1,4 +1,24 @@
-// api/data.js — API Vercel + Upstash Redis (REST)
+/**
+ * Cloud Sync API - Vercel Serverless Function
+ * 
+ * Backend for TimeTracker cloud sync via Upstash Redis
+ * 
+ * Endpoints:
+ * - GET  /api/data?key=<accountKey> - Load user data
+ * - POST /api/data?key=<accountKey> - Save user data
+ * 
+ * Data format:
+ * - Key: tt:<accountKey> (e.g., tt:acct:company-name:user-name)
+ * - Value: JSON object with { entries, settings, overtime }
+ * 
+ * Legacy format migration:
+ * - Old: Array of entries only
+ * - New: Object with entries, settings, overtime
+ * 
+ * Environment variables required:
+ * - UPSTASH_REDIS_REST_URL
+ * - UPSTASH_REDIS_REST_TOKEN
+ */
 
 import { Redis } from '@upstash/redis';
 
@@ -12,10 +32,10 @@ export default async function handler(req, res) {
   const key = (query.key || '').toString().trim();
 
   if (!key) {
-    return res.status(400).json({ error: 'Missing ?key=' });
+    return res.status(400).json({ error: 'Missing ?key= parameter' });
   }
 
-  const redisKey = `tt:${key}`; // clé logique pour ton time tracker
+  const redisKey = `tt:${key}`; // Redis key format: tt:<accountKey>
 
   try {
     if (method === 'GET') {
@@ -99,6 +119,10 @@ export default async function handler(req, res) {
   }
 }
 
+/**
+ * Helper to read and parse JSON from request body
+ * Node.js serverless function doesn't auto-parse body
+ */
 function readJson(req) {
   return new Promise((resolve, reject) => {
     let data = '';

@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { LogIn, X, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { useNotification } from "../context/NotificationContext";
 import { motion, AnimatePresence } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { generateAccountKey } from "../lib/utils";
+import { GRADIENTS } from "../ui/design-system/tokens";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -15,20 +16,37 @@ interface LoginModalProps {
 
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   const { updateSettings, login } = useTimeTracker();
+  const { showNotification } = useNotification();
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Lock scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
+
   const handleLogin = async () => {
     if (!name.trim() || !company.trim()) {
-      toast.error("Veuillez remplir tous les champs");
+      showNotification({
+        type: "error",
+        title: "Erreur",
+        message: "Veuillez remplir tous les champs"
+      });
       return;
     }
 
     setIsLoading(true);
     try {
       const key = generateAccountKey(company, name);
-      
+
       // Try to fetch existing data
       const res = await fetch(`/api/data?key=${key}`);
       if (!res.ok) {
@@ -38,7 +56,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         throw new Error(`Failed to fetch: ${res.status} ${res.statusText}`);
       }
       const data = await res.json();
-      
+
       if (data.settings?.account) {
         // Account exists - Login
         login({
@@ -46,21 +64,23 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           settings: data.settings,
           overtime: data.overtime
         });
-        toast.success("Connexion réussie !", {
-          description: `Bon retour, ${data.settings.account.name}`
+        showNotification({
+          type: "success",
+          title: "Connexion réussie !",
+          message: `Bon retour, ${data.settings.account.name}`
         });
       } else if (data.entries && data.entries.length > 0) {
         // Legacy account (only entries) - Migrate
-        const newAccount = { 
-          name: name.trim(), 
-          company: company.trim(), 
-          key 
+        const newAccount = {
+          name: name.trim(),
+          company: company.trim(),
+          key
         };
-        
+
         // Merge existing entries with new settings
         login({
           entries: data.entries,
-          settings: { 
+          settings: {
             account: newAccount,
             isOnboarded: true,
             weeklyTarget: 35,
@@ -69,27 +89,31 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           overtime: { balanceMinutes: 0, earnedMinutes: 0, usedMinutes: 0, events: [] }
         });
 
-        toast.success("Compte migré !", {
-          description: "Vos anciennes données ont été récupérées"
+        showNotification({
+          type: "success",
+          title: "Compte migré !",
+          message: "Vos anciennes données ont été récupérées"
         });
       } else {
         // Account doesn't exist - Create new
-        const newAccount = { 
-          name: name.trim(), 
-          company: company.trim(), 
-          key 
+        const newAccount = {
+          name: name.trim(),
+          company: company.trim(),
+          key
         };
-        
-        updateSettings({ 
+
+        updateSettings({
           account: newAccount,
-          isOnboarded: true 
+          isOnboarded: true
         });
-        
-        toast.success("Compte créé !", {
-          description: "Vos données seront maintenant synchronisées"
+
+        showNotification({
+          type: "success",
+          title: "Compte créé !",
+          message: "Vos données seront maintenant synchronisées"
         });
       }
-      
+
       onClose();
       setName("");
       setCompany("");
@@ -97,22 +121,24 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
       console.error(error);
       // Fallback to local mode if API is unreachable
       const key = generateAccountKey(company, name);
-      const newAccount = { 
-        name: name.trim(), 
-        company: company.trim(), 
+      const newAccount = {
+        name: name.trim(),
+        company: company.trim(),
         key,
         isOffline: true
       };
-      
-      updateSettings({ 
+
+      updateSettings({
         account: newAccount,
-        isOnboarded: true 
+        isOnboarded: true
       });
 
-      toast.success("Mode hors ligne activé", {
-        description: "Vos données sont sauvegardées localement"
+      showNotification({
+        type: "success",
+        title: "Mode hors ligne activé",
+        message: "Vos données sont sauvegardées localement"
       });
-      
+
       onClose();
       setName("");
       setCompany("");
@@ -131,7 +157,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50"
+            className="fixed inset-0 w-full h-full bg-black/20 backdrop-blur-sm z-50"
           />
 
           {/* Modal */}
@@ -144,10 +170,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               className="bg-white rounded-3xl card-shadow max-w-sm w-full overflow-hidden"
             >
               {/* Header */}
-              <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-pink-50">
+              <div className={`px-8 py-6 border-b border-gray-100 bg-gradient-to-r ${GRADIENTS.primaryLight}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-200">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${GRADIENTS.primaryDouble} flex items-center justify-center shadow-lg shadow-purple-200`}>
                       <LogIn className="w-6 h-6 text-white" strokeWidth={2.5} />
                     </div>
                     <div>
@@ -199,10 +225,10 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
               {/* Footer */}
               <div className="px-8 py-6 border-t border-gray-100 bg-gray-50 flex gap-3">
-                <Button 
+                <Button
                   onClick={handleLogin}
                   disabled={isLoading}
-                  className="flex-1 h-12 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-semibold shadow-lg shadow-purple-200"
+                  className={`flex-1 h-12 text-white rounded-xl font-semibold shadow-md bg-gradient-to-r ${GRADIENTS.primaryButton}`}
                 >
                   {isLoading ? (
                     <>

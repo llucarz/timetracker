@@ -42,20 +42,20 @@ export interface StorageEngine {
   updateEntry(entry: Entry): Promise<void>;
   deleteEntry(id: string): Promise<void>;
   importEntries(entries: Entry[]): Promise<void>;
-  
+
   // Settings operations
   getSettings(): Promise<Settings | null>;
   updateSettings(settings: Settings): Promise<void>;
-  
+
   // Overtime operations
   getOvertimeState(): Promise<OvertimeState | null>;
   updateOvertimeState(state: OvertimeState): Promise<void>;
-  
+
   // Stats cache operations (for performance optimization)
   getStatsCache(key: string): Promise<any>;
   setStatsCache(key: string, value: any): Promise<void>;
   clearStatsCache(): Promise<void>;
-  
+
   // Utility operations
   clear(): Promise<void>;
   getStorageType(): "localStorage" | "indexedDB";
@@ -274,14 +274,14 @@ class IndexedDBEngine implements StorageEngine {
 
   async importEntries(entries: Entry[]): Promise<void> {
     const store = await this.getStore(STORES.ENTRIES, "readwrite");
-    
+
     // Clear existing entries
     await new Promise<void>((resolve, reject) => {
       const clearRequest = store.clear();
       clearRequest.onsuccess = () => resolve();
       clearRequest.onerror = () => reject(clearRequest.error);
     });
-    
+
     // Bulk insert new entries
     for (const entry of entries) {
       await this.addEntry(entry);
@@ -355,7 +355,7 @@ class IndexedDBEngine implements StorageEngine {
   async clear(): Promise<void> {
     await this.init();
     const storeNames = [STORES.ENTRIES, STORES.SETTINGS, STORES.OVERTIME, STORES.STATS_CACHE];
-    
+
     // Clear all stores in sequence
     for (const storeName of storeNames) {
       const store = await this.getStore(storeName, "readwrite");
@@ -429,10 +429,10 @@ class StorageManager {
    */
   async migrateIfNeeded(): Promise<void> {
     const shouldUseIDB = this.shouldUseIndexedDB();
-    
+
     // Migration: localStorage → IndexedDB
     if (shouldUseIDB && !this.useIndexedDB) {
-      console.log("🔄 Migration: localStorage → IndexedDB");
+      // console.log("🔄 Migration: localStorage → IndexedDB");
       const oldEngine = this.engine;
       this.engine = new IndexedDBEngine();
       this.useIndexedDB = true;
@@ -446,11 +446,11 @@ class StorageManager {
       if (settings) await this.engine.updateSettings(settings);
       if (overtime) await this.engine.updateOvertimeState(overtime);
 
-      console.log("✅ Migration complete: Now using IndexedDB");
-    } 
+      // console.log("✅ Migration complete: Now using IndexedDB");
+    }
     // Migration: IndexedDB → localStorage (logout)
     else if (!shouldUseIDB && this.useIndexedDB) {
-      console.log("🔄 Migration: IndexedDB → localStorage");
+      // console.log("🔄 Migration: IndexedDB → localStorage");
       const oldEngine = this.engine;
       this.engine = new LocalStorageEngine();
       this.useIndexedDB = false;
@@ -466,12 +466,12 @@ class StorageManager {
 
       // Clean up IndexedDB after successful migration
       await oldEngine.clear();
-      console.log("✅ Migration complete: Now using localStorage");
+      // console.log("✅ Migration complete: Now using localStorage");
     }
   }
 
   // Proxy all methods to active engine with automatic migration
-  
+
   async getEntries(): Promise<Entry[]> {
     await this.migrateIfNeeded();
     return this.engine.getEntries();

@@ -5,13 +5,13 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Calendar, Save, Trash2, X, AlertTriangle } from "lucide-react";
-import { toast } from "sonner";
+import { useNotification } from "../context/NotificationContext";
 import { motion, AnimatePresence } from "motion/react";
 import { DatePicker } from "./DatePicker";
 import { TimePicker } from "./TimePicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { Entry } from "../lib/types";
-import { computeMinutesFromTimes, minToHM, checkOverlap, getRecoveryMinutesForDay, formatDuration, cn } from "../lib/utils";
+import { computeMinutesFromTimes, minToHM, checkOverlap, getRecoveryMinutesForDay, formatDuration, cn, hmToMin } from "../lib/utils";
 
 interface EditEntryModalProps {
   isOpen: boolean;
@@ -20,7 +20,8 @@ interface EditEntryModalProps {
 }
 
 export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) {
-  const { updateEntry, deleteEntry, otState } = useTimeTracker();
+  const { updateEntry, deleteEntry, otState, deleteOvertimeEvent } = useTimeTracker();
+  const { showNotification } = useNotification();
   const [date, setDate] = useState("");
   const [arrival, setArrival] = useState("");
   const [pauseStart, setPauseStart] = useState("");
@@ -28,6 +29,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
   const [departure, setDeparture] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("work");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (entry) {
@@ -41,15 +43,64 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
     }
   }, [entry]);
 
+  // Lock scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setShowDeleteConfirm(false);
+    }
+  }, [isOpen]);
+
   const handleSave = () => {
     if (!date) {
-      toast.error("Veuillez sélectionner une date");
+      showNotification({ type: "error", title: "Erreur", message: "Veuillez sélectionner une date" });
       return;
     }
 
     if (status === "work" && (!arrival || !departure)) {
-      toast.error("Veuillez entrer au moins l'arrivée et le départ");
+      showNotification({ type: "error", title: "Erreur", message: "Veuillez entrer au moins l'arrivée et le départ" });
       return;
+    }
+
+    if (status === "work") {
+      const startMin = hmToMin(arrival);
+      const endMin = hmToMin(departure);
+      const pStartMin = pauseStart ? hmToMin(pauseStart) : null;
+      const pEndMin = pauseEnd ? hmToMin(pauseEnd) : null;
+
+      if (endMin <= startMin) {
+        showNotification({ type: "error", title: "Erreur", message: "L'heure de départ doit être après l'heure d'arrivée" });
+        return;
+      }
+
+      if (pauseStart || pauseEnd) {
+        if (!pauseStart || !pauseEnd) {
+          showNotification({ type: "error", title: "Erreur", message: "Veuillez saisir le début et la fin de pause" });
+          return;
+        }
+        if (pEndMin! <= pStartMin!) {
+          showNotification({ type: "error", title: "Erreur", message: "La fin de pause doit être postérieure au début de pause" });
+          return;
+        }
+        if (pStartMin! <= startMin) {
+          showNotification({ type: "error", title: "Erreur", message: "Le début de pause doit être après l'arrivée" });
+          return;
+        }
+        if (pEndMin! >= endMin) {
+          showNotification({ type: "error", title: "Erreur", message: "Le départ doit être après la fin de pause" });
+          return;
+        }
+      }
     }
 
     if (status === "work") {
@@ -58,7 +109,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
         const end = pauseStart || departure;
         const overlap = checkOverlap(date, arrival, end, otState.events);
         if (overlap.blocked) {
-          toast.error(overlap.reason);
+          showNotification({ type: "error", title: "Erreur", message: overlap.reason });
           return;
         }
       }
@@ -66,7 +117,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
       if (pauseEnd && departure) {
         const overlap = checkOverlap(date, pauseEnd, departure, otState.events);
         if (overlap.blocked) {
-          toast.error(overlap.reason);
+          showNotification({ type: "error", title: "Erreur", message: overlap.reason });
           return;
         }
       }
@@ -83,7 +134,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
         notes: notes,
         status: status as any,
       });
-      
+
       const workMins = computeMinutesFromTimes({
         start: arrival,
         lunchStart: pauseStart,
@@ -93,22 +144,41 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
       const recovMins = getRecoveryMinutesForDay(date, otState.events);
       const totalMins = workMins + recovMins;
 
-      toast.success("Entrée mise à jour avec succès", {
-        description: `${date} - ${formatDuration(totalMins)} credited`,
+      showNotification({
+        type: "success",
+        title: "Entrée mise à jour",
+        message: `${date} - ${formatDuration(totalMins)} crédité`
       });
     }
-    
+
     onClose();
   };
 
-  const handleDelete = () => {
-    if (confirm("Êtes-vous sûr de vouloir supprimer cette entrée ?")) {
-      if (entry) {
-        deleteEntry(entry.id);
-        toast.success("Entrée supprimée");
-      }
-      onClose();
+  const handleDelete = async () => {
+    if (!showDeleteConfirm) {
+      setShowDeleteConfirm(true);
+      return;
     }
+
+    if (entry) {
+      try {
+        // 1. Delete associated overtime events (e.g. recoveries) for this day
+        if (otState?.events) {
+          const matchingEvents = otState.events.filter(e => e.date === entry.date);
+          matchingEvents.forEach(e => {
+            deleteOvertimeEvent(e.id);
+          });
+        }
+
+        // 2. Delete the entry itself
+        await deleteEntry(entry.id);
+        showNotification({ type: "success", title: "Succès", message: "Entrée supprimée" });
+      } catch (error) {
+        console.error("Error deleting entry:", error);
+        showNotification({ type: "error", title: "Erreur", message: "Erreur lors de la suppression" });
+      }
+    }
+    onClose();
   };
 
   const calculateMinutes = () => {
@@ -139,7 +209,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50"
+            className="fixed inset-0 w-full h-full bg-black/20 backdrop-blur-sm z-50"
           />
 
           {/* Modal */}
@@ -149,7 +219,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
-              className="bg-white rounded-3xl card-shadow max-w-2xl w-full max-h-[90vh] overflow-hidden"
+              className="bg-white rounded-3xl card-shadow max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
             >
               {/* Header */}
               <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-teal-50 to-cyan-50">
@@ -173,7 +243,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
               </div>
 
               {/* Content */}
-              <div className="p-8 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <div className="p-8 overflow-y-auto flex-1 min-h-0">
                 <div className="space-y-6">
                   {/* Date & Status */}
                   <div className="grid grid-cols-2 gap-4">
@@ -205,7 +275,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
 
                   {/* Warning Banner */}
                   {recoveryMinutes > 0 && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-3 items-start"
@@ -245,14 +315,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                           <TimePicker
                             value={arrival}
                             onChange={setArrival}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-xs text-gray-600">Départ</Label>
-                          <TimePicker
-                            value={departure}
-                            onChange={setDeparture}
+                            placeholder="09:00"
                           />
                         </div>
 
@@ -261,6 +324,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                           <TimePicker
                             value={pauseStart}
                             onChange={setPauseStart}
+                            placeholder="12:30"
                           />
                         </div>
 
@@ -269,6 +333,16 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                           <TimePicker
                             value={pauseEnd}
                             onChange={setPauseEnd}
+                            placeholder="13:30"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-600">Départ</Label>
+                          <TimePicker
+                            value={departure}
+                            onChange={setDeparture}
+                            placeholder="17:00"
                           />
                         </div>
                       </div>
@@ -282,14 +356,14 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-gray-600 mb-1">Credited (Work + Recov.)</p>
+                              <p className="text-sm text-gray-600 mb-1">Crédité (Travail + Récup.)</p>
                               <p className="text-4xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                                 {formatDuration(creditedMinutes)}
                               </p>
                               <div className="flex gap-3 mt-1 text-sm text-gray-500">
-                                <span>Work: {formatDuration(workMinutes)}</span>
+                                <span>Travail : {formatDuration(workMinutes)}</span>
                                 <span>•</span>
-                                <span>Recov: {formatDuration(recoveryMinutes)}</span>
+                                <span>Récup. : {formatDuration(recoveryMinutes)}</span>
                               </div>
                             </div>
                             <div className="text-right">
@@ -316,21 +390,26 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
               </div>
 
               {/* Footer */}
-              <div className="px-8 py-6 border-t border-gray-100 bg-gray-50 flex gap-3">
-                <Button 
+              <div className="px-8 py-6 border-t border-gray-100 bg-gray-50 grid grid-cols-2 gap-3">
+                <Button
                   onClick={handleSave}
-                  className="flex-1 h-12 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-xl font-semibold shadow-lg shadow-teal-200"
+                  className="w-full h-12 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-xl font-semibold shadow-lg shadow-teal-200"
                 >
                   <Save className="w-4 h-4" />
                   Enregistrer
                 </Button>
-                <Button 
+                <Button
                   onClick={handleDelete}
-                  variant="outline"
-                  className="h-12 px-6 rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                  variant={showDeleteConfirm ? "destructive" : "outline"}
+                  className={cn(
+                    "w-full h-12 px-6 rounded-xl transition-all duration-200",
+                    showDeleteConfirm
+                      ? "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-200"
+                      : "border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                  )}
                 >
                   <Trash2 className="w-4 h-4" />
-                  Supprimer
+                  {showDeleteConfirm ? "Confirmer ?" : "Supprimer"}
                 </Button>
               </div>
             </motion.div>

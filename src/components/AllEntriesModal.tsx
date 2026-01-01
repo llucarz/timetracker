@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { X, Calendar, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
@@ -23,6 +24,18 @@ export function AllEntriesModal({ isOpen, onClose }: AllEntriesModalProps) {
   // Trier les entrées par ordre de saisie (updatedAt), du plus récent au plus ancien
   const sortedEntries = [...entries].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
+  // Lock scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -33,7 +46,7 @@ export function AllEntriesModal({ isOpen, onClose }: AllEntriesModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50"
+            className="fixed inset-0 w-full h-full bg-black/20 backdrop-blur-sm z-50"
           />
 
           {/* Modal */}
@@ -84,11 +97,10 @@ export function AllEntriesModal({ isOpen, onClose }: AllEntriesModalProps) {
                           key={entry.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className={`p-5 rounded-2xl border-2 transition-all hover:shadow-md ${
-                            isWork
+                          className={`p-5 rounded-2xl border-2 transition-all hover:shadow-md ${isWork
                               ? "border-purple-100 bg-gradient-to-r from-purple-50/50 to-pink-50/50"
                               : "border-gray-100 bg-gray-50/50"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1 min-w-0">
@@ -108,11 +120,10 @@ export function AllEntriesModal({ isOpen, onClose }: AllEntriesModalProps) {
                               {/* Status */}
                               <div className="mb-3">
                                 <span
-                                  className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${
-                                    isWork
+                                  className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${isWork
                                       ? "bg-purple-100 text-purple-700"
                                       : "bg-gray-200 text-gray-700"
-                                  }`}
+                                    }`}
                                 >
                                   {statusLabel}
                                 </span>

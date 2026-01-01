@@ -7,6 +7,7 @@ import { Progress } from "./ui/progress";
 import { Clock, User, Calendar, CheckCircle2, ArrowRight, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "./ui/utils";
+import { GRADIENTS } from "../ui/design-system/tokens";
 
 interface OnboardingProps {
   onComplete: (data: {
@@ -43,8 +44,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const [departure, setDeparture] = useState("18:00");
 
   const toggleWorkDay = (dayId: string) => {
-    setWorkDays(prev => 
-      prev.includes(dayId) 
+    setWorkDays(prev =>
+      prev.includes(dayId)
         ? prev.filter(d => d !== dayId)
         : [...prev, dayId]
     );
@@ -64,7 +65,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   };
 
   const canProceed = () => {
-    switch(step) {
+    switch (step) {
       case 0:
         return true;
       case 1:
@@ -88,7 +89,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       icon: Clock,
       content: (
         <div className="text-center py-8 space-y-8">
-          <div className="size-24 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto shadow-2xl shadow-violet-500/20">
+          <div className={`size-24 bg-gradient-to-br ${GRADIENTS.primaryDouble} rounded-2xl flex items-center justify-center mx-auto shadow-2xl shadow-purple-500/20`}>
             <Clock className="size-12 text-white" />
           </div>
           <div>
@@ -105,7 +106,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             ].map((item, i) => (
               <Card key={i} className="bg-muted/50">
                 <CardContent className="p-6 text-center">
-                  <item.icon className="size-8 text-violet-500 mx-auto mb-2" />
+                  <item.icon className="size-8 text-purple-600 mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">{item.label}</p>
                 </CardContent>
               </Card>
@@ -177,8 +178,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                     onClick={() => toggleWorkDay(day.id)}
                     className={cn(
                       "p-4 rounded-xl border-2 transition-all text-sm font-medium",
-                      isSelected 
-                        ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20" 
+                      isSelected
+                        ? "bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20"
                         : "bg-muted/50 border-border hover:border-primary/50"
                     )}
                   >
@@ -284,8 +285,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
                 {/* Header */}
                 <div className="space-y-4">
                   <div className="flex items-center gap-4">
-                    <div className="size-14 bg-violet-500/10 rounded-xl flex items-center justify-center">
-                      <Icon className="size-7 text-violet-500" />
+                    <div className="size-14 bg-purple-50 rounded-xl flex items-center justify-center">
+                      <Icon className="size-7 text-purple-600" />
                     </div>
                     <div>
                       <h2 className="text-2xl">{currentStep.title}</h2>

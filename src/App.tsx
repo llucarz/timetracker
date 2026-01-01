@@ -1,38 +1,24 @@
-/**
- * App Component - Main Application Shell
- * 
- * Provides:
- * - Header with navigation (Dashboard, History, Overtime)
- * - Mobile menu with hamburger toggle
- * - Three main views with AnimatePresence transitions
- * - User menu with account/profile access
- * - Modal management (entry, profile, login)
- * 
- * Features:
- * - Responsive design (mobile-first with md:, lg: breakpoints)
- * - Scroll-based header effects (dashboard view only)
- * - Active indicator animation with layoutId
- * - Auto-closes mobile menu on view change
- */
-
 import { useState, useEffect, useRef } from "react";
-import { useTimeTracker } from "./context/TimeTrackerContext";
+import { useTimeTracker, TimeTrackerProvider } from "./context/TimeTrackerContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import { Dashboard } from "./components/Dashboard";
 import { DailyEntryModal } from "./components/DailyEntryModal";
-import { WeeklyView } from "./components/WeeklyView";
-import { OvertimePanel } from "./components/OvertimePanel";
-import { ProfileModal } from "./components/ProfileModal";
+import { WeeklyView } from "./features/history/WeeklyView";
+import { OvertimePanel } from "./features/overtime/OvertimePanel";
+import { ProfileModal } from "./features/profile/ProfileModal";
 import { LoginModal } from "./components/LoginModal";
 import { UserMenu } from "./components/UserMenu";
-import { Toaster } from "./components/ui/sonner";
+import { MobileUserMenu } from "./components/MobileUserMenu";
 import { motion, AnimatePresence } from "motion/react";
 import { LayoutDashboard, Clock, TrendingUp, Menu, X } from "lucide-react";
+import { GRADIENTS } from "./ui/design-system/tokens";
 
-function App() {
+function AppContent() {
   const { settings, updateSettings } = useTimeTracker();
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [currentView, setCurrentView] = useState<"dashboard" | "history" | "overtime">("dashboard");
   const [isScrolled, setIsScrolled] = useState(false);
   const [period, setPeriod] = useState<"week" | "month" | "year">("week");
@@ -75,17 +61,21 @@ function App() {
   ] as const;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header - Ultra moderne et responsive */}
-      <header className="sticky top-0 z-50 border-b border-gray-200/50 bg-white/80 backdrop-blur-xl">
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* Header - Simplifié sur mobile */}
+      {/* Header - Simplifié sur mobile */}
+      <header className="sticky top-0 z-40 border-b border-[oklch(0.922_0_0)] bg-white shadow-sm">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
             {/* Logo minimaliste */}
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 flex items-center justify-center">
-                <Clock className="w-4 h-4 text-white" />
+            <div
+              onClick={() => setCurrentView("dashboard")}
+              className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br ${GRADIENTS.primary} flex items-center justify-center`}>
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <span className="font-semibold text-gray-900 text-sm sm:text-base">TimeFlow</span>
+              <span className="font-semibold text-gray-900 text-base sm:text-lg">TimeFlow</span>
             </div>
 
             {/* Navigation desktop */}
@@ -97,12 +87,10 @@ function App() {
                   className="relative group py-4"
                 >
                   <div className="flex items-center gap-2">
-                    <item.icon className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 ${
-                      currentView === item.id ? "text-purple-600" : "text-gray-500 group-hover:text-gray-900"
-                    }`} />
-                    <span className={`text-sm font-medium transition-colors ${
-                      currentView === item.id ? "text-gray-900" : "text-gray-600 group-hover:text-gray-900"
-                    }`}>
+                    <item.icon className={`w-4 h-4 transition-all duration-200 group-hover:scale-110 ${currentView === item.id ? "text-purple-600" : "text-[oklch(0.145_0_0)] group-hover:text-gray-900"
+                      }`} />
+                    <span className={`text-sm font-medium transition-colors ${currentView === item.id ? "text-gray-900" : "text-[oklch(0.145_0_0)] group-hover:text-gray-900"
+                      }`}>
                       {item.label}
                     </span>
                   </div>
@@ -117,89 +105,44 @@ function App() {
               ))}
             </nav>
 
-            {/* Right side - User menu et mobile menu button */}
-            <div className="flex items-center gap-2">
-              <UserMenu 
-                userName={settings.account?.name || "Utilisateur"} 
+            {/* Right side - User menu (desktop seulement) */}
+            <div className="hidden md:flex items-center">
+              <UserMenu
+                userName={settings.account?.name || "Utilisateur"}
                 company={settings.account?.company || "Entreprise"}
                 onOpenProfile={() => setIsProfileOpen(true)}
                 onLogin={() => setIsLoginModalOpen(true)}
               />
-              
-              {/* Mobile menu button */}
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
-              >
-                {isMobileMenuOpen ? (
-                  <X className="w-5 h-5 text-gray-600" />
-                ) : (
-                  <Menu className="w-5 h-5 text-gray-600" />
-                )}
-              </button>
             </div>
           </div>
-
-          {/* Mobile Navigation */}
-          <AnimatePresence>
-            {isMobileMenuOpen && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="md:hidden overflow-hidden border-t border-gray-200"
-              >
-                <nav className="py-2 space-y-1">
-                  {navigationItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setCurrentView(item.id as any)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                        currentView === item.id 
-                          ? "bg-purple-50 text-purple-600" 
-                          : "text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
-                      <item.icon className="w-5 h-5" />
-                      <span className="font-medium">{item.label}</span>
-                    </button>
-                  ))}
-                </nav>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main 
+      {/* Main Content - Padding bottom pour bottom nav sur mobile */}
+      <main
         ref={mainRef}
-        className={`flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 ${
-          currentView === "dashboard" ? "overflow-y-auto py-4 sm:py-6 lg:py-8" : "overflow-hidden py-4 sm:py-6 lg:py-8 pb-6 sm:pb-8"
-        }`}
+        className="flex-1 w-full max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 lg:py-8 pb-20 md:pb-6 overflow-auto"
       >
         <AnimatePresence mode="wait">
           {currentView === "dashboard" && (
             <motion.div
               key="dashboard"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
             >
               <Dashboard onStartEntry={() => setIsEntryModalOpen(true)} />
             </motion.div>
           )}
-          
+
           {currentView === "history" && (
             <motion.div
               key="history"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
-              className="h-full"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
             >
               <WeeklyView period={period} onPeriodChange={setPeriod} />
             </motion.div>
@@ -208,17 +151,56 @@ function App() {
           {currentView === "overtime" && (
             <motion.div
               key="overtime"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
-              className="h-full overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
             >
               <OvertimePanel />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
+
+      {/* Bottom Navigation Mobile */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-lg safe-area-inset-bottom">
+        <div className="grid grid-cols-4 h-16">
+          {navigationItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setCurrentView(item.id as any)}
+              className={`flex flex-col items-center justify-center gap-1 transition-all ${currentView === item.id
+                ? "text-purple-600"
+                : "text-gray-500 active:bg-gray-100"
+                }`}
+            >
+              <item.icon className={`w-6 h-6 transition-transform ${currentView === item.id ? "scale-110" : ""
+                }`} />
+              <span className="text-xs font-medium">{item.id === "dashboard" ? "Accueil" : item.id === "history" ? "Historique" : "Heures"}</span>
+            </button>
+          ))}
+          {/* Menu utilisateur sur mobile */}
+          <button
+            onClick={() => setIsUserMenuOpen(true)}
+            className="flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-gray-700 active:bg-gray-100 transition-colors rounded-lg p-2 -m-2"
+          >
+            <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${GRADIENTS.primaryDouble} flex items-center justify-center`}>
+              <span className="text-white text-xs font-semibold">
+                {(settings.account?.name || "U").charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <span className="text-xs font-medium">Profil</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile User Menu */}
+      <MobileUserMenu
+        isOpen={isUserMenuOpen}
+        onClose={() => setIsUserMenuOpen(false)}
+        onOpenProfile={() => setIsProfileOpen(true)}
+        onLogin={() => setIsLoginModalOpen(true)}
+      />
 
       {/* Daily Entry Modal */}
       <DailyEntryModal
@@ -228,17 +210,29 @@ function App() {
       />
 
       {/* Profile Modal */}
-      <ProfileModal 
+      <ProfileModal
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
       />
 
       {/* Login Modal */}
-      <LoginModal 
-        isOpen={isLoginModalOpen} 
-        onClose={() => setIsLoginModalOpen(false)} 
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
       />
+
+
     </div>
+  );
+}
+
+function App() {
+  return (
+    <TimeTrackerProvider>
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
+    </TimeTrackerProvider>
   );
 }
 

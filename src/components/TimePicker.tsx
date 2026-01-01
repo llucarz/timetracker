@@ -8,12 +8,13 @@ interface TimePickerProps {
   onChange: (value: string) => void;
   className?: string;
   disabled?: boolean;
+  placeholder?: string;
 }
 
-export function TimePicker({ value, onChange, className = "", disabled = false }: TimePickerProps) {
+export function TimePicker({ value, onChange, className = "", disabled = false, placeholder = "09:00" }: TimePickerProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value || "");
-  
+
   const hoursRef = useRef<HTMLDivElement>(null);
   const minutesRef = useRef<HTMLDivElement>(null);
   const hourScrollTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -25,7 +26,7 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
   const dragStartY = useRef(0);
   const dragStartScrollHours = useRef(0);
   const dragStartScrollMinutes = useRef(0);
-  
+
   const [selectedHour, selectedMinute] = value ? value.split(':') : ['09', '00'];
 
   useEffect(() => {
@@ -35,7 +36,7 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
   // Generate hours and minutes (tripled for infinite scroll)
   const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
   const minutes = ['00', '15', '30', '45'];
-  
+
   // Triple the arrays for infinite scroll effect
   const infiniteHours = [...hours, ...hours, ...hours];
   const infiniteMinutes = [...minutes, ...minutes, ...minutes];
@@ -45,7 +46,7 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
     if (open && hoursRef.current && minutesRef.current) {
       const hourIndex = hours.indexOf(selectedHour);
       const minuteIndex = minutes.indexOf(selectedMinute);
-      
+
       setTimeout(() => {
         if (hoursRef.current && minutesRef.current) {
           // Start in the middle set
@@ -64,22 +65,22 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
 
   const handleHourScroll = () => {
     if (!hoursRef.current || isScrollingHours.current || isDraggingHours.current) return;
-    
+
     if (hourScrollTimeout.current) clearTimeout(hourScrollTimeout.current);
-    
+
     hourScrollTimeout.current = setTimeout(() => {
       if (!hoursRef.current || isDraggingHours.current) return;
-      
+
       const scrollTop = hoursRef.current.scrollTop;
       const itemHeight = 48;
       const index = Math.round(scrollTop / itemHeight);
       const actualIndex = index % 24;
       const newHour = hours[actualIndex];
-      
+
       if (newHour && newHour !== selectedHour) {
         onChange(`${newHour}:${selectedMinute}`);
       }
-      
+
       // Reset to middle section if near edges
       const totalHeight = 24 * 3 * itemHeight;
       if (scrollTop < itemHeight * 12 || scrollTop > totalHeight - itemHeight * 12) {
@@ -97,22 +98,22 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
 
   const handleMinuteScroll = () => {
     if (!minutesRef.current || isScrollingMinutes.current || isDraggingMinutes.current) return;
-    
+
     if (minuteScrollTimeout.current) clearTimeout(minuteScrollTimeout.current);
-    
+
     minuteScrollTimeout.current = setTimeout(() => {
       if (!minutesRef.current || isDraggingMinutes.current) return;
-      
+
       const scrollTop = minutesRef.current.scrollTop;
       const itemHeight = 48;
       const index = Math.round(scrollTop / itemHeight);
       const actualIndex = index % 4;
       const newMinute = minutes[actualIndex];
-      
+
       if (newMinute && newMinute !== selectedMinute) {
         onChange(`${selectedHour}:${newMinute}`);
       }
-      
+
       // Reset to middle section if near edges
       const totalHeight = 4 * 3 * itemHeight;
       if (scrollTop < itemHeight * 2 || scrollTop > totalHeight - itemHeight * 2) {
@@ -196,17 +197,17 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/[^0-9:]/g, '');
-    
+
     if (val.length === 2 && !val.includes(':')) {
       val = val + ':';
     }
-    
+
     if (val.length > 5) {
       val = val.slice(0, 5);
     }
-    
+
     setInputValue(val);
-    
+
     const timeRegex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
     if (timeRegex.test(val)) {
       onChange(val);
@@ -239,14 +240,14 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
         value={inputValue}
         onChange={handleInputChange}
         onBlur={handleInputBlur}
-        placeholder="09:00"
+        placeholder={placeholder}
         disabled={disabled}
         className={`h-11 rounded-xl border-gray-200 font-mono text-sm pr-10 ${className}`}
       />
-      
+
       <Popover open={open && !disabled} onOpenChange={(val) => !disabled && setOpen(val)}>
         <PopoverTrigger asChild>
-          <button 
+          <button
             type="button"
             disabled={disabled}
             className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-gray-100 rounded p-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -259,7 +260,7 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
           <div className="relative bg-gradient-to-b from-gray-50 to-white">
             {/* Center selection bar */}
             <div className="absolute inset-x-0 top-[96px] h-12 bg-gray-100/60 backdrop-blur-sm border-y border-gray-200/50 pointer-events-none z-10" />
-            
+
             <div className="flex" style={{ height: '240px' }}>
               {/* Hours wheel */}
               <div className="flex-1 relative overflow-hidden">
@@ -271,7 +272,7 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
                   onMouseUp={handleHourMouseUp}
                   onMouseLeave={handleHourMouseUp}
                   className="h-full overflow-y-auto scrollbar-hide cursor-grab active:cursor-grabbing select-none"
-                  style={{ 
+                  style={{
                     scrollSnapType: isDraggingHours.current ? 'none' : 'y proximity',
                     WebkitOverflowScrolling: 'touch',
                     scrollbarWidth: 'none',
@@ -298,7 +299,7 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
                   ))}
                   <div style={{ height: '96px' }} />
                 </div>
-                
+
                 {/* Gradient overlays */}
                 <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none" />
                 <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
@@ -317,7 +318,7 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
                   onMouseUp={handleMinuteMouseUp}
                   onMouseLeave={handleMinuteMouseUp}
                   className="h-full overflow-y-auto scrollbar-hide cursor-grab active:cursor-grabbing select-none"
-                  style={{ 
+                  style={{
                     scrollSnapType: isDraggingMinutes.current ? 'none' : 'y proximity',
                     WebkitOverflowScrolling: 'touch',
                     scrollbarWidth: 'none',
@@ -344,7 +345,7 @@ export function TimePicker({ value, onChange, className = "", disabled = false }
                   ))}
                   <div style={{ height: '96px' }} />
                 </div>
-                
+
                 {/* Gradient overlays */}
                 <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-gray-50 to-transparent pointer-events-none" />
                 <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />

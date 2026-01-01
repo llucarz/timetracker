@@ -11,15 +11,15 @@ interface DatePickerProps {
 
 export function DatePicker({ value, onChange, className = "" }: DatePickerProps) {
   const [open, setOpen] = useState(false);
-  
+
   // Convert string date to Date object
   const dateValue = value ? new Date(value) : undefined;
-  
+
   // Format date for display
   const formatDate = (dateString: string) => {
     if (!dateString) return "Sélectionner une date";
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', { 
+    return date.toLocaleDateString('fr-FR', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -44,7 +44,7 @@ export function DatePicker({ value, onChange, className = "" }: DatePickerProps)
           className={`h-11 w-full flex items-center justify-start px-3 text-left font-normal rounded-xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50/50 bg-white transition-colors ${className}`}
         >
           <Calendar className="mr-2 h-4 w-4 text-gray-500" />
-          <span className={value ? "text-gray-900" : "text-gray-500"}>
+          <span className={value ? "text-gray-900 truncate text-sm sm:text-base" : "text-gray-500 truncate text-sm sm:text-base"}>
             {formatDate(value)}
           </span>
         </button>

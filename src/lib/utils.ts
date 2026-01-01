@@ -50,7 +50,7 @@ export function formatDuration(minutes: number): string {
   const abs = Math.abs(minutes);
   const h = Math.floor(abs / 60);
   const m = Math.round(abs % 60);
-  
+
   if (h === 0) return `${sign}${m} min`;
   if (m === 0) return `${sign}${h}h`;
   return `${sign}${h}h ${pad(m)}min`;
@@ -63,6 +63,19 @@ export function formatDuration(minutes: number): string {
  */
 export function toDateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Converts Date object to Local ISO date string (YYYY-MM-DD)
+ * Uses local timezone instead of UTC
+ * @param d - Date object
+ * @returns Date string (e.g., "2025-01-15")
+ */
+export function toLocalDateKey(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -124,7 +137,7 @@ export function computeMinutes(entry: Partial<Entry> | undefined | null): number
     if (!entry.start || !entry.end) return 0;
     return Math.max(0, d - a); // Simple: end - start
   }
-  
+
   // Case 2: With lunch break
   if (!entry.start || !entry.end) return 0;
   const first = Math.max(0, b - a);   // Morning: lunch_start - arrival
@@ -153,8 +166,13 @@ export function computeMinutesFromTimes(obj: { start: string; lunchStart: string
   if (!obj.lunchStart || !obj.lunchEnd) {
     return Math.max(0, d - a);
   }
-  
+
   // With lunch break
+  // Validate chronological order: start <= lunchStart <= lunchEnd <= end
+  if (b < a || c < b || d < c) {
+    return 0;
+  }
+
   const first = Math.max(0, b - a);
   const second = Math.max(0, d - c);
   return first + second;
@@ -234,7 +252,7 @@ export function getRecoveryState(date: string, events: OvertimeEvent[]) {
 
   for (const event of dayEvents) {
     const startH = parseInt(event.start!.split(":")[0], 10);
-    
+
     if (startH < 12) {
       // Morning recovery: locks arrival and pause start
       state.arrival = { value: event.start!, locked: true };
@@ -259,7 +277,10 @@ export function getRecoveryState(date: string, events: OvertimeEvent[]) {
  */
 export function getRecoveryMinutesForDay(date: string, events: OvertimeEvent[]): number {
   const dayEvents = events.filter(e => e.date === date);
-  return dayEvents.reduce((acc, e) => acc + (e.minutes || 0), 0);
+  // Abs() is used because recovery events are stored as negative (consumption),
+  // but for the "Daily Balance" calculation, they act as a credit (positive)
+  // that offsets the "missed work" for that day.
+  return dayEvents.reduce((acc, e) => acc + Math.abs(e.minutes || 0), 0);
 }
 
 /**
@@ -298,7 +319,7 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
 
   // Group by ISO week: track minutes, absence days, and work dates
   const map = new Map<string, { minutes: number; absenceDays: number; workDates: Set<string> }>();
-  
+
   for (const e of entries) {
     if (!e || !e.date) continue;
     const { start } = weekRangeOf(e.date); // Get Monday of this entry's week
@@ -316,10 +337,10 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
 
     // Add minutes worked for this entry
     const workMinutes = computeMinutes(e);
-    
+
     // Add recovery minutes for this date (credits back time taken off)
     const recoveryMinutes = getRecoveryMinutesForDay(e.date, events);
-    
+
     // Total credited minutes for this day
     obj.minutes += workMinutes + recoveryMinutes;
 
@@ -335,8 +356,8 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
       obj.workDates.add(e.date);
     }
 
-    // Track work days (status=work or undefined)
-    if (!e.status || e.status === "work") {
+    // Track work days (status=work or undefined) OR recovery days
+    if (!e.status || e.status === "work" || e.status === "recovery") {
       obj.workDates.add(e.date);
     }
   }
@@ -347,23 +368,11 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
   let totalDelta = 0;
 
   for (const [weekStartKey, v] of map) {
-    const isCurrentWeek = (weekStartKey === currentWeekStart);
-
-    let adjustedWeeklyHours;
-
-    if (isCurrentWeek) {
-      // CURRENT WEEK: Only count days actually logged
-      // This prevents the system from expecting 35h on Monday when only 1 day is logged
-      const daysLogged = v.workDates.size;
-      adjustedWeeklyHours = daysLogged * dailyTarget - (v.absenceDays * dailyTarget);
-    } else {
-      // PAST WEEKS: Assume full week was worked (minus absences)
-      // If you worked Mon-Thu but didn't log Friday, Friday is still expected
-      adjustedWeeklyHours = Math.max(
-        0,
-        weeklyTarget - v.absenceDays * dailyTarget
-      );
-    }
+    // Unified Logic: "Pay as you go" / Daily Balance
+    // Only count target hours for days that have actual entries (work or absence).
+    // This ignores missing days in the past, preventing "Deficit of 35h" if user didn't log time.
+    const daysLogged = v.workDates.size;
+    const adjustedWeeklyHours = daysLogged * dailyTarget - (v.absenceDays * dailyTarget);
 
     const targetMin = adjustedWeeklyHours * 60;
     totalDelta += v.minutes - targetMin;
@@ -427,4 +436,34 @@ export function generateAccountKey(company: string, name: string): string {
   const normCompany = normalizeString(company);
   const normName = normalizeString(name);
   return `acct:${normCompany}:${normName}`;
+}
+
+/**
+ * Converts minutes into Days, Hours, Minutes object
+ * Used for detailed overtime breakdown
+ * @param minutes - Total minutes
+ * @returns Object with days, hours, mins, and sign
+ */
+export function minutesToDHM(minutes: number) {
+  const abs = Math.abs(minutes);
+  const days = Math.floor(abs / (24 * 60));
+  const hours = Math.floor((abs % (24 * 60)) / 60);
+  const mins = abs % 60;
+  return { days, hours, mins, sign: minutes < 0 ? -1 : 1 };
+}
+
+/**
+ * Formats DHM object to string (e.g., "1j 2h 30m")
+ * @param dhm - Object from minutesToDHM
+ * @returns Formatted string
+ */
+export function formatDHM(dhm: { days: number; hours: number; mins: number; sign: number }) {
+  const { days, hours, mins, sign } = dhm;
+  const parts = [];
+  if (days > 0) parts.push(`${days} ${days > 1 ? "jours" : "jour"}`);
+  if (hours > 0) parts.push(`${hours} ${hours > 1 ? "heures" : "heure"}`);
+  if (mins > 0) parts.push(`${mins} ${mins > 1 ? "minutes" : "minute"}`);
+
+  if (parts.length === 0) return "0 minute"; // "0m" -> "0 minute"
+  return (sign < 0 ? "- " : "") + parts.join(" ");
 }

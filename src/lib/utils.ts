@@ -467,3 +467,29 @@ export function formatDHM(dhm: { days: number; hours: number; mins: number; sign
   if (parts.length === 0) return "0 minute"; // "0m" -> "0 minute"
   return (sign < 0 ? "- " : "") + parts.join(" ");
 }
+
+/**
+ * Formats minutes into a Days equivalency string
+ * Example: 14h -> "2 jours" (assuming 7h/day)
+ * 
+ * @param minutes - Total minutes
+ * @param weeklyTarget - Target hours per week (e.g., 35)
+ * @param workDays - Number of days per week (e.g., 5)
+ * @returns Formatted string (e.g. "≈ 2.0 jours")
+ */
+export function formatMinutesToDays(minutes: number, weeklyTarget: number, workDays: number): string {
+  if (workDays === 0) return "";
+
+  const dailyTargetMinutes = (weeklyTarget * 60) / workDays;
+  if (dailyTargetMinutes === 0) return "";
+
+  const days = minutes / dailyTargetMinutes;
+  const absDays = Math.abs(days);
+
+  // Round to 1 decimal place (e.g. 2.1)
+  const formattedDays = absDays.toFixed(1);
+
+  const label = parseFloat(formattedDays) <= 1 ? "jour" : "jours";
+
+  return `Soit ≈ ${formattedDays} ${label}`;
+}

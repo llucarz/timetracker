@@ -1,13 +1,16 @@
 import { motion } from "motion/react";
-import { TrendingUp, Clock } from "lucide-react";
-import { formatDHM, minutesToDHM, minToHM } from "../../../lib/utils";
+import { TrendingUp, Clock, Calendar } from "lucide-react";
+import { formatDHM, minutesToDHM, minToHM, formatMinutesToDays } from "../../../lib/utils";
 import { GradientCard } from "../../../ui/primitives/GradientCard";
+import { useTimeTracker } from "../../../context/TimeTrackerContext";
 
 interface BalanceCardProps {
     balanceMinutes: number;
 }
 
 export function BalanceCard({ balanceMinutes }: BalanceCardProps) {
+    const { settings } = useTimeTracker();
+    const daysEquivalent = formatMinutesToDays(balanceMinutes, settings.weeklyTarget, settings.workDays);
     return (
         <motion.div
             initial={{ opacity: 0 }}
@@ -24,6 +27,11 @@ export function BalanceCard({ balanceMinutes }: BalanceCardProps) {
                     <p className="text-xs text-white/80 mt-1">
                         {minToHM(Math.abs(balanceMinutes))}
                     </p>
+                    {daysEquivalent && (
+                        <p className="text-xs text-white/90 mt-1 font-medium bg-white/20 px-2 py-0.5 rounded-md inline-block">
+                            {daysEquivalent}
+                        </p>
+                    )}
                 </div>
                 <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
                     <TrendingUp className="w-4 h-4" />

@@ -55,14 +55,18 @@ export function useCloudSync(
 
     // Auto-sync with debounce (2 seconds)
     useEffect(() => {
-        if (!isDataLoaded || !settings.account?.key) return;
+        if (!isDataLoaded || !settings.account?.key || settings.account.isOffline) return;
+
+        // CRITICAL FIX: Don't start a new sync if one is already in progress
+        // This prevents infinite sync loops on slow connections (e.g., Vercel)
+        if (isSyncing) return;
 
         const timeout = setTimeout(() => {
             syncWithCloud();
         }, 2000);
 
         return () => clearTimeout(timeout);
-    }, [entries, settings, otState, isDataLoaded, syncWithCloud]);
+    }, [entries, settings, otState, isDataLoaded, syncWithCloud, isSyncing]);
 
     return {
         isSyncing,

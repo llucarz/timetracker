@@ -77,4 +77,46 @@ export class EntryDomain {
 
         return merged.sort((a, b) => a.date.localeCompare(b.date));
     }
+
+    /**
+     * Merge cloud and local entries intelligently for auto-sync
+     * Strategy: Cloud is source of truth, but preserve local-only entries
+     * 
+     * @param localEntries - Entries from localStorage/IndexedDB
+     * @param cloudEntries - Entries from cloud database
+     * @returns Merged entries with cloud taking priority
+     */
+    static mergeCloudAndLocal(
+        localEntries: Entry[],
+        cloudEntries: Entry[]
+    ): Entry[] {
+        const merged = new Map<string, Entry>();
+
+        // First, add all local entries
+        localEntries.forEach(entry => {
+            merged.set(entry.date, entry);
+        });
+
+        // Then, merge cloud entries (cloud takes priority)
+        cloudEntries.forEach(cloudEntry => {
+            const localEntry = merged.get(cloudEntry.date);
+
+            if (!localEntry) {
+                // New entry from cloud - add it
+                merged.set(cloudEntry.date, cloudEntry);
+            } else {
+                // Entry exists in both - prefer cloud version (source of truth)
+                // But preserve the local ID if it exists
+                merged.set(cloudEntry.date, {
+                    ...cloudEntry,
+                    id: localEntry.id || cloudEntry.id
+                });
+            }
+        });
+
+        // Convert map to array and sort by date
+        return Array.from(merged.values()).sort((a, b) =>
+            b.date.localeCompare(a.date)
+        );
+    }
 }

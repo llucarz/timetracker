@@ -1,9 +1,8 @@
 /**
  * useCloudSync - Application Hook
  * 
- * Gère la synchronisation cloud avec vérification d'intégrité par hash.
- * Le statut "synced" n'est affiché que lorsque les données locales
- * correspondent exactement aux données en BDD.
+ * SIMPLIFIED: No automatic sync, no polling
+ * Sync only when explicitly called (on save, delete, navigation)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -12,7 +11,6 @@ import CryptoJS from 'crypto-js';
 
 /**
  * Generate MD5 hash of data for sync verification
- * Must match the server-side hash generation algorithm
  */
 function generateHash(data: any): string {
     return CryptoJS.MD5(JSON.stringify(data)).toString();
@@ -24,9 +22,7 @@ export function useCloudSync(
     entries: Entry[],
     settings: Settings,
     otState: OvertimeState,
-    isDataLoaded: boolean,
-    onCloudDataChanged?: (data: any) => void,
-    isPersisting?: boolean  // Track if local persistence is in progress
+    isDataLoaded: boolean
 ) {
     const [syncStatus, setSyncStatus] = useState<SyncStatus>('pending');
     const [lastSyncError, setLastSyncError] = useState<string | null>(null);
@@ -118,105 +114,6 @@ export function useCloudSync(
         }
     }, [settings.account]);
 
-    // Immediate sync on every change (no debounce for real-time experience)
-    // BUT wait for local persistence to complete first
-    useEffect(() => {
-        if (!isDataLoaded || !settings.account?.key || settings.account.isOffline) return;
-
-        // Don't sync if local persistence is still in progress
-        if (isPersisting) return;
-
-        // Clear any pending retry timeout
-        if (retryTimeoutRef.current) {
-            clearTimeout(retryTimeoutRef.current);
-            retryTimeoutRef.current = null;
-        }
-
-        // Sync immediately after local persistence is done
-        syncWithCloud();
-    }, [entries, settings, otState, isDataLoaded, isPersisting, syncWithCloud]);
-
-    // Track user activity for adaptive polling
-    const lastActivityRef = useRef<number>(Date.now());
-    const [pollingInterval, setPollingInterval] = useState(10000); // Start with 10s
-
-    // Update last activity time when data changes
-    useEffect(() => {
-        lastActivityRef.current = Date.now();
-    }, [entries, settings, otState]);
-
-    // Adaptive polling: adjust frequency based on activity
-    useEffect(() => {
-        const updatePollingInterval = () => {
-            const timeSinceActivity = Date.now() - lastActivityRef.current;
-
-            if (timeSinceActivity < 5 * 60 * 1000) {
-                // Active (< 5 min): poll every 10 seconds
-                setPollingInterval(10000);
-            } else if (timeSinceActivity < 30 * 60 * 1000) {
-                // Idle (5-30 min): poll every 30 seconds
-                setPollingInterval(30000);
-            } else {
-                // Very idle (> 30 min): poll every 60 seconds
-                setPollingInterval(60000);
-            }
-        };
-
-        // Check every minute to adjust polling interval
-        const adjustInterval = setInterval(updatePollingInterval, 60000);
-        updatePollingInterval(); // Initial check
-
-        return () => clearInterval(adjustInterval);
-    }, []);
-
-    // Poll for changes from other devices (adaptive frequency + HEAD endpoint)
-    useEffect(() => {
-        if (!settings.account?.key || settings.account.isOffline) {
-            return;
-        }
-
-        const pollForChanges = async () => {
-            try {
-                console.log(`🔍 Polling for changes (interval: ${pollingInterval / 1000}s)...`);
-
-                // First, check hash only (lightweight request)
-                const hashRes = await fetch(`/api/data/hash?key=${settings.account.key}`);
-
-                if (!hashRes.ok) {
-                    console.error('Hash check failed:', hashRes.status);
-                    return;
-                }
-
-                const { hash: cloudHash } = await hashRes.json();
-
-                // Compare with last synced hash
-                if (cloudHash && cloudHash !== lastSyncedHash && lastSyncedHash !== null) {
-                    console.log('🔄 Changes detected from other device! Loading full data...');
-
-                    // Only load full data if hash changed
-                    const cloudData = await loadFromCloud();
-
-                    if (cloudData && onCloudDataChanged) {
-                        onCloudDataChanged(cloudData);
-                    }
-                } else {
-                    console.log('✅ No changes detected (hash match)');
-                }
-            } catch (error) {
-                console.error('❌ Polling failed:', error);
-                // Don't show error to user, just log it
-            }
-        };
-
-        // Initial poll
-        pollForChanges();
-
-        // Set up interval with adaptive frequency
-        const pollIntervalId = setInterval(pollForChanges, pollingInterval);
-
-        return () => clearInterval(pollIntervalId);
-    }, [settings.account?.key, settings.account?.isOffline, lastSyncedHash, loadFromCloud, onCloudDataChanged, pollingInterval]);
-
     // Cleanup retry timeout on unmount
     useEffect(() => {
         return () => {
@@ -229,7 +126,7 @@ export function useCloudSync(
     return {
         syncStatus,
         lastSyncError,
-        syncWithCloud,
+        syncWithCloud,  // Manual sync function - call explicitly
         loadFromCloud
     };
 }

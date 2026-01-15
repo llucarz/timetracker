@@ -105,7 +105,8 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     settingsHook.settings,
     overtimeHook.otState,
     entriesHook.isLoaded && settingsHook.isLoaded && overtimeHook.isLoaded,
-    handleCloudDataChanged  // Pass callback for auto-refresh
+    handleCloudDataChanged,  // Pass callback for auto-refresh
+    entriesHook.isPersisting  // Pass persistence status
   );
 
   // Auto-load from cloud on mount for logged-in users

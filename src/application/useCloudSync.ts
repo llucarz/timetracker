@@ -25,7 +25,8 @@ export function useCloudSync(
     settings: Settings,
     otState: OvertimeState,
     isDataLoaded: boolean,
-    onCloudDataChanged?: (data: any) => void
+    onCloudDataChanged?: (data: any) => void,
+    isPersisting?: boolean  // Track if local persistence is in progress
 ) {
     const [syncStatus, setSyncStatus] = useState<SyncStatus>('pending');
     const [lastSyncError, setLastSyncError] = useState<string | null>(null);
@@ -118,8 +119,12 @@ export function useCloudSync(
     }, [settings.account]);
 
     // Immediate sync on every change (no debounce for real-time experience)
+    // BUT wait for local persistence to complete first
     useEffect(() => {
         if (!isDataLoaded || !settings.account?.key || settings.account.isOffline) return;
+
+        // Don't sync if local persistence is still in progress
+        if (isPersisting) return;
 
         // Clear any pending retry timeout
         if (retryTimeoutRef.current) {
@@ -127,9 +132,9 @@ export function useCloudSync(
             retryTimeoutRef.current = null;
         }
 
-        // Sync immediately
+        // Sync immediately after local persistence is done
         syncWithCloud();
-    }, [entries, settings, otState, isDataLoaded, syncWithCloud]);
+    }, [entries, settings, otState, isDataLoaded, isPersisting, syncWithCloud]);
 
     // Track user activity for adaptive polling
     const lastActivityRef = useRef<number>(Date.now());

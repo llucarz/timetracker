@@ -13,6 +13,7 @@ import { EntryDomain } from '../domain';
 export function useEntries() {
     const [entries, setEntries] = useState<Entry[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [isPersisting, setIsPersisting] = useState(false);
 
     // Load from storage on mount
     useEffect(() => {
@@ -34,10 +35,13 @@ export function useEntries() {
         if (!isLoaded) return;
 
         const persist = async () => {
+            setIsPersisting(true);
             try {
                 await storage.importEntries(entries);
             } catch (error) {
                 console.error('Failed to persist entries:', error);
+            } finally {
+                setIsPersisting(false);
             }
         };
         persist();
@@ -64,6 +68,7 @@ export function useEntries() {
     return {
         entries,
         isLoaded,
+        isPersisting,  // Expose persistence status
         addEntry,
         updateEntry,
         deleteEntry,

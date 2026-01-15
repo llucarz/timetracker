@@ -75,11 +75,37 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     settingsHook.isLoaded
   );
 
+  // Handle changes detected from other devices (polling)
+  const handleCloudDataChanged = useCallback((cloudData: any) => {
+    console.log('🔄 Auto-refreshing data from other device...');
+
+    if (cloudData.entries) {
+      // Merge cloud and local entries intelligently
+      const mergedEntries = EntryDomain.mergeCloudAndLocal(
+        entriesHook.entries,
+        cloudData.entries
+      );
+
+      // Update entries with merged data
+      entriesHook.importEntries(mergedEntries);
+
+      console.log(`✅ Data auto-refreshed: ${cloudData.entries.length} cloud entries merged`);
+    }
+
+    // Also update settings if they exist in cloud
+    if (cloudData.settings) {
+      settingsHook.updateSettings(cloudData.settings);
+    }
+
+    // Overtime will auto-recalculate via useOvertime hook
+  }, [entriesHook, settingsHook]);
+
   const syncHook = useCloudSync(
     entriesHook.entries,
     settingsHook.settings,
     overtimeHook.otState,
-    entriesHook.isLoaded && settingsHook.isLoaded && overtimeHook.isLoaded
+    entriesHook.isLoaded && settingsHook.isLoaded && overtimeHook.isLoaded,
+    handleCloudDataChanged  // Pass callback for auto-refresh
   );
 
   // Auto-load from cloud on mount for logged-in users

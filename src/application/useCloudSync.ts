@@ -24,7 +24,8 @@ export function useCloudSync(
     entries: Entry[],
     settings: Settings,
     otState: OvertimeState,
-    isDataLoaded: boolean
+    isDataLoaded: boolean,
+    onCloudDataChanged?: (data: any) => void
 ) {
     const [syncStatus, setSyncStatus] = useState<SyncStatus>('pending');
     const [lastSyncError, setLastSyncError] = useState<string | null>(null);
@@ -116,9 +117,9 @@ export function useCloudSync(
         }
     }, [settings.account]);
 
-    // Auto-sync with debounce (2 seconds)
+    // Immediate sync on every change (no debounce for real-time experience)
     useEffect(() => {
-        if (!isDataLoaded || !settings.account?.key) return;
+        if (!isDataLoaded || !settings.account?.key || settings.account.isOffline) return;
 
         // Clear any pending retry timeout
         if (retryTimeoutRef.current) {
@@ -126,12 +127,48 @@ export function useCloudSync(
             retryTimeoutRef.current = null;
         }
 
-        const timeout = setTimeout(() => {
-            syncWithCloud();
-        }, 2000);
-
-        return () => clearTimeout(timeout);
+        // Sync immediately
+        syncWithCloud();
     }, [entries, settings, otState, isDataLoaded, syncWithCloud]);
+
+    // Poll for changes from other devices (every 10 seconds)
+    useEffect(() => {
+        if (!settings.account?.key || settings.account.isOffline) {
+            return;
+        }
+
+        const pollInterval = setInterval(async () => {
+            try {
+                console.log('🔍 Polling for changes from other devices...');
+
+                const cloudData = await loadFromCloud();
+
+                if (cloudData && cloudData.entries) {
+                    // Calculate hash of cloud data
+                    const cloudHash = generateHash({
+                        entries: cloudData.entries,
+                        settings: cloudData.settings || settings,
+                        overtime: cloudData.overtime || otState
+                    });
+
+                    // Compare with last synced hash
+                    if (cloudHash !== lastSyncedHash && lastSyncedHash !== null) {
+                        console.log('🔄 Changes detected from other device!');
+
+                        // Trigger refresh callback
+                        if (onCloudDataChanged) {
+                            onCloudDataChanged(cloudData);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Polling failed:', error);
+                // Don't show error to user, just log it
+            }
+        }, 10000); // Poll every 10 seconds
+
+        return () => clearInterval(pollInterval);
+    }, [settings.account?.key, settings.account?.isOffline, lastSyncedHash, loadFromCloud, onCloudDataChanged, settings, otState]);
 
     // Cleanup retry timeout on unmount
     useEffect(() => {

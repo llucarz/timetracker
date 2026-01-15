@@ -21,7 +21,7 @@ interface EditEntryModalProps {
 }
 
 export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) {
-  const { updateEntry, deleteEntry, otState, deleteOvertimeEvent, settings } = useTimeTracker();
+  const { updateEntry, deleteEntry, otState, deleteOvertimeEvent, settings, syncWithCloud } = useTimeTracker();
   const { showNotification } = useNotification();
   const [date, setDate] = useState("");
   const [arrival, setArrival] = useState("");
@@ -152,6 +152,9 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
       });
     }
 
+    // Sync to database immediately
+    syncWithCloud();
+
     onClose();
   };
 
@@ -173,6 +176,10 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
 
         // 2. Delete the entry itself
         await deleteEntry(entry.id);
+
+        // Sync to database immediately
+        syncWithCloud();
+
         showNotification({ type: "success", title: "Succès", message: "Entrée supprimée" });
       } catch (error) {
         console.error("Error deleting entry:", error);

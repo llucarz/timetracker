@@ -25,7 +25,7 @@ interface DailyEntryModalProps {
 }
 
 export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntryModalProps) {
-  const { addEntry, otState, settings } = useTimeTracker();
+  const { addEntry, otState, settings, syncWithCloud } = useTimeTracker();
   const { showNotification } = useNotification();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [arrival, setArrival] = useState("");
@@ -156,6 +156,9 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule }: DailyEntry
       title: "Journée enregistrée",
       message: `${formattedDate} - ${calculateDuration()} travaillées`
     });
+
+    // Sync to database immediately
+    syncWithCloud();
 
     handleClear();
     onClose();

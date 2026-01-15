@@ -24,7 +24,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenuProps) {
-  const { entries, importEntries, updateSettings, settings, logout, isSyncing, lastSyncError } = useTimeTracker();
+  const { entries, importEntries, updateSettings, settings, logout, syncStatus, lastSyncError } = useTimeTracker();
   const { showNotification } = useNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -193,12 +193,14 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
                   <>
                     {isOffline ? (
                       <CloudOff className="w-3 h-3 text-gray-400" />
-                    ) : isSyncing ? (
+                    ) : syncStatus === 'syncing' ? (
                       <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
-                    ) : lastSyncError ? (
-                      <CloudOff className="w-3 h-3 text-red-500" />
-                    ) : (
+                    ) : syncStatus === 'error' || lastSyncError ? (
+                      <AlertTriangle className="w-3 h-3 text-orange-500" />
+                    ) : syncStatus === 'synced' ? (
                       <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                    ) : (
+                      <CloudOff className="w-3 h-3 text-gray-400" />
                     )}
                   </>
                 ) : (
@@ -227,20 +229,25 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
                       <CloudOff className="w-3 h-3 text-gray-400" />
                       <span className="text-xs text-gray-400">Hors ligne</span>
                     </>
-                  ) : isSyncing ? (
+                  ) : syncStatus === 'syncing' ? (
                     <>
                       <Loader2 className="w-3 h-3 text-purple-600 animate-spin" />
                       <span className="text-xs text-purple-600">Sync...</span>
                     </>
-                  ) : lastSyncError ? (
+                  ) : syncStatus === 'error' || lastSyncError ? (
                     <>
-                      <CloudOff className="w-3 h-3 text-red-500" />
-                      <span className="text-xs text-red-500">Erreur</span>
+                      <AlertTriangle className="w-3 h-3 text-orange-500" />
+                      <span className="text-xs text-orange-500">Erreur</span>
                     </>
-                  ) : (
+                  ) : syncStatus === 'synced' ? (
                     <>
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                       <span className="text-xs text-emerald-600">Sync</span>
+                    </>
+                  ) : (
+                    <>
+                      <CloudOff className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs text-gray-400">En attente</span>
                     </>
                   )}
                 </div>

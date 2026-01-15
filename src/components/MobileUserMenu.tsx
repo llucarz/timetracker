@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { Download, Upload, LogOut, Settings, LogIn, Loader2, CloudOff, CheckCircle2, X } from "lucide-react";
+import { Download, Upload, LogOut, Settings, LogIn, Loader2, CloudOff, CheckCircle2, AlertTriangle, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { useNotification } from "../context/NotificationContext";
@@ -14,7 +14,7 @@ interface MobileUserMenuProps {
 }
 
 export function MobileUserMenu({ isOpen, onClose, onOpenProfile, onLogin }: MobileUserMenuProps) {
-    const { entries, importEntries, settings, logout, isSyncing, lastSyncError } = useTimeTracker();
+    const { entries, importEntries, settings, logout, syncStatus, lastSyncError } = useTimeTracker();
     const { showNotification } = useNotification();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -187,20 +187,25 @@ export function MobileUserMenu({ isOpen, onClose, onOpenProfile, onLogin }: Mobi
                                                     <CloudOff className="w-4 h-4 text-gray-400" />
                                                     <span className="text-sm text-gray-400">Hors ligne</span>
                                                 </>
-                                            ) : isSyncing ? (
+                                            ) : syncStatus === 'syncing' ? (
                                                 <>
                                                     <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
                                                     <span className="text-sm text-purple-600">Sync...</span>
                                                 </>
-                                            ) : lastSyncError ? (
+                                            ) : syncStatus === 'error' || lastSyncError ? (
                                                 <>
-                                                    <CloudOff className="w-4 h-4 text-red-500" />
-                                                    <span className="text-sm text-red-500">Erreur</span>
+                                                    <AlertTriangle className="w-4 h-4 text-orange-500" />
+                                                    <span className="text-sm text-orange-500">Erreur</span>
                                                 </>
-                                            ) : (
+                                            ) : syncStatus === 'synced' ? (
                                                 <>
                                                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                                     <span className="text-sm text-emerald-600">Sync</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <CloudOff className="w-4 h-4 text-gray-400" />
+                                                    <span className="text-sm text-gray-400">En attente</span>
                                                 </>
                                             )}
                                         </div>

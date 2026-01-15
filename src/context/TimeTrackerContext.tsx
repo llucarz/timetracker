@@ -24,7 +24,7 @@ interface TimeTrackerContextType {
   entries: Entry[];
   settings: Settings;
   otState: OvertimeState;
-  isSyncing: boolean;
+  syncStatus: 'synced' | 'syncing' | 'error' | 'pending';
   lastSyncError: string | null;
   storageType: 'localStorage' | 'indexedDB';
 
@@ -153,7 +153,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     deleteOvertimeEvent: handleDeleteOvertimeEvent,
 
     // Sync
-    isSyncing: syncHook.isSyncing,
+    syncStatus: syncHook.syncStatus,
     lastSyncError: syncHook.lastSyncError,
     syncWithCloud: syncHook.syncWithCloud,
     loadFromCloud: syncHook.loadFromCloud,
@@ -168,7 +168,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     entriesHook.entries,
     settingsHook.settings,
     overtimeHook.otState,
-    syncHook.isSyncing,
+    syncHook.syncStatus,
     syncHook.lastSyncError,
     storageType,
     // Actions (from useCallback, stable)

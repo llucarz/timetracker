@@ -5,7 +5,7 @@
  * 
  * Endpoints:
  * - GET  /api/data?key=<accountKey> - Load user data
- * - POST /api/data?key=<accountKey> - Save user data
+ * - POST /api/data?key=<accountKey> - Save user data (returns hash for verification)
  * 
  * Data format:
  * - Key: tt:<accountKey> (e.g., tt:acct:company-name:user-name)
@@ -21,6 +21,16 @@
  */
 
 import { Redis } from '@upstash/redis';
+import crypto from 'crypto';
+
+/**
+ * Generate MD5 hash of data for sync verification
+ * @param {object} data - Data object to hash
+ * @returns {string} MD5 hash
+ */
+function generateHash(data) {
+  return crypto.createHash('md5').update(JSON.stringify(data)).digest('hex');
+}
 
 const redis = new Redis({
   url: process.env.UPSTASH_REDIS_REST_URL,
@@ -42,7 +52,7 @@ export default async function handler(req, res) {
       const raw = await redis.get(redisKey);
 
       // Valeurs par défaut
-      let entries  = [];
+      let entries = [];
       let settings = null;
       let overtime = null;
 
@@ -73,7 +83,7 @@ export default async function handler(req, res) {
           }
         } catch {
           // JSON cassé → on renvoie des valeurs vides
-          entries  = [];
+          entries = [];
           settings = null;
           overtime = null;
         }
@@ -108,7 +118,15 @@ export default async function handler(req, res) {
       };
 
       await redis.set(redisKey, JSON.stringify(toStore));
-      return res.status(200).json({ ok: true });
+
+      // Generate hash for sync verification
+      const hash = generateHash(toStore);
+
+      return res.status(200).json({
+        ok: true,
+        hash,
+        savedAt: new Date().toISOString()
+      });
     }
 
     res.setHeader('Allow', 'GET, POST');

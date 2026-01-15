@@ -11,11 +11,10 @@
  * FIX: useMemo on context value to prevent unnecessary re-renders
  */
 
-import React, { createContext, useContext, useCallback, useMemo, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useCallback, useMemo, ReactNode } from 'react';
 import { Entry, Settings, OvertimeState, OvertimeEvent } from '../lib/types';
 import { storage } from '../lib/storage';
 import { useEntries, useSettings, useOvertime, useCloudSync } from '../application';
-import { EntryDomain } from '../domain';
 
 /**
  * Context value type - exposes state and actions to consumers
@@ -25,7 +24,7 @@ interface TimeTrackerContextType {
   entries: Entry[];
   settings: Settings;
   otState: OvertimeState;
-  syncStatus: 'synced' | 'syncing' | 'error' | 'pending';
+  isSyncing: boolean;
   lastSyncError: string | null;
   storageType: 'localStorage' | 'indexedDB';
 
@@ -75,92 +74,12 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     settingsHook.isLoaded
   );
 
-  // Handle changes detected from other devices (polling)
-  const handleCloudDataChanged = useCallback((cloudData: any) => {
-    console.log('🔄 Auto-refreshing data from other device...');
-
-    if (cloudData.entries) {
-      // Merge cloud and local entries intelligently
-      const mergedEntries = EntryDomain.mergeCloudAndLocal(
-        entriesHook.entries,
-        cloudData.entries
-      );
-
-      // Update entries with merged data
-      entriesHook.importEntries(mergedEntries);
-
-      console.log(`✅ Data auto-refreshed: ${cloudData.entries.length} cloud entries merged`);
-    }
-
-    // Also update settings if they exist in cloud
-    if (cloudData.settings) {
-      settingsHook.updateSettings(cloudData.settings);
-    }
-
-    // Overtime will auto-recalculate via useOvertime hook
-  }, [entriesHook, settingsHook]);
-
   const syncHook = useCloudSync(
     entriesHook.entries,
     settingsHook.settings,
     overtimeHook.otState,
-    entriesHook.isLoaded && settingsHook.isLoaded && overtimeHook.isLoaded,
-    handleCloudDataChanged,  // Pass callback for auto-refresh
-    entriesHook.isPersisting  // Pass persistence status
+    entriesHook.isLoaded && settingsHook.isLoaded && overtimeHook.isLoaded
   );
-
-  // Auto-load from cloud on mount for logged-in users
-  useEffect(() => {
-    const autoLoadFromCloud = async () => {
-      // Only auto-load if user is logged in and not offline
-      if (!settingsHook.settings.account?.key ||
-        settingsHook.settings.account.isOffline) {
-        return;
-      }
-
-      // Wait for local data to load first
-      if (!entriesHook.isLoaded || !settingsHook.isLoaded) {
-        return;
-      }
-
-      console.log('🔄 Auto-loading data from cloud on mount...');
-
-      try {
-        const cloudData = await syncHook.loadFromCloud();
-
-        if (cloudData && cloudData.entries) {
-          // Merge cloud and local entries intelligently
-          const mergedEntries = EntryDomain.mergeCloudAndLocal(
-            entriesHook.entries,
-            cloudData.entries
-          );
-
-          // Update entries with merged data
-          entriesHook.importEntries(mergedEntries);
-
-          console.log(`✅ Cloud data loaded and merged: ${cloudData.entries.length} cloud entries, ${entriesHook.entries.length} local entries → ${mergedEntries.length} total`);
-        }
-
-        // Also update settings if they exist in cloud
-        if (cloudData && cloudData.settings) {
-          settingsHook.updateSettings(cloudData.settings);
-        }
-
-        // Overtime will auto-recalculate via useOvertime hook
-      } catch (error) {
-        console.error('❌ Failed to auto-load from cloud:', error);
-        // Don't block the app if cloud load fails - continue with local data
-      }
-    };
-
-    autoLoadFromCloud();
-  }, [
-    settingsHook.settings.account?.key,
-    settingsHook.settings.account?.isOffline,
-    entriesHook.isLoaded,
-    settingsHook.isLoaded
-    // Note: We intentionally don't include entriesHook.entries to avoid infinite loop
-  ]);
 
   // Auth actions
   const logout = useCallback(async () => {
@@ -234,7 +153,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     deleteOvertimeEvent: handleDeleteOvertimeEvent,
 
     // Sync
-    syncStatus: syncHook.syncStatus,
+    isSyncing: syncHook.isSyncing,
     lastSyncError: syncHook.lastSyncError,
     syncWithCloud: syncHook.syncWithCloud,
     loadFromCloud: syncHook.loadFromCloud,
@@ -249,7 +168,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     entriesHook.entries,
     settingsHook.settings,
     overtimeHook.otState,
-    syncHook.syncStatus,
+    syncHook.isSyncing,
     syncHook.lastSyncError,
     storageType,
     // Actions (from useCallback, stable)

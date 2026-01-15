@@ -39,10 +39,9 @@ export function OvertimePanel() {
             const workMinutes = computeMinutes(entry);
             const recoveryMinutes = getRecoveryMinutesForDay(entry.date, otState.events);
             const totalMinutes = workMinutes + recoveryMinutes;
-
-            // Calculate daily target based on schedule for this specific entry
-            const dailyTargetMinutes = getDailyTargetMinutes(entry.date, settings);
-            const delta = totalMinutes - dailyTargetMinutes;
+            // Use schedule-based daily target
+            const dailyTarget = getDailyTargetMinutes(entry.date, settings);
+            const delta = totalMinutes - dailyTarget;
 
             if (delta > 0) {
                 items.push({

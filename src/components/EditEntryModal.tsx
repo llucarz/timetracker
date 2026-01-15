@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -12,6 +12,7 @@ import { TimePicker } from "./TimePicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { Entry } from "../lib/types";
 import { computeMinutesFromTimes, minToHM, checkOverlap, getRecoveryMinutesForDay, formatDuration, cn, hmToMin } from "../lib/utils";
+import { getDailyTargetMinutes } from "../lib/logic";
 
 interface EditEntryModalProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ interface EditEntryModalProps {
 }
 
 export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) {
-  const { updateEntry, deleteEntry, otState, deleteOvertimeEvent } = useTimeTracker();
+  const { updateEntry, deleteEntry, otState, deleteOvertimeEvent, settings } = useTimeTracker();
   const { showNotification } = useNotification();
   const [date, setDate] = useState("");
   const [arrival, setArrival] = useState("");
@@ -197,6 +198,11 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
   const duration = formatDuration(creditedMinutes);
   const isWorkDay = status === "work";
 
+  // Calculate daily target using the new logic
+  const dailyTargetMinutes = useMemo(() => {
+    return getDailyTargetMinutes(date, settings);
+  }, [date, settings]);
+
   if (!entry) return null;
 
   return (
@@ -368,7 +374,7 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
                             </div>
                             <div className="text-right">
                               <p className="text-sm text-gray-600 mb-1">Objectif journalier</p>
-                              <p className="text-2xl font-bold text-gray-700">7h00</p>
+                              <p className="text-2xl font-bold text-gray-700">{minToHM(dailyTargetMinutes)}</p>
                             </div>
                           </div>
                         </motion.div>

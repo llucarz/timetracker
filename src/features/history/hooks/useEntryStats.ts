@@ -8,6 +8,7 @@
 import { useMemo } from 'react';
 import { Entry, Settings } from '../../../lib/types';
 import { minToHM, computeMinutes, formatDuration } from '../../../lib/utils';
+import { getDailyTargetMinutes } from '../../../lib/logic';
 
 export function useEntryStats(
     entries: Entry[],
@@ -46,7 +47,9 @@ export function useEntryStats(
         const workDaysInWeekSet = new Set<string>();
         const workDaysInMonthSet = new Set<string>();
 
-        const dailyTargetMinutes = (settings.weeklyTarget / settings.workDays) * 60;
+        // Calculate targets per entry instead of using average
+        let weeklyTargetMinutes = 0;
+        let monthlyTargetMinutes = 0;
 
         entries.forEach(entry => {
             const entryDate = new Date(entry.date);
@@ -68,6 +71,8 @@ export function useEntryStats(
                 }
                 if (isWork) {
                     workDaysInWeekSet.add(entry.date);
+                    // Add this day's target to weekly total
+                    weeklyTargetMinutes += getDailyTargetMinutes(entry.date, settings);
                 }
             }
 
@@ -79,6 +84,8 @@ export function useEntryStats(
                 }
                 if (isWork) {
                     workDaysInMonthSet.add(entry.date);
+                    // Add this day's target to monthly total
+                    monthlyTargetMinutes += getDailyTargetMinutes(entry.date, settings);
                 }
             }
 
@@ -88,19 +95,15 @@ export function useEntryStats(
             }
         });
 
-        // Calculate Weekly Overtime
-        // Target is based on logged work days only (no penalty for absences or missing days)
-        const adjustedWeeklyTargetMinutes = workDaysInWeekSet.size * dailyTargetMinutes;
-        const weeklyOvertime = weekMinutes - adjustedWeeklyTargetMinutes;
+        // Calculate Weekly Overtime using actual daily targets
+        const weeklyOvertime = weekMinutes - weeklyTargetMinutes;
         const weeklyOvertimeStr = formatDuration(weeklyOvertime);
         const weeklySubtitle = weeklyOvertime > 0
             ? `+${weeklyOvertimeStr} vs objectif`
             : `${weeklyOvertimeStr} vs objectif`;
 
-        // Calculate Monthly Overtime
-        // Target is based on logged work days only
-        const adjustedMonthlyTargetMinutes = workDaysInMonthSet.size * dailyTargetMinutes;
-        const monthlyOvertime = monthMinutes - adjustedMonthlyTargetMinutes;
+        // Calculate Monthly Overtime using actual daily targets
+        const monthlyOvertime = monthMinutes - monthlyTargetMinutes;
         const monthlyOvertimeStr = formatDuration(monthlyOvertime);
         const monthlySubtitle = monthlyOvertime > 0
             ? `+${monthlyOvertimeStr} vs objectif`

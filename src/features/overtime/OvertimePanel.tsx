@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTimeTracker } from "../../context/TimeTrackerContext";
 import { computeMinutes, getRecoveryMinutesForDay } from "../../lib/utils";
+import { getDailyTargetMinutes } from "../../lib/logic";
 import { BalanceCard } from "./components/BalanceCard";
 import { RecentRecoveries } from "./components/RecentRecoveries";
 import { RecoveryForm } from "./components/RecoveryForm";
@@ -12,12 +13,6 @@ export function OvertimePanel() {
 
     // Calculate stats from context
     const overtimeBalance = otState.balanceMinutes;
-
-    // Calculate daily target
-    const dailyTargetMinutes = useMemo(() => {
-        if (!settings.workDays) return 0;
-        return (settings.weeklyTarget / settings.workDays) * 60;
-    }, [settings.weeklyTarget, settings.workDays]);
 
     // Combine events and earned overtime
     const historyItems = useMemo(() => {
@@ -44,6 +39,9 @@ export function OvertimePanel() {
             const workMinutes = computeMinutes(entry);
             const recoveryMinutes = getRecoveryMinutesForDay(entry.date, otState.events);
             const totalMinutes = workMinutes + recoveryMinutes;
+
+            // Calculate daily target based on schedule for this specific entry
+            const dailyTargetMinutes = getDailyTargetMinutes(entry.date, settings);
             const delta = totalMinutes - dailyTargetMinutes;
 
             if (delta > 0) {
@@ -59,7 +57,7 @@ export function OvertimePanel() {
         });
 
         return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [otState.events, entries, dailyTargetMinutes]);
+    }, [otState.events, entries, settings]);
 
     // Get recent recoveries (last 2)
     const recentRecoveries = useMemo(() => {

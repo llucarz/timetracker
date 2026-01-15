@@ -5,9 +5,10 @@
  * date handling, and time formatting.
  */
 
-import { Entry, OvertimeEvent } from "./types";
-import { type ClassValue, clsx } from "clsx";
+import { Entry, OvertimeEvent, Settings } from "./types";
+import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { getDailyTargetMinutes } from "./logic";
 
 /**
  * Pads a number with leading zeros to ensure 2 digits
@@ -302,38 +303,19 @@ export function getRecoveryMinutesForDay(date: string, events: OvertimeEvent[]):
  *      (Assumes full week was worked unless absent)
  * 4. Sums up deltas across all weeks: (actual - target)
  * 
- * @param entries - Array of all time entries
- * @param weeklyTarget - Target hours per week (e.g., 35)
- * @param workDays - Number of working days per week (e.g., 5)
- * @param events - Array of overtime events (for recovery credits)
- * @returns Total overtime balance in minutes (positive = surplus, negative = deficit)
+ * @param entries - Array of time entries
+ * @param settings - User settings containing schedule and targets
+ * @param events - Optional overtime events (recovery/gift minutes)
+ * @returns Total overtime in minutes (positive = surplus, negative = deficit)
  * 
  * @example
- * // Week 1: Worked 40h, target 35h → +5h
- * // Week 2: Worked 32h, target 35h → -3h
- * // Total: +2h (120 minutes)
- * computeOvertimeEarned(entries, 35, 5, [])
+ * computeOvertimeEarned(entries, settings, [])
  */
-export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, workDays: number, events: OvertimeEvent[] = []): number {
-  const dailyTarget = weeklyTarget / workDays;
-
-  // Group by ISO week: track minutes, absence days, and work dates
-  const map = new Map<string, { minutes: number; absenceDays: number; workDates: Set<string> }>();
+export function computeOvertimeEarned(entries: Entry[], settings: Settings, events: OvertimeEvent[] = []): number {
+  let totalDelta = 0;
 
   for (const e of entries) {
     if (!e || !e.date) continue;
-    const { start } = weekRangeOf(e.date); // Get Monday of this entry's week
-    const key = start;
-
-    let obj = map.get(key);
-    if (!obj) {
-      obj = {
-        minutes: 0,
-        absenceDays: 0,
-        workDates: new Set(), // Tracks which dates have entries (work or absence)
-      };
-      map.set(key, obj);
-    }
 
     // Add minutes worked for this entry
     const workMinutes = computeMinutes(e);
@@ -342,40 +324,25 @@ export function computeOvertimeEarned(entries: Entry[], weeklyTarget: number, wo
     const recoveryMinutes = getRecoveryMinutesForDay(e.date, events);
 
     // Total credited minutes for this day
-    obj.minutes += workMinutes + recoveryMinutes;
+    const totalMinutes = workMinutes + recoveryMinutes;
 
-    // Count absence days that reduce the weekly target
+    // Calculate daily target using the new logic
+    let dailyTargetMinutes: number;
+
+    // Check if this is an absence day (no target expected)
     if (
       e.status === "school" ||
       e.status === "vacation" ||
       e.status === "sick" ||
       e.status === "holiday"
     ) {
-      obj.absenceDays += 1;
-      // Also track as "logged day" for current week calculation
-      obj.workDates.add(e.date);
+      dailyTargetMinutes = 0; // Absence days have 0 target
+    } else {
+      // Use schedule-based target or fallback to average
+      dailyTargetMinutes = getDailyTargetMinutes(e.date, settings);
     }
 
-    // Track work days (status=work or undefined) OR recovery days
-    if (!e.status || e.status === "work" || e.status === "recovery") {
-      obj.workDates.add(e.date);
-    }
-  }
-
-  const todayKey = toDateKey(new Date());
-  const { start: currentWeekStart } = weekRangeOf(todayKey);
-
-  let totalDelta = 0;
-
-  for (const [weekStartKey, v] of map) {
-    // Unified Logic: "Pay as you go" / Daily Balance
-    // Only count target hours for days that have actual entries (work or absence).
-    // This ignores missing days in the past, preventing "Deficit of 35h" if user didn't log time.
-    const daysLogged = v.workDates.size;
-    const adjustedWeeklyHours = daysLogged * dailyTarget - (v.absenceDays * dailyTarget);
-
-    const targetMin = adjustedWeeklyHours * 60;
-    totalDelta += v.minutes - targetMin;
+    totalDelta += totalMinutes - dailyTargetMinutes;
   }
 
   return totalDelta;

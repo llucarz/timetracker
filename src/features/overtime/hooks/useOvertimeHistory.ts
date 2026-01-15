@@ -6,8 +6,9 @@
  */
 
 import { useMemo } from 'react';
-import { Entry, OvertimeState } from '../../../lib/types';
+import { Entry, OvertimeState, Settings } from '../../../lib/types';
 import { computeMinutes, getRecoveryMinutesForDay } from '../../../lib/utils';
+import { getDailyTargetMinutes } from '../../../lib/logic';
 
 export interface HistoryItem {
     id: string;
@@ -23,7 +24,7 @@ export interface HistoryItem {
 export function useOvertimeHistory(
     otState: OvertimeState,
     entries: Entry[],
-    dailyTargetMinutes: number
+    settings: Settings
 ) {
     return useMemo(() => {
         const items: HistoryItem[] = [];
@@ -49,6 +50,9 @@ export function useOvertimeHistory(
             const workMinutes = computeMinutes(entry);
             const recoveryMinutes = getRecoveryMinutesForDay(entry.date, otState.events);
             const totalMinutes = workMinutes + recoveryMinutes;
+
+            // Calculate daily target based on schedule for this specific entry
+            const dailyTargetMinutes = getDailyTargetMinutes(entry.date, settings);
             const delta = totalMinutes - dailyTargetMinutes;
 
             if (delta > 0) {
@@ -64,5 +68,5 @@ export function useOvertimeHistory(
         });
 
         return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [otState.events, entries, dailyTargetMinutes]);
+    }, [otState.events, entries, settings]);
 }

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { EditEntryModal } from "../../components/EditEntryModal";
 import { useTimeTracker } from "../../context/TimeTrackerContext";
 import { minToHM, computeMinutes, formatDuration, hmToMin, toLocalDateKey } from "../../lib/utils";
+import { getDailyTargetMinutes } from "../../lib/logic";
 import { StatCard } from "./components/StatCard";
 import { Badge } from "../../components/ui/badge";
 import { PeriodPicker } from "../../components/PeriodPicker";
@@ -143,7 +144,9 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
         let workDaysInWeekSet = new Set<string>();
         let workDaysInMonthSet = new Set<string>();
 
-        const dailyTargetMinutes = (settings.weeklyTarget / settings.workDays) * 60;
+        // Calculate targets per entry instead of using average
+        let weeklyTargetMinutes = 0;
+        let monthlyTargetMinutes = 0;
 
         entries.forEach(entry => {
             const entryDate = new Date(entry.date);
@@ -159,6 +162,8 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                 weekMinutes += minutes;
                 if (isWork) {
                     workDaysInWeekSet.add(entry.date);
+                    // Add this day's target to weekly total
+                    weeklyTargetMinutes += getDailyTargetMinutes(entry.date, settings);
                 }
             }
 
@@ -167,6 +172,8 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                 monthMinutes += minutes;
                 if (isWork) {
                     workDaysInMonthSet.add(entry.date);
+                    // Add this day's target to monthly total
+                    monthlyTargetMinutes += getDailyTargetMinutes(entry.date, settings);
                 }
             }
 
@@ -176,17 +183,15 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
             }
         });
 
-        // Calculate Weekly Overtime
-        const adjustedWeeklyTargetMinutes = workDaysInWeekSet.size * dailyTargetMinutes;
-        const weeklyOvertime = weekMinutes - adjustedWeeklyTargetMinutes;
+        // Calculate Weekly Overtime using actual daily targets
+        const weeklyOvertime = weekMinutes - weeklyTargetMinutes;
         const weeklyOvertimeStr = formatDuration(weeklyOvertime);
         const weeklySubtitle = weeklyOvertime > 0
             ? `+${weeklyOvertimeStr} vs objectif`
             : `${weeklyOvertimeStr} vs objectif`;
 
-        // Calculate Monthly Overtime
-        const adjustedMonthlyTargetMinutes = workDaysInMonthSet.size * dailyTargetMinutes;
-        const monthlyOvertime = monthMinutes - adjustedMonthlyTargetMinutes;
+        // Calculate Monthly Overtime using actual daily targets
+        const monthlyOvertime = monthMinutes - monthlyTargetMinutes;
         const monthlyOvertimeStr = formatDuration(monthlyOvertime);
         const monthlySubtitle = monthlyOvertime > 0
             ? `+${monthlyOvertimeStr} vs objectif`

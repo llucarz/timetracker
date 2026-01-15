@@ -9,6 +9,7 @@ import { EditEntryModal } from "./EditEntryModal";
 import { AllEntriesModal } from "./AllEntriesModal";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { computeMinutes, minToHM, toDateKey, toLocalDateKey, weekRangeOf, minutesToDHM, formatDHM } from "../lib/utils";
+import { getDailyTargetMinutes } from "../lib/logic";
 import { Entry } from "../lib/types";
 import { GRADIENTS, SHADOWS } from "../ui/design-system/tokens";
 
@@ -73,8 +74,8 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
         const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'long' });
         const capitalizedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
 
-        // Simple overtime calc for display (vs daily target)
-        const dailyTarget = (settings.weeklyTarget || 35) / (settings.workDays || 5) * 60;
+        // Calculate overtime using schedule-based daily target
+        const dailyTarget = getDailyTargetMinutes(e.date, settings);
         const otMins = mins - dailyTarget;
         const otStr = e.status === 'work' ? (otMins > 0 ? `+${minToHM(otMins)}` : minToHM(otMins)) : null;
 

@@ -20,8 +20,7 @@ export class OvertimeCalculator {
     ): OvertimeState {
         const earned = computeOvertimeEarned(
             entries,
-            settings.weeklyTarget,
-            settings.workDays,
+            settings,
             currentState.events
         );
 

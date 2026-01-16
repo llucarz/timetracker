@@ -46,6 +46,9 @@ interface TimeTrackerContextType {
   syncWithCloud: () => Promise<void>;
   syncNow: () => Promise<void>;
   loadFromCloud: () => Promise<any>;
+  markDirty: (type: 'entries' | 'settings' | 'overtime', id?: string) => void;
+  conflictState: { hasConflict: boolean; serverUpdatedAt: string | null };
+  resolveConflictByReload: () => Promise<any>;
   login: (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => void;
   logout: () => void;
   clearData: () => Promise<void>;
@@ -195,9 +198,12 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     isSyncing: syncHook.isSyncing,
     isSynced: syncHook.isSynced,
     lastSyncError: syncHook.lastSyncError,
-    syncWithCloud: syncHook.syncWithCloud,
+    syncWithCloud: syncHook.syncNow, // Use syncNow as syncWithCloud
     syncNow: syncHook.syncNow,
     loadFromCloud: syncHook.loadFromCloud,
+    markDirty: syncHook.markDirty,
+    conflictState: syncHook.conflictState,
+    resolveConflictByReload: syncHook.resolveConflictByReload,
 
     // Auth
     login,

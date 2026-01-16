@@ -83,35 +83,41 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     entriesHook.isLoaded && settingsHook.isLoaded && overtimeHook.isLoaded
   );
 
-  // Wrapped actions with immediate sync
+  // Wrapped actions with dirty tracking (debounce 1s + flush)
   const addEntry = useCallback((entry: Omit<Entry, 'id'>) => {
-    entriesHook.addEntry(entry);
-    syncHook.syncNow(); // Immediate sync
+    const newEntry = entriesHook.addEntry(entry);
+    // Mark entry as dirty (will trigger debounced sync)
+    if (newEntry && newEntry.id) {
+      syncHook.markDirty('entries', newEntry.id);
+    }
   }, [entriesHook, syncHook]);
 
   const updateEntry = useCallback((entry: Entry) => {
     entriesHook.updateEntry(entry);
-    syncHook.syncNow(); // Immediate sync
+    syncHook.markDirty('entries', entry.id);
   }, [entriesHook, syncHook]);
 
   const deleteEntry = useCallback((id: string) => {
     entriesHook.deleteEntry(id);
-    syncHook.syncNow(); // Immediate sync
+    syncHook.markDirty('entries', id);
   }, [entriesHook, syncHook]);
 
   const importEntries = useCallback((newEntries: Omit<Entry, 'id'>[]) => {
-    entriesHook.importEntries(newEntries);
-    syncHook.syncNow(); // Immediate sync
+    const imported = entriesHook.importEntries(newEntries);
+    // Mark all imported entries as dirty
+    imported.forEach(entry => {
+      if (entry.id) syncHook.markDirty('entries', entry.id);
+    });
   }, [entriesHook, syncHook]);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {
     settingsHook.updateSettings(updates);
-    syncHook.syncNow(); // Immediate sync
+    syncHook.markDirty('settings');
   }, [settingsHook, syncHook]);
 
   const addOvertimeEvent = useCallback((event: Omit<OvertimeEvent, 'id'>) => {
     overtimeHook.addOvertimeEvent(event);
-    syncHook.syncNow(); // Immediate sync
+    syncHook.markDirty('overtime');
   }, [overtimeHook, syncHook]);
 
   // Auth actions

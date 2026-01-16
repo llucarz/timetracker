@@ -1,14 +1,26 @@
 /**
- * useCloudSync - Application Hook
+ * useCloudSync - Production-Grade
  * 
- * Gère la synchronisation cloud immédiate (immediate sync on every action).
- * - Sync immédiat après chaque modification (plus de debounce)
- * - Chargement automatique depuis la BDD au démarrage
- * - Indicateur isSynced pour vérifier que localStorage === BDD
+ * Features:
+ * - Dirty tracking avec snapshot atomique
+ * - Rollback automatique en cas d'erreur
+ * - Flush obligatoire (beforeunload + visibilitychange)
+ * - Dirty persistence dans localStorage
+ * - Conflict detection (409)
+ * - Debounce 1s
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Entry, Settings, OvertimeState } from '../lib/types';
+
+interface DirtyState {
+    entries: Set<string>;
+    settings: boolean;
+    overtime: boolean;
+}
+
+const DIRTY_STORAGE_KEY = 'tt_dirty_state';
+const DEBOUNCE_MS = 1000;
 
 export function useCloudSync(
     entries: Entry[],
@@ -19,47 +31,76 @@ export function useCloudSync(
     const [isSyncing, setIsSyncing] = useState(false);
     const [isSynced, setIsSynced] = useState(false);
     const [lastSyncError, setLastSyncError] = useState<string | null>(null);
-    const [hasLoadedFromCloud, setHasLoadedFromCloud] = useState(false);
 
-    // Track if we need to sync (data has changed since last sync)
-    const needsSyncRef = useRef(false);
+    // CRITICAL FIX #3: Expose conflict state for UI
+    const [conflictState, setConflictState] = useState<{
+        hasConflict: boolean;
+        serverUpdatedAt: string | null;
+    }>({ hasConflict: false, serverUpdatedAt: null });
 
-    const syncWithCloud = useCallback(async () => {
-        if (!settings.account?.key || settings.account.isOffline) return;
+    const dirtyRef = useRef<DirtyState>({
+        entries: new Set(),
+        settings: false,
+        overtime: false
+    });
 
-        setIsSyncing(true);
-        setLastSyncError(null);
+    const syncTimeoutRef = useRef<NodeJS.Timeout>();
+    const lastSyncTimestampRef = useRef<string | null>(null);
 
+    // ========================================
+    // 1. RESTORE DIRTY FROM LOCALSTORAGE
+    // ========================================
+    useEffect(() => {
         try {
-            const res = await fetch(`/api/data?key=${settings.account.key}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ entries, settings, overtime: otState }),
-            });
+            const saved = localStorage.getItem(DIRTY_STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                dirtyRef.current = {
+                    entries: new Set(parsed.entries || []),
+                    settings: parsed.settings || false,
+                    overtime: parsed.overtime || false
+                };
 
-            if (!res.ok) {
-                throw new Error(`Sync failed: ${res.status}`);
+                if (dirtyRef.current.entries.size > 0 ||
+                    dirtyRef.current.settings ||
+                    dirtyRef.current.overtime) {
+                    setIsSynced(false);
+                    console.log('🔄 Restored dirty state from localStorage');
+                }
             }
-
-            setIsSynced(true);
-            needsSyncRef.current = false;
-            console.log('✅ Cloud sync successful');
         } catch (error) {
-            console.error('❌ Cloud sync failed:', error);
-            setLastSyncError(error instanceof Error ? error.message : 'Unknown error');
-            setIsSynced(false);
-        } finally {
-            setIsSyncing(false);
+            console.error('Failed to restore dirty state:', error);
         }
-    }, [entries, settings, otState]);
+    }, []);
 
+    // ========================================
+    // 2. PERSIST DIRTY TO LOCALSTORAGE
+    // ========================================
+    const persistDirty = useCallback(() => {
+        try {
+            localStorage.setItem(DIRTY_STORAGE_KEY, JSON.stringify({
+                entries: Array.from(dirtyRef.current.entries),
+                settings: dirtyRef.current.settings,
+                overtime: dirtyRef.current.overtime
+            }));
+        } catch (error) {
+            console.error('Failed to persist dirty state:', error);
+        }
+    }, []);
+
+    // ========================================
+    // 7. LOAD FROM CLOUD
+    // ========================================
     const loadFromCloud = useCallback(async () => {
         if (!settings.account?.key || settings.account.isOffline) return null;
 
         try {
             const res = await fetch(`/api/data?key=${settings.account.key}`);
             if (!res.ok) return null;
+
             const data = await res.json();
+            lastSyncTimestampRef.current = data.updatedAt;
+
             console.log('✅ Cloud data loaded');
             return data;
         } catch (error) {
@@ -68,60 +109,198 @@ export function useCloudSync(
         }
     }, [settings.account]);
 
-    // Immediate sync function (exposed to context)
-    const syncNow = useCallback(async () => {
-        if (!isDataLoaded || !settings.account?.key || settings.account.isOffline) return;
-        if (isSyncing) {
-            // Mark that we need to sync again after current sync completes
-            needsSyncRef.current = true;
+    // ========================================
+    // 3. RESOLVE CONFLICT BY RELOAD
+    // ========================================
+    const resolveConflictByReload = useCallback(async () => {
+        const cloudData = await loadFromCloud();
+        if (cloudData) {
+            console.log('🔄 Reloaded from cloud after conflict');
+            // Clear dirty state
+            dirtyRef.current = { entries: new Set(), settings: false, overtime: false };
+            localStorage.removeItem(DIRTY_STORAGE_KEY);
+            setConflictState({ hasConflict: false, serverUpdatedAt: null });
+            setIsSynced(true);
+            return cloudData;
+        }
+        return null;
+    }, [loadFromCloud]);
+
+    // ========================================
+    // 4. SYNC WITH SNAPSHOT + ROLLBACK
+    // ========================================
+    const syncDirtyData = useCallback(async () => {
+        if (isSyncing || !settings.account?.key || settings.account.isOffline) {
             return;
         }
 
-        await syncWithCloud();
-    }, [isDataLoaded, settings.account, isSyncing, syncWithCloud]);
+        // Snapshot atomique
+        const snapshot: DirtyState = {
+            entries: new Set(dirtyRef.current.entries),
+            settings: dirtyRef.current.settings,
+            overtime: dirtyRef.current.overtime
+        };
 
-    // Load from cloud on initial mount (only once)
+        // Rien à sync
+        if (snapshot.entries.size === 0 && !snapshot.settings && !snapshot.overtime) {
+            setIsSynced(true);
+            return;
+        }
+
+        // Clear dirty AVANT sync (nouvelles modifs iront dans nouveau dirty)
+        dirtyRef.current = { entries: new Set(), settings: false, overtime: false };
+        localStorage.removeItem(DIRTY_STORAGE_KEY);
+
+        setIsSyncing(true);
+        setLastSyncError(null);
+
+        try {
+            // Préparer payload (seulement dirty data)
+            const dirtyEntries = entries.filter(e => snapshot.entries.has(e.id));
+
+            // BLOCKER #1 FIX: Ne jamais envoyer toutes les entries si aucune n'est dirty
+            const payload = {
+                entries: snapshot.entries.size > 0 ? dirtyEntries : undefined,
+                settings: snapshot.settings ? settings : undefined,
+                overtime: snapshot.overtime ? otState : undefined,
+                clientUpdatedAt: lastSyncTimestampRef.current
+            };
+
+            const res = await fetch(`/api/data?key=${settings.account.key}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.status === 409) {
+                // BLOCKER #4 FIX: Conflict détecté - expose state
+                const { serverUpdatedAt } = await res.json();
+                console.warn('⚠️ Conflict detected, server is newer');
+
+                setLastSyncError('Conflict: server data is newer');
+                setIsSynced(false);
+                setConflictState({ hasConflict: true, serverUpdatedAt });
+
+                // Rollback dirty
+                snapshot.entries.forEach(id => dirtyRef.current.entries.add(id));
+                if (snapshot.settings) dirtyRef.current.settings = true;
+                if (snapshot.overtime) dirtyRef.current.overtime = true;
+                persistDirty();
+
+                return;
+            }
+
+            if (!res.ok) {
+                throw new Error(`Sync failed: ${res.status}`);
+            }
+
+            const { updatedAt } = await res.json();
+            lastSyncTimestampRef.current = updatedAt;
+
+            setIsSynced(true);
+            setConflictState({ hasConflict: false, serverUpdatedAt: null });
+            console.log('✅ Cloud sync successful');
+        } catch (error) {
+            console.error('❌ Cloud sync failed:', error);
+            setLastSyncError(error instanceof Error ? error.message : 'Unknown error');
+            setIsSynced(false);
+
+            // Rollback dirty
+            snapshot.entries.forEach(id => dirtyRef.current.entries.add(id));
+            if (snapshot.settings) dirtyRef.current.settings = true;
+            if (snapshot.overtime) dirtyRef.current.overtime = true;
+            persistDirty();
+        } finally {
+            setIsSyncing(false);
+        }
+    }, [isSyncing, entries, settings, otState, persistDirty]);
+
+    // ========================================
+    // 4. MARK DIRTY (EXPOSÉ AU CONTEXT)
+    // ========================================
+    const markDirty = useCallback((type: 'entries' | 'settings' | 'overtime', id?: string) => {
+        if (type === 'entries' && id) {
+            dirtyRef.current.entries.add(id);
+        } else {
+            dirtyRef.current[type] = true;
+        }
+
+        setIsSynced(false);
+        persistDirty();
+
+        // Debounce 1s
+        clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = setTimeout(() => {
+            syncDirtyData();
+        }, DEBOUNCE_MS);
+    }, [persistDirty, syncDirtyData]);
+
+    // ========================================
+    // 5. FLUSH AVANT FERMETURE (CRITIQUE)
+    // ========================================
     useEffect(() => {
-        if (!isDataLoaded || hasLoadedFromCloud) return;
-        if (!settings.account?.key || settings.account.isOffline) return;
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            const hasDirty = dirtyRef.current.entries.size > 0 ||
+                dirtyRef.current.settings ||
+                dirtyRef.current.overtime;
 
-        const loadInitialData = async () => {
-            console.log('🔄 Loading initial data from cloud...');
-            const cloudData = await loadFromCloud();
+            if (hasDirty && settings.account?.key) {
+                e.preventDefault();
+                e.returnValue = ''; // Prompt utilisateur
 
-            if (cloudData) {
-                // Data will be merged by the context/parent component
-                setHasLoadedFromCloud(true);
-                setIsSynced(true);
+                // CRITICAL FIX #4: Flush avec sendBeacon (best effort)
+                const blob = new Blob([JSON.stringify({
+                    entries,
+                    settings,
+                    overtime: otState
+                })], { type: 'application/json' });
+
+                const sent = navigator.sendBeacon(
+                    `/api/data/flush?key=${settings.account.key}`,
+                    blob
+                );
+
+                if (sent) {
+                    console.log('📤 Flushed data via sendBeacon (best effort)');
+                    // NEVER clear dirty here - sendBeacon doesn't guarantee delivery
+                    // Dirty will be cleared only after successful syncDirtyData()
+                }
             }
         };
 
-        loadInitialData();
-    }, [isDataLoaded, settings.account, hasLoadedFromCloud, loadFromCloud]);
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [entries, settings, otState]);
 
-    // Mark as needing sync when data changes
+    // ========================================
+    // 6. FLUSH SUR VISIBILITYCHANGE (MOBILE)
+    // ========================================
     useEffect(() => {
-        if (!isDataLoaded || !hasLoadedFromCloud) return;
-        if (!settings.account?.key || settings.account.isOffline) return;
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                const hasDirty = dirtyRef.current.entries.size > 0 ||
+                    dirtyRef.current.settings ||
+                    dirtyRef.current.overtime;
 
-        // Data has changed, mark as not synced
-        setIsSynced(false);
-        needsSyncRef.current = true;
-    }, [entries, settings, otState, isDataLoaded, hasLoadedFromCloud]);
+                if (hasDirty) {
+                    console.log('👁️ Page hidden, triggering sync');
+                    syncDirtyData();
+                }
+            }
+        };
 
-    // Retry sync if needed after current sync completes
-    useEffect(() => {
-        if (!isSyncing && needsSyncRef.current && isDataLoaded) {
-            syncNow();
-        }
-    }, [isSyncing, isDataLoaded, syncNow]);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [syncDirtyData]);
 
     return {
         isSyncing,
         isSynced,
         lastSyncError,
-        syncWithCloud,
-        syncNow,
+        conflictState,
+        resolveConflictByReload,
+        markDirty,
+        syncNow: syncDirtyData,
         loadFromCloud
     };
 }

@@ -1,23 +1,9 @@
 /**
- * Cloud Sync API - Vercel Serverless Function
+ * Cloud Sync API - PRODUCTION FINAL
  * 
- * Backend for TimeTracker cloud sync via Upstash Redis
- * 
- * Endpoints:
- * - GET  /api/data?key=<accountKey> - Load user data
- * - POST /api/data?key=<accountKey> - Save user data
- * 
- * Data format:
- * - Key: tt:<accountKey> (e.g., tt:acct:company-name:user-name)
- * - Value: JSON object with { entries, settings, overtime }
- * 
- * Legacy format migration:
- * - Old: Array of entries only
- * - New: Object with entries, settings, overtime
- * 
- * Environment variables required:
- * - UPSTASH_REDIS_REST_URL
- * - UPSTASH_REDIS_REST_TOKEN
+ * CRITICAL FIXES:
+ * - #1: Merge entries by ID (no data loss)
+ * - #2: NO compression (JSON brut partout pour simplicité)
  */
 
 import { Redis } from '@upstash/redis';
@@ -35,57 +21,41 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing ?key= parameter' });
   }
 
-  const redisKey = `tt:${key}`; // Redis key format: tt:<accountKey>
+  const redisKey = `tt:${key}`;
+  const metaKey = `tt:${key}:meta`;
 
   try {
     if (method === 'GET') {
       const raw = await redis.get(redisKey);
 
-      // Valeurs par défaut
       let entries = [];
       let settings = null;
       let overtime = null;
 
       if (!raw) {
-        // rien en BDD → on renvoie les valeurs par défaut
         return res.status(200).json({ entries, settings, overtime });
       }
 
+      // Parse data (JSON brut)
       if (Array.isArray(raw)) {
-        // 🧓 Ancien format : on stockait juste un tableau d'entries
         entries = raw;
       } else if (typeof raw === 'string' && raw.length) {
         try {
           const parsed = JSON.parse(raw);
-
-          // Si c’est encore un tableau => ancien format
           if (Array.isArray(parsed)) {
             entries = parsed;
           } else if (parsed && typeof parsed === 'object') {
-            // Nouveau format complet
-            if (Array.isArray(parsed.entries)) entries = parsed.entries;
-            if (parsed.settings && typeof parsed.settings === 'object') {
-              settings = parsed.settings;
-            }
-            if (parsed.overtime && typeof parsed.overtime === 'object') {
-              overtime = parsed.overtime;
-            }
+            entries = parsed.entries || [];
+            settings = parsed.settings || null;
+            overtime = parsed.overtime || null;
           }
         } catch {
-          // JSON cassé → on renvoie des valeurs vides
           entries = [];
-          settings = null;
-          overtime = null;
         }
       } else if (raw && typeof raw === 'object') {
-        // Cas où Upstash renverrait déjà un objet
-        if (Array.isArray(raw.entries)) entries = raw.entries;
-        if (raw.settings && typeof raw.settings === 'object') {
-          settings = raw.settings;
-        }
-        if (raw.overtime && typeof raw.overtime === 'object') {
-          overtime = raw.overtime;
-        }
+        entries = raw.entries || [];
+        settings = raw.settings || null;
+        overtime = raw.overtime || null;
       }
 
       return res.status(200).json({ entries, settings, overtime });
@@ -94,21 +64,68 @@ export default async function handler(req, res) {
     if (method === 'POST') {
       const body = await readJson(req);
 
-      // body attendu : { entries, settings, overtime }
-      if (!Array.isArray(body?.entries)) {
-        return res
-          .status(400)
-          .json({ error: 'Body must be { entries: [...], settings?, overtime? }' });
+      // Conflict detection
+      const { clientUpdatedAt } = body;
+      const meta = await redis.hgetall(metaKey);
+      const serverUpdatedAt = meta?.lastSync;
+
+      if (serverUpdatedAt && clientUpdatedAt &&
+        new Date(serverUpdatedAt) > new Date(clientUpdatedAt)) {
+        return res.status(409).json({
+          error: 'Conflict detected',
+          serverUpdatedAt
+        });
+      }
+
+      // CRITICAL FIX #1: Merge entries by ID
+      const existing = await redis.get(redisKey);
+      let existingData = { entries: [], settings: null, overtime: null };
+
+      if (existing) {
+        if (typeof existing === 'string') {
+          existingData = JSON.parse(existing);
+        } else if (typeof existing === 'object') {
+          existingData = existing;
+        }
+      }
+
+      // Merge logic
+      let finalEntries = existingData.entries || [];
+
+      if (body.entries !== undefined && Array.isArray(body.entries)) {
+        // Index existing entries by ID
+        const entriesMap = new Map();
+        finalEntries.forEach(e => entriesMap.set(e.id, e));
+
+        // Merge/add new entries
+        body.entries.forEach(e => {
+          if (e.id) {
+            entriesMap.set(e.id, e);
+          }
+        });
+
+        // Convert back to array
+        finalEntries = Array.from(entriesMap.values());
       }
 
       const toStore = {
-        entries: body.entries,
-        settings: body.settings || null,
-        overtime: body.overtime || null,
+        entries: finalEntries,
+        settings: body.settings !== undefined ? body.settings : existingData.settings,
+        overtime: body.overtime !== undefined ? body.overtime : existingData.overtime,
+        updatedAt: new Date().toISOString()
       };
 
+      // Store JSON brut (pas de compression)
       await redis.set(redisKey, JSON.stringify(toStore));
-      return res.status(200).json({ ok: true });
+
+      // Update metadata
+      const currentVersion = parseInt(meta?.version || '0');
+      await redis.hset(metaKey, {
+        lastSync: toStore.updatedAt,
+        version: (currentVersion + 1).toString()
+      });
+
+      return res.status(200).json({ ok: true, updatedAt: toStore.updatedAt });
     }
 
     res.setHeader('Allow', 'GET, POST');
@@ -119,10 +136,6 @@ export default async function handler(req, res) {
   }
 }
 
-/**
- * Helper to read and parse JSON from request body
- * Node.js serverless function doesn't auto-parse body
- */
 function readJson(req) {
   return new Promise((resolve, reject) => {
     let data = '';

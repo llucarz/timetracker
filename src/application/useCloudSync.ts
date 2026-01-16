@@ -39,6 +39,14 @@ export function useCloudSync(
         serverUpdatedAt: string | null;
     }>({ hasConflict: false, serverUpdatedAt: null });
 
+    // CRITICAL FIX #1: Race condition (stale closure)
+    // entries peut être stale quand le debounce fire.
+    // On utilise une ref pour toujours avoir la version courante.
+    const entriesRef = useRef(entries);
+    useEffect(() => {
+        entriesRef.current = entries;
+    }, [entries]);
+
     const dirtyRef = useRef<DirtyState>({
         entries: new Set(),
         settings: false,
@@ -190,7 +198,10 @@ export function useCloudSync(
 
         try {
             // Préparer payload (seulement dirty data)
-            const dirtyEntries = entries.filter(e => snapshot.entries.has(e.id));
+            // Préparer payload (seulement dirty data)
+            // CRITICAL FIX #2: Read from ref, not closure
+            const currentEntries = entriesRef.current;
+            const dirtyEntries = currentEntries.filter(e => snapshot.entries.has(e.id));
 
             // ✅ FIX: Envoyer entries seulement si dirty, sinon undefined
             const payload = {
@@ -262,7 +273,7 @@ export function useCloudSync(
         } finally {
             setIsSyncing(false);
         }
-    }, [isSyncing, entries, settings, otState, persistDirty]);
+    }, [isSyncing, settings, otState, persistDirty]); // entries removed from dependency to avoid recreation spam, ref is used
 
     // ========================================
     // 4. MARK DIRTY (EXPOSÉ AU CONTEXT)

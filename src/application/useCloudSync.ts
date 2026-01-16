@@ -28,6 +28,7 @@ export function useCloudSync(
     otState: OvertimeState,
     isDataLoaded: boolean
 ) {
+    console.log('[SYNC] useCloudSync mounted'); // 👈 DEBUG LOG
     const [isSyncing, setIsSyncing] = useState(false);
     const [isSynced, setIsSynced] = useState(false);
     const [lastSyncError, setLastSyncError] = useState<string | null>(null);

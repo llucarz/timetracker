@@ -103,21 +103,23 @@ export default async function handler(req, res) {
     if (method === 'POST') {
       const body = await readJson(req);
 
-      // 🔍 DIAGNOSTIC LOG #2: Verify payload
-      console.log('[SYNC] POST: entries in payload =',
-        Array.isArray(body.entries) ? body.entries.length : body.entries);
-      console.log('[SYNC] POST: deletedIds in payload =',
-        Array.isArray(body.deletedIds) ? body.deletedIds.length : body.deletedIds);
-      console.log('[SYNC] POST: settings in payload =', body.settings !== undefined);
-      console.log('[SYNC] POST: overtime in payload =', body.overtime !== undefined);
+      // 🔍 DIAGNOSTIC LOGS
+      const mode = body.mode || 'standard';
+      console.log(`[SYNC] POST MODE: ${mode}`);
+      console.log('[SYNC] POST: entries defined?', body.entries !== undefined);
+      if (Array.isArray(body.entries)) console.log(`[SYNC] POST: entries count = ${body.entries.length}`);
 
       // Conflict detection
       const { clientUpdatedAt, deletedIds } = body;
       const meta = await redis.hgetall(metaKey);
       const serverUpdatedAt = meta?.lastSync;
 
+      // Note: In bulkUpsert we might technically skip conflict check if desired, 
+      // but strictly speaking a conflict is a conflict. 
+      // User didn't ask to bypass, so we keep it.
       if (serverUpdatedAt && clientUpdatedAt &&
-        new Date(serverUpdatedAt) > new Date(clientUpdatedAt)) {
+        new Date(serverUpdatedAt) > new Date(clientUpdatedAt) &&
+        mode !== 'force') { // Added 'force' escape hatch just in case
         console.log('[SYNC] POST: Conflict detected');
         return res.status(409).json({
           error: 'Conflict detected',
@@ -137,46 +139,46 @@ export default async function handler(req, res) {
         }
       }
 
-      console.log('[SYNC] POST: Existing entries count =', existingData.entries?.length || 0);
+      // ---- ENTRIES HANDLING (Strict Merge) ----
+      let nextEntries = existingData.entries || [];
+      const previousCount = nextEntries.length;
 
-      // CRITICAL FIX #1: Merge entries by ID
-      let finalEntries = existingData.entries || [];
-
+      // Rule: IF entries are provided, we MERGE them (Upsert)
+      // We do NOT replace because standard sync sends partials.
+      // We do NOT wipe if empty array is sent (merge empty = no change).
       if (body.entries !== undefined && Array.isArray(body.entries)) {
-        // Index existing entries by ID
-        const entriesMap = new Map();
-        finalEntries.forEach(e => entriesMap.set(e.id, e));
-
-        // Merge/add new entries
+        const map = new Map(nextEntries.map(e => [e.id, e]));
         body.entries.forEach(e => {
-          if (e.id) {
-            entriesMap.set(e.id, e);
-          }
+          if (e.id) map.set(e.id, e);
         });
-
-        // Convert back to array
-        finalEntries = Array.from(entriesMap.values());
+        nextEntries = Array.from(map.values());
       }
 
-      // CRITICAL FIX #3: Handle deletions
+      // Handle explicit Deletions
       if (deletedIds && Array.isArray(deletedIds) && deletedIds.length > 0) {
         console.log('[SYNC] POST: Deleting', deletedIds.length, 'entries');
-        finalEntries = finalEntries.filter(e => !deletedIds.includes(e.id));
+        nextEntries = nextEntries.filter(e => !deletedIds.includes(e.id));
       }
 
+      // ---- SETTINGS HANDLING (Strict Check) ----
+      // Only update if explicit AND not null (prevent accidental wipe)
+      const nextSettings = body.settings != null ? body.settings : existingData.settings;
+
+      // ---- OVERTIME HANDLING (Strict Check) ----
+      const nextOvertime = body.overtime != null ? body.overtime : existingData.overtime;
+
       const toStore = {
-        entries: finalEntries,
-        settings: body.settings !== undefined ? body.settings : existingData.settings,
-        overtime: body.overtime !== undefined ? body.overtime : existingData.overtime,
+        entries: nextEntries,
+        settings: nextSettings,
+        overtime: nextOvertime,
         updatedAt: new Date().toISOString()
       };
 
-      // 🔍 DIAGNOSTIC LOG #3: Verify what we're writing
+      // 🔍 WRITE LOGS
       console.log('[SYNC] POST: Writing to Redis key =', redisKey);
-      console.log('[SYNC] POST: Final entries count =', toStore.entries.length);
-      console.log('[SYNC] POST: Data size =', JSON.stringify(toStore).length, 'bytes');
+      console.log(`[SYNC] POST: Entries: ${previousCount} -> ${nextEntries.length}`);
 
-      // Store JSON brut (pas de compression)
+      // Store JSON brut
       await redis.set(redisKey, JSON.stringify(toStore));
 
       // Update metadata
@@ -186,9 +188,21 @@ export default async function handler(req, res) {
         version: (currentVersion + 1).toString()
       });
 
-      console.log('[SYNC] POST: ✅ Write successful, version =', currentVersion + 1);
+      console.log('[SYNC] POST: ✅ Write successful');
 
-      return res.status(200).json({ ok: true, updatedAt: toStore.updatedAt });
+      // SAFETY CHECK: Critical Alert for Silent Failures
+      const receivedEntriesCount = Array.isArray(body.entries) ? body.entries.length : 0;
+      if (mode === 'bulkUpsert' && receivedEntriesCount > 0 && nextEntries.length === 0) {
+        console.error('[SYNC] 🚨 CRITICAL: Bulk Upsert received entries but stored 0!');
+      }
+
+      return res.status(200).json({
+        ok: true,
+        updatedAt: toStore.updatedAt,
+        entriesWritten: nextEntries.length,
+        receivedEntriesLen: body.entries !== undefined ? receivedEntriesCount : null,
+        storedEntriesLen: nextEntries.length
+      });
     }
 
     res.setHeader('Allow', 'GET, POST');

@@ -366,19 +366,64 @@ export function useCloudSync(
     }, [syncDirtyData]);
 
     // IMPORT
-    const syncImported = useCallback((importedEntries: Entry[]) => {
-        console.log('[SYNC] syncImported called', importedEntries.length);
-        entriesRef.current = importedEntries;
+    // IMPORT (BULK UPSERT)
+    // --------------------------------------------------------
+    const syncImported = useCallback(async (importedEntries: Entry[]) => {
+        const key = settings.account?.key;
+        if (!key || settings.account?.isOffline) return;
 
-        importedEntries.forEach(e => {
-            dirtyRef.current.entries.add(e.id);
-            dirtyRef.current.deletedIds.delete(e.id);
-        });
-        persistDirty();
+        console.log(`[IMPORT] Starting bulk sync for ${importedEntries.length} entries`);
 
-        clearTimeout(syncTimeoutRef.current);
-        syncDirtyData();
-    }, [persistDirty, syncDirtyData]);
+        try {
+            // 1. Prepare Payload
+            // Ensure all entries have IDs (Context should have handled this, but safety first)
+            const validEntries = importedEntries.filter(e => e.id);
+
+            const payload = {
+                mode: 'bulkUpsert',
+                entries: validEntries,
+                deletedIds: [], // Import doesn't delete
+                clientUpdatedAt: new Date().toISOString()
+            };
+
+            console.log(`[IMPORT] Sending payload with ${validEntries.length} entries`);
+
+            // 2. Send (Bypass Debounce/Queue)
+            setCloudState('syncing');
+            const res = await fetch(`/api/data?key=${key}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                credentials: 'include'
+            });
+
+            if (!res.ok) {
+                if (res.status === 409) {
+                    setCloudState('conflict');
+                    setLastError('Conflit durant l\'import');
+                    return;
+                }
+                throw new Error(`Import failed ${res.status}`);
+            }
+
+            const data = await res.json();
+            console.log(`[IMPORT] Success. Written: ${data.entriesWritten}`);
+
+            // 3. Cleanup
+            lastSyncTimestampRef.current = data.updatedAt;
+            setCloudState('idle');
+            setLastError(null);
+
+            // Mark these as clean since we just synced them
+            validEntries.forEach(e => dirtyRef.current.entries.delete(e.id));
+            persistDirty();
+
+        } catch (error) {
+            console.error('[IMPORT] Error:', error);
+            setCloudState('error');
+            setLastError('Erreur sauvegard import');
+        }
+    }, [settings.account]);
 
     const performLogout = useCallback(() => {
         console.log('[SYNC] performLogout: Cleaning state');
@@ -391,7 +436,7 @@ export function useCloudSync(
         setCloudState('idle');
         setConflictServerDate(null);
         setBootState('idle');
-        initKeyRef.current = null;
+        setLastError(null);
         bootKeyRef.current = null; // Re-arm boot trigger for next login
     }, []);
 

@@ -107,15 +107,13 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   }, [entriesHook, syncHook]);
 
   const importEntries = useCallback((newEntries: Omit<Entry, 'id'>[]) => {
-    const imported = entriesHook.importEntries(newEntries);
-    // Mark all imported entries as dirty
-    if (imported && Array.isArray(imported)) {
-      imported.forEach((entry: Entry) => {
-        if (entry.id) syncHook.markDirty('entries', entry.id);
-      });
+    // 1. Update Local State
+    const importedBatch = entriesHook.importEntries(newEntries);
+
+    // 2. Direct Bulk Sync (Bypass dirty tracking/debounce)
+    if (importedBatch && Array.isArray(importedBatch) && importedBatch.length > 0) {
+      syncHook.syncImported(importedBatch);
     }
-    // Force immediate sync after import
-    syncHook.syncNow();
   }, [entriesHook, syncHook]);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {

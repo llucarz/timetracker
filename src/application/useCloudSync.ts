@@ -170,6 +170,7 @@ export function useCloudSync(
         // LOCK ANTI-BOUCLE (409)
         if (autoSyncPausedRef.current) {
             console.warn('[SYNC] Abort: Auto-sync is paused due to conflict.');
+            setIsSyncing(false); // ✅ FIX: Ne pas laisser pending
             return;
         }
 
@@ -185,6 +186,8 @@ export function useCloudSync(
 
         if (settings.account.isOffline) {
             console.log('[SYNC] abort: offline mode');
+            // ✅ FIX: Offline n'est pas "pending"
+            setIsSynced(true);
             return;
         }
 
@@ -208,7 +211,8 @@ export function useCloudSync(
 
         if (!hasDirtyData) {
             console.log('[SYNC] abort: nothing dirty');
-            setIsSynced(true);
+            setIsSynced(true);   // ✅ FIX: On est à jour
+            setIsSyncing(false); // ✅ FIX: On ne sync pas
             return;
         }
 
@@ -219,8 +223,7 @@ export function useCloudSync(
         setIsSyncing(true);
         setLastSyncError(null);
 
-        try {
-            // Préparer payload (seulement dirty data)
+        try { // ✅ FIX: Try/Finally start
             // Préparer payload (seulement dirty data)
             // CRITICAL FIX #2: Read from ref, not closure
             const currentEntries = entriesRef.current;
@@ -301,9 +304,9 @@ export function useCloudSync(
             if (snapshot.overtime) dirtyRef.current.overtime = true;
             persistDirty();
         } finally {
-            setIsSyncing(false);
+            setIsSyncing(false); // ✅ FIX: Always reset syncing state
         }
-    }, [isSyncing, settings, otState, persistDirty]); // entries removed from dependency to avoid recreation spam, ref is used
+    }, [isSyncing, settings, otState, persistDirty]);
 
     // ========================================
     // 4. MARK DIRTY (EXPOSÉ AU CONTEXT)

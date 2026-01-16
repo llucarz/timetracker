@@ -1,9 +1,11 @@
 /**
- * Cloud Sync API - PRODUCTION FINAL
+ * Cloud Sync API - PRODUCTION FINAL + DIAGNOSTIC
  * 
  * CRITICAL FIXES:
  * - #1: Merge entries by ID (no data loss)
- * - #2: NO compression (JSON brut partout pour simplicité)
+ * - #2: NO compression (JSON brut)
+ * - #3: Support deletedIds for proper deletion handling
+ * - #4: Diagnostic logs for debugging
  */
 
 import { Redis } from '@upstash/redis';
@@ -24,6 +26,10 @@ export default async function handler(req, res) {
   const redisKey = `tt:${key}`;
   const metaKey = `tt:${key}:meta`;
 
+  // 🔍 DIAGNOSTIC LOG #1: Verify Redis keys
+  console.log('[SYNC] redisKey =', redisKey);
+  console.log('[SYNC] metaKey =', metaKey);
+
   try {
     if (method === 'GET') {
       const raw = await redis.get(redisKey);
@@ -33,6 +39,7 @@ export default async function handler(req, res) {
       let overtime = null;
 
       if (!raw) {
+        console.log('[SYNC] GET: No data found for key', redisKey);
         return res.status(200).json({ entries, settings, overtime });
       }
 
@@ -58,26 +65,36 @@ export default async function handler(req, res) {
         overtime = raw.overtime || null;
       }
 
+      console.log('[SYNC] GET: Returning', entries.length, 'entries');
       return res.status(200).json({ entries, settings, overtime });
     }
 
     if (method === 'POST') {
       const body = await readJson(req);
 
+      // 🔍 DIAGNOSTIC LOG #2: Verify payload
+      console.log('[SYNC] POST: entries in payload =',
+        Array.isArray(body.entries) ? body.entries.length : body.entries);
+      console.log('[SYNC] POST: deletedIds in payload =',
+        Array.isArray(body.deletedIds) ? body.deletedIds.length : body.deletedIds);
+      console.log('[SYNC] POST: settings in payload =', body.settings !== undefined);
+      console.log('[SYNC] POST: overtime in payload =', body.overtime !== undefined);
+
       // Conflict detection
-      const { clientUpdatedAt } = body;
+      const { clientUpdatedAt, deletedIds } = body;
       const meta = await redis.hgetall(metaKey);
       const serverUpdatedAt = meta?.lastSync;
 
       if (serverUpdatedAt && clientUpdatedAt &&
         new Date(serverUpdatedAt) > new Date(clientUpdatedAt)) {
+        console.log('[SYNC] POST: Conflict detected');
         return res.status(409).json({
           error: 'Conflict detected',
           serverUpdatedAt
         });
       }
 
-      // CRITICAL FIX #1: Merge entries by ID
+      // Load existing data
       const existing = await redis.get(redisKey);
       let existingData = { entries: [], settings: null, overtime: null };
 
@@ -89,7 +106,9 @@ export default async function handler(req, res) {
         }
       }
 
-      // Merge logic
+      console.log('[SYNC] POST: Existing entries count =', existingData.entries?.length || 0);
+
+      // CRITICAL FIX #1: Merge entries by ID
       let finalEntries = existingData.entries || [];
 
       if (body.entries !== undefined && Array.isArray(body.entries)) {
@@ -108,12 +127,23 @@ export default async function handler(req, res) {
         finalEntries = Array.from(entriesMap.values());
       }
 
+      // CRITICAL FIX #3: Handle deletions
+      if (deletedIds && Array.isArray(deletedIds) && deletedIds.length > 0) {
+        console.log('[SYNC] POST: Deleting', deletedIds.length, 'entries');
+        finalEntries = finalEntries.filter(e => !deletedIds.includes(e.id));
+      }
+
       const toStore = {
         entries: finalEntries,
         settings: body.settings !== undefined ? body.settings : existingData.settings,
         overtime: body.overtime !== undefined ? body.overtime : existingData.overtime,
         updatedAt: new Date().toISOString()
       };
+
+      // 🔍 DIAGNOSTIC LOG #3: Verify what we're writing
+      console.log('[SYNC] POST: Writing to Redis key =', redisKey);
+      console.log('[SYNC] POST: Final entries count =', toStore.entries.length);
+      console.log('[SYNC] POST: Data size =', JSON.stringify(toStore).length, 'bytes');
 
       // Store JSON brut (pas de compression)
       await redis.set(redisKey, JSON.stringify(toStore));
@@ -125,13 +155,15 @@ export default async function handler(req, res) {
         version: (currentVersion + 1).toString()
       });
 
+      console.log('[SYNC] POST: ✅ Write successful, version =', currentVersion + 1);
+
       return res.status(200).json({ ok: true, updatedAt: toStore.updatedAt });
     }
 
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).end('Method Not Allowed');
   } catch (err) {
-    console.error('Upstash error:', err);
+    console.error('[SYNC] ERROR:', err);
     return res.status(500).json({ error: 'Upstash error', detail: String(err) });
   }
 }

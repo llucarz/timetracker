@@ -105,7 +105,9 @@ export function useCloudSync(
         if (!settings.account?.key || settings.account.isOffline) return null;
 
         try {
-            const res = await fetch(`/api/data?key=${settings.account.key}`);
+            const res = await fetch(`/api/data?key=${settings.account.key}`, {
+                credentials: 'include' // SAFARI FIX: Credentials for Sync
+            });
             if (!res.ok) return null;
 
             const data = await res.json();
@@ -236,6 +238,7 @@ export function useCloudSync(
             const res = await fetch(`/api/data?key=${settings.account.key}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // SAFARI FIX: Credentials for Sync
                 body: JSON.stringify(payload)
             });
 

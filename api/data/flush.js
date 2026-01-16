@@ -14,7 +14,36 @@ const redis = new Redis({
     token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
+// SAFARI FIX: Centralized CORS logic with Security Whitelist
+function setCors(req, res) {
+    const origin = req.headers.origin;
+    const allowedDomains = [
+        'http://localhost:3000',
+        'http://localhost:5173', // Vite default
+    ];
+
+    const isAllowed = origin && (
+        allowedDomains.includes(origin) ||
+        origin.endsWith('.vercel.app') // Preview & Production Vercel domains
+    );
+
+    if (isAllowed) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+    }
+
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
 export default async function handler(req, res) {
+    setCors(req, res);
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
     if (req.method !== 'POST') {
         return res.status(405).end();
     }

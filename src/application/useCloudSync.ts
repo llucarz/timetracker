@@ -1,24 +1,25 @@
 /**
- * useCloudSync - Production-Grade
+ * useCloudSync - Production-Grade (State Machine v2 - Strict)
  * 
  * Features:
+ * - Robust State Machine (Boot vs Cloud)
  * - Dirty tracking avec snapshot atomique
  * - Rollback automatique en cas d'erreur
- * - Flush obligatoire (beforeunload + visibilitychange)
- * - Dirty persistence dans localStorage
  * - Conflict detection (409)
- * - Debounce 1s
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Entry, Settings, OvertimeState } from '../lib/types';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Entry, Settings, OvertimeState, SyncStatus } from '../lib/types';
 
 interface DirtyState {
     entries: Set<string>;
-    deletedIds: Set<string>; // NEW: Track deletions
+    deletedIds: Set<string>;
     settings: boolean;
     overtime: boolean;
 }
+
+type BootState = 'idle' | 'loading' | 'ready' | 'error';
+type CloudState = 'idle' | 'syncing' | 'conflict' | 'error';
 
 const DIRTY_STORAGE_KEY = 'tt_dirty_state';
 const DEBOUNCE_MS = 1000;
@@ -29,24 +30,19 @@ export function useCloudSync(
     otState: OvertimeState,
     isDataLoaded: boolean
 ) {
-    console.log('[SYNC] useCloudSync mounted'); // 👈 DEBUG LOG
-    const [isSyncing, setIsSyncing] = useState(false);
-    const [isSynced, setIsSynced] = useState(false);
-    const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+    console.log('[SYNC] useCloudSync mounted');
 
-    // CRITICAL FIX #3: Expose conflict state for UI
-    const [conflictState, setConflictState] = useState<{
-        hasConflict: boolean;
-        serverUpdatedAt: string | null;
-    }>({ hasConflict: false, serverUpdatedAt: null });
+    // 1. STRICT INTERNAL STATE MACHINE
+    const [bootState, setBootState] = useState<BootState>('idle');
+    const [cloudState, setCloudState] = useState<CloudState>('idle');
 
-    // CRITICAL FIX #1: Race condition (stale closure)
-    // entries peut être stale quand le debounce fire.
-    // On utilise une ref pour toujours avoir la version courante.
+    // Error tracking
+    const [lastError, setLastError] = useState<string | null>(null);
+    const [conflictServerDate, setConflictServerDate] = useState<string | null>(null);
+
+    // REFS
     const entriesRef = useRef(entries);
-    useEffect(() => {
-        entriesRef.current = entries;
-    }, [entries]);
+    useEffect(() => { entriesRef.current = entries; }, [entries]);
 
     const dirtyRef = useRef<DirtyState>({
         entries: new Set(),
@@ -59,8 +55,35 @@ export function useCloudSync(
     const syncTimeoutRef = useRef<NodeJS.Timeout>();
     const lastSyncTimestampRef = useRef<string | null>(null);
 
+    // GUARD: Boot tracking
+    const bootKeyRef = useRef<string | null>(null);
+
+    // 2. COMPUTED PUBLIC STATUS (Zero Ambiguity)
+    const syncStatus: SyncStatus = useMemo(() => {
+        // Priority 1: Network
+        if (settings.account?.isOffline) return 'offline';
+
+        // Priority 2: Conflict (Blocking)
+        if (cloudState === 'conflict') return 'conflict';
+
+        // Priority 3: Boot Sequence
+        if (bootState === 'idle' || bootState === 'loading') return 'initializing';
+        if (bootState === 'error') return 'error';
+
+        // Priority 4: Cloud Operations
+        if (cloudState === 'syncing') return 'syncing';
+        if (cloudState === 'error') return 'error';
+
+        // Priority 5: Default Success
+        return 'synced';
+    }, [settings.account?.isOffline, cloudState, bootState]);
+
+    // Derived flags for compat/UI
+    const isSyncing = cloudState === 'syncing'; // Legacy support if needed
+    const hasConflict = cloudState === 'conflict';
+
     // ========================================
-    // 1. RESTORE DIRTY FROM LOCALSTORAGE
+    // DIRTY RESTORE/PERSIST
     // ========================================
     useEffect(() => {
         try {
@@ -73,23 +96,12 @@ export function useCloudSync(
                     settings: parsed.settings || false,
                     overtime: parsed.overtime || false
                 };
-
-                if (dirtyRef.current.entries.size > 0 ||
-                    dirtyRef.current.deletedIds.size > 0 ||
-                    dirtyRef.current.settings ||
-                    dirtyRef.current.overtime) {
-                    setIsSynced(false);
-                    console.log('🔄 Restored dirty state from localStorage');
-                }
             }
         } catch (error) {
             console.error('Failed to restore dirty state:', error);
         }
     }, []);
 
-    // ========================================
-    // 2. PERSIST DIRTY TO LOCALSTORAGE
-    // ========================================
     const persistDirty = useCallback(() => {
         try {
             localStorage.setItem(DIRTY_STORAGE_KEY, JSON.stringify({
@@ -104,94 +116,91 @@ export function useCloudSync(
     }, []);
 
     // ========================================
-    // 7. LOAD FROM CLOUD
+    // BOOT SEQUENCE (GET)
     // ========================================
     const loadFromCloud = useCallback(async () => {
-        if (!settings.account?.key || settings.account.isOffline) return null;
+        if (!settings.account?.key || settings.account.isOffline) {
+            setBootState('ready'); // Local or Offline -> Ready
+            return null;
+        }
 
         try {
             const res = await fetch(`/api/data?key=${settings.account.key}`, {
-                credentials: 'include' // SAFARI FIX: Credentials for Sync
+                credentials: 'include'
             });
-            if (!res.ok) return null;
+
+            if (!res.ok) {
+                console.warn(`[BOOT] Load failed ${res.status}`);
+                setBootState('error');
+                setLastError(`Erreur chargement (${res.status})`);
+                return null;
+            }
 
             const data = await res.json();
             lastSyncTimestampRef.current = data.updatedAt;
 
-            console.log('✅ Cloud data loaded');
+            console.log('✅ BOOT SUCCESS');
+            setBootState('ready');
+            setCloudState('idle'); // Ensure clean slate
+            setLastError(null);
             return data;
         } catch (error) {
-            console.error('❌ Cloud load failed:', error);
+            console.error('❌ BOOT FAILED:', error);
+            setBootState('error');
+            setLastError(error instanceof Error ? error.message : 'Erreur inconnue');
             return null;
         }
     }, [settings.account]);
 
-    // ========================================
-    // 3. RESOLVE CONFLICT BY RELOAD
-    // ========================================
-    const resolveConflictByReload = useCallback(async () => {
-        const cloudData = await loadFromCloud();
-        if (cloudData) {
-            console.log('🔄 Reloaded from cloud after conflict');
-            // Clear dirty state
-            // Clear dirty state
-            dirtyRef.current = { entries: new Set(), deletedIds: new Set(), settings: false, overtime: false };
-            localStorage.removeItem(DIRTY_STORAGE_KEY);
+    // BOOT TRIGGER logic (Corrected: Single Source of Truth)
+    useEffect(() => {
+        const key = settings.account?.key || null;
+        const isOffline = !!settings.account?.isOffline;
 
-            setConflictState({ hasConflict: false, serverUpdatedAt: null });
-            setIsSynced(true);
-
-            // UNPAUSE SYNC
-            autoSyncPausedRef.current = false;
-
-            return cloudData;
+        // 1. If Offline -> Ready (no boot needed)
+        if (isOffline) {
+            setBootState('ready');
+            return;
         }
-        return null;
-    }, [loadFromCloud]);
 
-    // ========================================
-    // 4. SYNC WITH SNAPSHOT + ROLLBACK
-    // ========================================
-    const syncDirtyData = useCallback(async () => {
-        // 🔍 DIAGNOSTIC LOG #1: Entry point
-        console.log('[SYNC] syncDirtyData start', {
-            key: settings?.account?.key,
-            offline: settings?.account?.isOffline,
-            isSyncing,
-            paused: autoSyncPausedRef.current,
-            dirty: {
-                entries: dirtyRef.current.entries.size,
-                deletedIds: dirtyRef.current.deletedIds.size,
-                settings: dirtyRef.current.settings,
-                overtime: dirtyRef.current.overtime,
-            }
+        // 2. If No Key -> Ready (Local Mode)
+        if (!key) {
+            setBootState('ready');
+            return;
+        }
+
+        // 3. Guard: Prevent redundant boots, but ALLOW retries (idle/error)
+        // We skip ONLY if we are already loading or successfully ready with the SAME key.
+        if (bootKeyRef.current === key && (bootState === 'loading' || bootState === 'ready')) {
+            return;
+        }
+
+        // 4. Trigger Boot
+        console.log('[BOOT] Triggering for key:', key);
+        bootKeyRef.current = key;
+        setBootState('loading');
+        setCloudState('idle');
+        setLastError(null);
+
+        loadFromCloud().catch(() => {
+            // Safety catch, though loadFromCloud handles its own errors
+            setBootState('error');
         });
 
-        // LOCK ANTI-BOUCLE (409)
-        if (autoSyncPausedRef.current) {
-            console.warn('[SYNC] Abort: Auto-sync is paused due to conflict.');
-            setIsSyncing(false); // ✅ FIX: Ne pas laisser pending
-            return;
-        }
+    }, [settings.account?.key, settings.account?.isOffline, loadFromCloud, bootState]);
 
-        if (isSyncing) {
-            console.log('[SYNC] abort: already syncing');
-            return;
-        }
 
-        if (!settings.account?.key) {
-            console.log('[SYNC] abort: no account key');
-            return;
-        }
+    // ========================================
+    // CLOUD SYNC (POST)
+    // ========================================
+    const syncDirtyData = useCallback(async () => {
+        // STRICT GUARDS
+        if (autoSyncPausedRef.current) return;
+        if (cloudState === 'syncing') return;
+        if (bootState !== 'ready') return; // Cannot sync if not booted
+        if (!settings.account?.key || settings.account.isOffline) return;
 
-        if (settings.account.isOffline) {
-            console.log('[SYNC] abort: offline mode');
-            // ✅ FIX: Offline n'est pas "pending"
-            setIsSynced(true);
-            return;
-        }
-
-        // Snapshot atomique
+        // CHECK DIRTY
         const snapshot: DirtyState = {
             entries: new Set(dirtyRef.current.entries),
             deletedIds: new Set(dirtyRef.current.deletedIds),
@@ -199,124 +208,103 @@ export function useCloudSync(
             overtime: dirtyRef.current.overtime
         };
 
-        // 🔍 DIAGNOSTIC LOG #2: Snapshot
-        console.log('[SYNC] snapshot taken', {
-            entriesCount: snapshot.entries.size,
-            settings: snapshot.settings,
-            overtime: snapshot.overtime
-        });
-
-        // ✅ FIX: Ne pas return si rien n'est dirty - vérifier TOUTES les conditions
         const hasDirtyData = snapshot.entries.size > 0 || snapshot.deletedIds.size > 0 || snapshot.settings || snapshot.overtime;
-
         if (!hasDirtyData) {
-            console.log('[SYNC] abort: nothing dirty');
-            setIsSynced(true);   // ✅ FIX: On est à jour
-            setIsSyncing(false); // ✅ FIX: On ne sync pas
+            if (cloudState !== 'idle') setCloudState('idle');
             return;
         }
 
-        // Clear dirty AVANT sync (nouvelles modifs iront dans nouveau dirty)
+        // PREPARE
         dirtyRef.current = { entries: new Set(), deletedIds: new Set(), settings: false, overtime: false };
         localStorage.removeItem(DIRTY_STORAGE_KEY);
 
-        setIsSyncing(true);
-        setLastSyncError(null);
+        setCloudState('syncing'); // ENTER SYNC
+        setLastError(null);
 
-        try { // ✅ FIX: Try/Finally start
-            // Préparer payload (seulement dirty data)
-            // CRITICAL FIX #2: Read from ref, not closure
-            const currentEntries = entriesRef.current;
-            const dirtyEntries = currentEntries.filter(e => snapshot.entries.has(e.id));
-
-            // ✅ FIX: Envoyer entries seulement si dirty, sinon undefined
+        try {
             const payload = {
-                entries: snapshot.entries.size > 0 ? dirtyEntries : undefined,
+                entries: snapshot.entries.size > 0 ? entriesRef.current.filter(e => snapshot.entries.has(e.id)) : undefined,
                 deletedIds: snapshot.deletedIds.size > 0 ? Array.from(snapshot.deletedIds) : undefined,
                 settings: snapshot.settings ? settings : undefined,
                 overtime: snapshot.overtime ? otState : undefined,
                 clientUpdatedAt: lastSyncTimestampRef.current
             };
 
-            // 🔍 DIAGNOSTIC LOG #3: Payload avant POST
-            console.log("[SYNC] ABOUT TO FETCH", {
-                method: "POST",
-                url: `/api/data?key=${settings.account.key}`,
-                hasEntries: !!payload.entries,
-                entriesLen: Array.isArray(payload.entries) ? payload.entries.length : null,
-                hasSettings: !!payload.settings,
-            });
-
             const res = await fetch(`/api/data?key=${settings.account.key}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', // SAFARI FIX: Credentials for Sync
+                credentials: 'include', // Important for Safari
                 body: JSON.stringify(payload)
             });
 
-            console.log("[SYNC] FETCHED", {
-                url: res.url,
-                status: res.status,
-                ok: res.ok
-            });
-
             if (res.status === 409) {
-                // BLOCKER #4 FIX: Conflict détecté - expose state & PAUSE
+                // 409 CONFLICT
                 const { serverUpdatedAt } = await res.json();
-                console.warn('⚠️ Conflict detected, server is newer. PAUSING SYNC.');
+                console.warn('⚠️ 409 CONFLICT');
 
-                setLastSyncError('Conflict: server data is newer');
-                setIsSynced(false);
-                setConflictState({ hasConflict: true, serverUpdatedAt });
+                setCloudState('conflict');
+                setConflictServerDate(serverUpdatedAt);
+                setLastError('Conflit détecté');
+                autoSyncPausedRef.current = true; // PAUSE AUTO-SYNC
 
-                // CRITICAL: Stop auto-retry loop
-                autoSyncPausedRef.current = true;
-
-                // Rollback dirty (keep data safe)
+                // Rollback dirty
                 snapshot.entries.forEach(id => dirtyRef.current.entries.add(id));
                 snapshot.deletedIds.forEach(id => dirtyRef.current.deletedIds.add(id));
                 if (snapshot.settings) dirtyRef.current.settings = true;
                 if (snapshot.overtime) dirtyRef.current.overtime = true;
                 persistDirty();
-
                 return;
             }
 
-            if (!res.ok) {
-                throw new Error(`Sync failed: ${res.status}`);
-            }
+            if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
 
             const { updatedAt } = await res.json();
             lastSyncTimestampRef.current = updatedAt;
 
-            setIsSynced(true);
-            setConflictState({ hasConflict: false, serverUpdatedAt: null });
-            console.log('✅ Cloud sync successful');
-        } catch (error) {
-            console.error('❌ Cloud sync failed:', error);
-            setLastSyncError(error instanceof Error ? error.message : 'Unknown error');
-            setIsSynced(false);
+            console.log('✅ SYNC SUCCESS');
+            setCloudState('idle'); // BACK TO IDLE
 
-            // Rollback dirty
+        } catch (error) {
+            console.error('❌ SYNC ERROR:', error);
+            setCloudState('error');
+            setLastError(error instanceof Error ? error.message : 'Erreur inconnue');
+
+            // Rollback
             snapshot.entries.forEach(id => dirtyRef.current.entries.add(id));
             snapshot.deletedIds.forEach(id => dirtyRef.current.deletedIds.add(id));
             if (snapshot.settings) dirtyRef.current.settings = true;
             if (snapshot.overtime) dirtyRef.current.overtime = true;
             persistDirty();
-        } finally {
-            setIsSyncing(false); // ✅ FIX: Always reset syncing state
         }
-    }, [isSyncing, settings, otState, persistDirty]);
+    }, [cloudState, bootState, settings, otState, persistDirty]);
 
     // ========================================
-    // 4. MARK DIRTY (EXPOSÉ AU CONTEXT)
+    // CONFLICT RESOLUTION
     // ========================================
+    const resolveConflictByReload = useCallback(async () => {
+        // Force Reload
+        const cloudData = await loadFromCloud(); // Will set BootState='loading' then 'ready'
+
+        if (cloudData) {
+            // Strict Reset as requested
+            setBootState('ready');
+            setCloudState('idle');
+            autoSyncPausedRef.current = false;
+            setConflictServerDate(null);
+
+            // Clear dirty
+            dirtyRef.current = { entries: new Set(), deletedIds: new Set(), settings: false, overtime: false };
+            localStorage.removeItem(DIRTY_STORAGE_KEY);
+
+            return cloudData;
+        }
+        return null;
+    }, [loadFromCloud]);
+
     // ========================================
-    // 4. MARK DIRTY (TYPE-SAFE)
+    // MARK DIRTY
     // ========================================
     const markDirty = useCallback((type: 'entries' | 'settings' | 'overtime', id?: string) => {
-        console.log('[SYNC] markDirty called', { type, id });
-
         if (type === 'entries' && id) {
             // Si on ré-ajoute/modifie, on s'assure qu'il n'est plus marqué "deleted"
             dirtyRef.current.entries.add(id);
@@ -324,11 +312,9 @@ export function useCloudSync(
         } else {
             dirtyRef.current[type] = true;
         }
-
-        setIsSynced(false);
         persistDirty();
 
-        // Debounce 1s
+        // Debounce
         clearTimeout(syncTimeoutRef.current);
         syncTimeoutRef.current = setTimeout(() => {
             syncDirtyData();
@@ -336,23 +322,17 @@ export function useCloudSync(
     }, [persistDirty, syncDirtyData]);
 
     const markDeleted = useCallback((id: string) => {
-        console.log('[SYNC] markDeleted called', id);
-
-        // Remove from entries, add to deletedIds
         dirtyRef.current.entries.delete(id);
         dirtyRef.current.deletedIds.add(id);
-
-        setIsSynced(false);
         persistDirty();
 
-        // Trigger sync IMMEDIATELY (Deletion is an explicit user action)
-        // No debounce needed for deletions to ensure rapid server consistency
+        // Instant Sync for Delete
         clearTimeout(syncTimeoutRef.current);
         syncDirtyData();
     }, [persistDirty, syncDirtyData]);
 
     // ========================================
-    // 5. FLUSH AVANT FERMETURE (CRITIQUE)
+    // FLUSH
     // ========================================
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -361,27 +341,14 @@ export function useCloudSync(
                 dirtyRef.current.settings ||
                 dirtyRef.current.overtime;
 
-            if (hasDirty && settings.account?.key) {
+            if (hasDirty && settings.account?.key && !settings.account.isOffline) {
                 e.preventDefault();
-                e.returnValue = ''; // Prompt utilisateur
+                e.returnValue = '';
 
-                // CRITICAL FIX #4: Flush avec sendBeacon (best effort)
-                const blob = new Blob([JSON.stringify({
-                    entries,
-                    settings,
-                    overtime: otState
-                })], { type: 'application/json' });
-
-                const sent = navigator.sendBeacon(
+                navigator.sendBeacon(
                     `/api/data/flush?key=${settings.account.key}`,
-                    blob
+                    new Blob([JSON.stringify({ entries, settings, overtime: otState })], { type: 'application/json' })
                 );
-
-                if (sent) {
-                    console.log('📤 Flushed data via sendBeacon (best effort)');
-                    // NEVER clear dirty here - sendBeacon doesn't guarantee delivery
-                    // Dirty will be cleared only after successful syncDirtyData()
-                }
             }
         };
 
@@ -389,84 +356,54 @@ export function useCloudSync(
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [entries, settings, otState]);
 
-    // ========================================
-    // 6. FLUSH SUR VISIBILITYCHANGE (MOBILE)
-    // ========================================
     useEffect(() => {
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'hidden') {
-                const hasDirty = dirtyRef.current.entries.size > 0 ||
-                    dirtyRef.current.deletedIds.size > 0 ||
-                    dirtyRef.current.settings ||
-                    dirtyRef.current.overtime;
-
-                if (hasDirty) {
-                    console.log('👁️ Page hidden, triggering sync');
-                    syncDirtyData();
-                }
-            }
+            if (document.visibilityState === 'hidden') syncDirtyData();
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [syncDirtyData]);
 
-    // ========================================
-    // 8. ROBUST IMPORT (BULK SYNC)
-    // ========================================
+    // IMPORT
     const syncImported = useCallback((importedEntries: Entry[]) => {
         console.log('[SYNC] syncImported called', importedEntries.length);
-
-        // CRITICAL: Update Ref IMMEDIATELY to handle React render lag.
-        // We manually update the ref here because 'setEntries' in the parent 
-        // won't update the 'entries' prop seen by this hook until the next render cycle.
-        // To ensure the immediate sync below sees the new data, we force the ref update.
-        // INTEGRATION RULE: Always call setEntries(imported) in usage component before or with this.
         entriesRef.current = importedEntries;
 
-        // 1. Mark all as dirty
         importedEntries.forEach(e => {
             dirtyRef.current.entries.add(e.id);
             dirtyRef.current.deletedIds.delete(e.id);
         });
-
-        // 2. Trigger immediate sync
-        setIsSynced(false);
         persistDirty();
 
         clearTimeout(syncTimeoutRef.current);
-        // Instant sync for import
         syncDirtyData();
     }, [persistDirty, syncDirtyData]);
 
-    // ========================================
-    // 9. ROBUST LOGOUT (CLEANUP)
-    // ========================================
     const performLogout = useCallback(() => {
         console.log('[SYNC] performLogout: Cleaning state');
-        // 1. Pause Sync & Clear Timeout
         autoSyncPausedRef.current = true;
         clearTimeout(syncTimeoutRef.current);
 
-        // 2. Clear Internal State
         dirtyRef.current = { entries: new Set(), deletedIds: new Set(), settings: false, overtime: false };
-
-        // 3. Clear Storage
         localStorage.removeItem(DIRTY_STORAGE_KEY);
 
-        // 4. Reset Conflict
-        setConflictState({ hasConflict: false, serverUpdatedAt: null });
-        setIsSynced(true);
+        setCloudState('idle');
+        setConflictServerDate(null);
+        setBootState('idle');
+        initKeyRef.current = null;
+        bootKeyRef.current = null; // Re-arm boot trigger for next login
     }, []);
 
     return {
-        isSyncing,
-        isSynced,
-        lastSyncError,
-        conflictState,
+        syncStatus, // Computes strict status
+        isSyncing: cloudState === 'syncing', // Compat
+        isSynced: syncStatus === 'synced', // Compat helper
+        lastSyncError: lastError,
+        conflictState: { hasConflict: cloudState === 'conflict', serverUpdatedAt: conflictServerDate },
         resolveConflictByReload,
         markDirty,
-        markDeleted, // NEW API
+        markDeleted,
         syncNow: syncDirtyData,
         loadFromCloud,
         syncImported,

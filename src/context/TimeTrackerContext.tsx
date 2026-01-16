@@ -12,7 +12,7 @@
  */
 
 import React, { createContext, useContext, useCallback, useMemo, ReactNode } from 'react';
-import { Entry, Settings, OvertimeState, OvertimeEvent } from '../lib/types';
+import { Entry, Settings, OvertimeState, OvertimeEvent, SyncStatus } from '../lib/types';
 import { storage } from '../lib/storage';
 import { useEntries, useSettings, useOvertime, useCloudSync } from '../application';
 
@@ -52,6 +52,7 @@ interface TimeTrackerContextType {
   login: (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => void;
   logout: () => void;
   clearData: () => Promise<void>;
+  syncStatus: SyncStatus; // NEW EXPOSED STATUS
 }
 
 const TimeTrackerContext = createContext<TimeTrackerContextType | undefined>(undefined);
@@ -208,6 +209,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     markDirty: syncHook.markDirty,
     conflictState: syncHook.conflictState,
     resolveConflictByReload: syncHook.resolveConflictByReload,
+    syncStatus: syncHook.syncStatus, // EXPOSED
 
     // Auth
     login,
@@ -222,6 +224,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     syncHook.isSyncing,
     syncHook.isSynced,
     syncHook.lastSyncError,
+    syncHook.syncStatus, // DEPENDENCY
     storageType,
     // Actions (from useCallback, stable)
     addEntry,

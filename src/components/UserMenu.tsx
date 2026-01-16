@@ -24,7 +24,8 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenuProps) {
-  const { entries, importEntries, updateSettings, settings, logout, isSyncing, isSynced, lastSyncError } = useTimeTracker();
+  const { entries, importEntries, updateSettings, settings, logout, isSyncing, isSynced, lastSyncError, syncStatus } = useTimeTracker();
+
   const { showNotification } = useNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -191,17 +192,24 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
                 <p className="text-sm font-semibold text-gray-900 leading-[28px]">{displayUserName}</p>
                 {isLoggedIn ? (
                   <>
-                    {isOffline ? (
-                      <CloudOff className="w-3 h-3 text-gray-400" />
-                    ) : isSyncing ? (
-                      <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
-                    ) : lastSyncError ? (
-                      <CloudOff className="w-3 h-3 text-red-500" />
-                    ) : isSynced ? (
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                    ) : (
-                      <Loader2 className="w-3 h-3 text-orange-500 animate-spin" />
-                    )}
+                    {(() => {
+                      switch (syncStatus) {
+                        case 'offline':
+                          return <CloudOff className="w-3 h-3 text-gray-400" />;
+                        case 'initializing':
+                          return <Loader2 className="w-3 h-3 text-blue-500 animate-spin" />;
+                        case 'syncing':
+                          return <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />;
+                        case 'conflict':
+                          return <AlertTriangle className="w-3 h-3 text-orange-500" />;
+                        case 'error':
+                          return <CloudOff className="w-3 h-3 text-red-500" />;
+                        case 'synced':
+                          return <CheckCircle2 className="w-3 h-3 text-emerald-500" />;
+                        default:
+                          return null;
+                      }
+                    })()}
                   </>
                 ) : (
                   <CloudOff className="w-3 h-3 text-gray-400" />
@@ -224,32 +232,54 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
               </p>
               {isLoggedIn ? (
                 <div className="flex items-center gap-1.5">
-                  {isOffline ? (
-                    <>
-                      <CloudOff className="w-3 h-3 text-gray-400" />
-                      <span className="text-xs text-gray-400">Hors ligne</span>
-                    </>
-                  ) : isSyncing ? (
-                    <>
-                      <Loader2 className="w-3 h-3 text-purple-600 animate-spin" />
-                      <span className="text-xs text-purple-600">Sync...</span>
-                    </>
-                  ) : lastSyncError ? (
-                    <>
-                      <CloudOff className="w-3 h-3 text-red-500" />
-                      <span className="text-xs text-red-500">Erreur</span>
-                    </>
-                  ) : isSynced ? (
-                    <>
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      <span className="text-xs text-emerald-600">Sync</span>
-                    </>
-                  ) : (
-                    <>
-                      <Loader2 className="w-3 h-3 text-orange-600 animate-spin" />
-                      <span className="text-xs text-orange-600">En attente...</span>
-                    </>
-                  )}
+                  {(() => {
+                    switch (syncStatus) {
+                      case 'offline':
+                        return (
+                          <>
+                            <CloudOff className="w-3 h-3 text-gray-400" />
+                            <span className="text-xs text-gray-400">Hors ligne</span>
+                          </>
+                        );
+                      case 'initializing':
+                        return (
+                          <>
+                            <Loader2 className="w-3 h-3 text-blue-600 animate-spin" />
+                            <span className="text-xs text-blue-600">Chargement...</span>
+                          </>
+                        );
+                      case 'syncing':
+                        return (
+                          <>
+                            <Loader2 className="w-3 h-3 text-purple-600 animate-spin" />
+                            <span className="text-xs text-purple-600">Synchronisation...</span>
+                          </>
+                        );
+                      case 'conflict':
+                        return (
+                          <>
+                            <AlertTriangle className="w-3 h-3 text-orange-600" />
+                            <span className="text-xs text-orange-600">Conflit !</span>
+                          </>
+                        );
+                      case 'error':
+                        return (
+                          <>
+                            <CloudOff className="w-3 h-3 text-red-500" />
+                            <span className="text-xs text-red-500">Erreur</span>
+                          </>
+                        );
+                      case 'synced':
+                        return (
+                          <>
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span className="text-xs text-emerald-600">Synchronisé</span>
+                          </>
+                        );
+                      default:
+                        return null;
+                    }
+                  })()}
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5">

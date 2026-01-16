@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { Download, Upload, LogOut, Settings, LogIn, Loader2, CloudOff, CheckCircle2, X } from "lucide-react";
+import { Download, Upload, LogOut, Settings, LogIn, Loader2, CloudOff, CheckCircle2, X, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
 import { useNotification } from "../context/NotificationContext";
@@ -14,7 +14,7 @@ interface MobileUserMenuProps {
 }
 
 export function MobileUserMenu({ isOpen, onClose, onOpenProfile, onLogin }: MobileUserMenuProps) {
-    const { entries, importEntries, settings, logout, isSyncing, isSynced, lastSyncError } = useTimeTracker();
+    const { entries, importEntries, settings, logout, isSyncing, isSynced, lastSyncError, syncStatus } = useTimeTracker();
     const { showNotification } = useNotification();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -182,32 +182,54 @@ export function MobileUserMenu({ isOpen, onClose, onOpenProfile, onLogin }: Mobi
                                     </p>
                                     {isLoggedIn ? (
                                         <div className="flex items-center gap-1.5">
-                                            {isOffline ? (
-                                                <>
-                                                    <CloudOff className="w-4 h-4 text-gray-400" />
-                                                    <span className="text-sm text-gray-400">Hors ligne</span>
-                                                </>
-                                            ) : isSyncing ? (
-                                                <>
-                                                    <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
-                                                    <span className="text-sm text-purple-600">Sync...</span>
-                                                </>
-                                            ) : lastSyncError ? (
-                                                <>
-                                                    <CloudOff className="w-4 h-4 text-red-500" />
-                                                    <span className="text-sm text-red-500">Erreur</span>
-                                                </>
-                                            ) : isSynced ? (
-                                                <>
-                                                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                                    <span className="text-sm text-emerald-600">Sync</span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Loader2 className="w-4 h-4 text-orange-600 animate-spin" />
-                                                    <span className="text-sm text-orange-600">En attente...</span>
-                                                </>
-                                            )}
+                                            {(() => {
+                                                switch (syncStatus) {
+                                                    case 'offline':
+                                                        return (
+                                                            <>
+                                                                <CloudOff className="w-4 h-4 text-gray-400" />
+                                                                <span className="text-sm text-gray-400">Hors ligne</span>
+                                                            </>
+                                                        );
+                                                    case 'initializing':
+                                                        return (
+                                                            <>
+                                                                <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                                                                <span className="text-sm text-blue-600">Chargement...</span>
+                                                            </>
+                                                        );
+                                                    case 'syncing':
+                                                        return (
+                                                            <>
+                                                                <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
+                                                                <span className="text-sm text-purple-600">Sync...</span>
+                                                            </>
+                                                        );
+                                                    case 'conflict':
+                                                        return (
+                                                            <>
+                                                                <AlertTriangle className="w-4 h-4 text-orange-600" />
+                                                                <span className="text-sm text-orange-600">Conflit !</span>
+                                                            </>
+                                                        );
+                                                    case 'error':
+                                                        return (
+                                                            <>
+                                                                <CloudOff className="w-4 h-4 text-red-500" />
+                                                                <span className="text-sm text-red-500">Erreur</span>
+                                                            </>
+                                                        );
+                                                    case 'synced':
+                                                        return (
+                                                            <>
+                                                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                                                <span className="text-sm text-emerald-600">Sync</span>
+                                                            </>
+                                                        );
+                                                    default:
+                                                        return null;
+                                                }
+                                            })()}
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-1.5">

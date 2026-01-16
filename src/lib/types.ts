@@ -5,6 +5,11 @@
  */
 
 /**
+ * Sync Status Machine
+ */
+export type SyncStatus = 'initializing' | 'syncing' | 'synced' | 'offline' | 'error' | 'conflict';
+
+/**
  * Time Entry - Represents a single day's work record
  * One entry per date; new entries replace existing ones for the same date
  */

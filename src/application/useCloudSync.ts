@@ -53,6 +53,7 @@ export function useCloudSync(
         overtime: false
     });
 
+    const autoSyncPausedRef = useRef(false);
     const syncTimeoutRef = useRef<NodeJS.Timeout>();
     const lastSyncTimestampRef = useRef<string | null>(null);
 
@@ -128,8 +129,13 @@ export function useCloudSync(
             // Clear dirty state
             dirtyRef.current = { entries: new Set(), settings: false, overtime: false };
             localStorage.removeItem(DIRTY_STORAGE_KEY);
+
             setConflictState({ hasConflict: false, serverUpdatedAt: null });
             setIsSynced(true);
+
+            // UNPAUSE SYNC
+            autoSyncPausedRef.current = false;
+
             return cloudData;
         }
         return null;
@@ -144,12 +150,19 @@ export function useCloudSync(
             key: settings?.account?.key,
             offline: settings?.account?.isOffline,
             isSyncing,
+            paused: autoSyncPausedRef.current,
             dirty: {
                 entries: dirtyRef.current.entries.size,
                 settings: dirtyRef.current.settings,
                 overtime: dirtyRef.current.overtime,
             }
         });
+
+        // LOCK ANTI-BOUCLE (409)
+        if (autoSyncPausedRef.current) {
+            console.warn('[SYNC] Abort: Auto-sync is paused due to conflict.');
+            return;
+        }
 
         if (isSyncing) {
             console.log('[SYNC] abort: already syncing');
@@ -233,15 +246,18 @@ export function useCloudSync(
             });
 
             if (res.status === 409) {
-                // BLOCKER #4 FIX: Conflict détecté - expose state
+                // BLOCKER #4 FIX: Conflict détecté - expose state & PAUSE
                 const { serverUpdatedAt } = await res.json();
-                console.warn('⚠️ Conflict detected, server is newer');
+                console.warn('⚠️ Conflict detected, server is newer. PAUSING SYNC.');
 
                 setLastSyncError('Conflict: server data is newer');
                 setIsSynced(false);
                 setConflictState({ hasConflict: true, serverUpdatedAt });
 
-                // Rollback dirty
+                // CRITICAL: Stop auto-retry loop
+                autoSyncPausedRef.current = true;
+
+                // Rollback dirty (keep data safe)
                 snapshot.entries.forEach(id => dirtyRef.current.entries.add(id));
                 if (snapshot.settings) dirtyRef.current.settings = true;
                 if (snapshot.overtime) dirtyRef.current.overtime = true;

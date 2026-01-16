@@ -201,14 +201,12 @@ export function useCloudSync(
             };
 
             // 🔍 DIAGNOSTIC LOG #3: Payload avant POST
-            console.log('[SYNC] WILL POST /api/data', {
+            console.log("[SYNC] ABOUT TO FETCH", {
+                method: "POST",
                 url: `/api/data?key=${settings.account.key}`,
-                payload: {
-                    entriesCount: Array.isArray(payload.entries) ? payload.entries.length : payload.entries,
-                    hasSettings: payload.settings !== undefined,
-                    hasOvertime: payload.overtime !== undefined,
-                    clientUpdatedAt: payload.clientUpdatedAt
-                }
+                hasEntries: !!payload.entries,
+                entriesLen: Array.isArray(payload.entries) ? payload.entries.length : null,
+                hasSettings: !!payload.settings,
             });
 
             const res = await fetch(`/api/data?key=${settings.account.key}`, {
@@ -217,8 +215,8 @@ export function useCloudSync(
                 body: JSON.stringify(payload)
             });
 
-            // 🔍 DIAGNOSTIC LOG #4: Response
-            console.log('[SYNC] POST DONE', {
+            console.log("[SYNC] FETCHED", {
+                url: res.url,
                 status: res.status,
                 ok: res.ok
             });

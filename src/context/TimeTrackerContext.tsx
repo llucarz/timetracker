@@ -108,9 +108,13 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   const importEntries = useCallback((newEntries: Omit<Entry, 'id'>[]) => {
     const imported = entriesHook.importEntries(newEntries);
     // Mark all imported entries as dirty
-    imported.forEach(entry => {
-      if (entry.id) syncHook.markDirty('entries', entry.id);
-    });
+    if (imported && Array.isArray(imported)) {
+      imported.forEach((entry: Entry) => {
+        if (entry.id) syncHook.markDirty('entries', entry.id);
+      });
+    }
+    // Force immediate sync after import
+    syncHook.syncNow();
   }, [entriesHook, syncHook]);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {

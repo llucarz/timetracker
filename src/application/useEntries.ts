@@ -46,6 +46,7 @@ export function useEntries() {
     const addEntry = useCallback((entry: Omit<Entry, 'id'>) => {
         const newEntry = EntryDomain.createEntry(entry);
         setEntries(prev => EntryDomain.upsertEntry(prev, newEntry));
+        return newEntry; // Return created entry for markDirty
     }, []);
 
     const updateEntry = useCallback((entry: Entry) => {
@@ -58,7 +59,9 @@ export function useEntries() {
     }, []);
 
     const importEntries = useCallback((newEntries: Omit<Entry, 'id'>[]) => {
+        const merged = EntryDomain.mergeEntries([], newEntries);
         setEntries(prev => EntryDomain.mergeEntries(prev, newEntries));
+        return merged; // Return imported entries for markDirty
     }, []);
 
     return {

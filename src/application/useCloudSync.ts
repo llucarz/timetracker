@@ -219,6 +219,8 @@ export function useCloudSync(
     // 4. MARK DIRTY (EXPOSÉ AU CONTEXT)
     // ========================================
     const markDirty = useCallback((type: 'entries' | 'settings' | 'overtime', id?: string) => {
+        console.log('[SYNC] markDirty called', { type, id });
+
         if (type === 'entries' && id) {
             dirtyRef.current.entries.add(id);
         } else {

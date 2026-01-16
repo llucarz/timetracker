@@ -15,6 +15,7 @@ import { Entry, Settings, OvertimeState } from '../lib/types';
 
 interface DirtyState {
     entries: Set<string>;
+    deletedIds: Set<string>; // NEW: Track deletions
     settings: boolean;
     overtime: boolean;
 }
@@ -49,6 +50,7 @@ export function useCloudSync(
 
     const dirtyRef = useRef<DirtyState>({
         entries: new Set(),
+        deletedIds: new Set(),
         settings: false,
         overtime: false
     });
@@ -67,11 +69,13 @@ export function useCloudSync(
                 const parsed = JSON.parse(saved);
                 dirtyRef.current = {
                     entries: new Set(parsed.entries || []),
+                    deletedIds: new Set(parsed.deletedIds || []),
                     settings: parsed.settings || false,
                     overtime: parsed.overtime || false
                 };
 
                 if (dirtyRef.current.entries.size > 0 ||
+                    dirtyRef.current.deletedIds.size > 0 ||
                     dirtyRef.current.settings ||
                     dirtyRef.current.overtime) {
                     setIsSynced(false);
@@ -90,6 +94,7 @@ export function useCloudSync(
         try {
             localStorage.setItem(DIRTY_STORAGE_KEY, JSON.stringify({
                 entries: Array.from(dirtyRef.current.entries),
+                deletedIds: Array.from(dirtyRef.current.deletedIds),
                 settings: dirtyRef.current.settings,
                 overtime: dirtyRef.current.overtime
             }));
@@ -129,7 +134,8 @@ export function useCloudSync(
         if (cloudData) {
             console.log('🔄 Reloaded from cloud after conflict');
             // Clear dirty state
-            dirtyRef.current = { entries: new Set(), settings: false, overtime: false };
+            // Clear dirty state
+            dirtyRef.current = { entries: new Set(), deletedIds: new Set(), settings: false, overtime: false };
             localStorage.removeItem(DIRTY_STORAGE_KEY);
 
             setConflictState({ hasConflict: false, serverUpdatedAt: null });
@@ -155,6 +161,7 @@ export function useCloudSync(
             paused: autoSyncPausedRef.current,
             dirty: {
                 entries: dirtyRef.current.entries.size,
+                deletedIds: dirtyRef.current.deletedIds.size,
                 settings: dirtyRef.current.settings,
                 overtime: dirtyRef.current.overtime,
             }
@@ -184,6 +191,7 @@ export function useCloudSync(
         // Snapshot atomique
         const snapshot: DirtyState = {
             entries: new Set(dirtyRef.current.entries),
+            deletedIds: new Set(dirtyRef.current.deletedIds),
             settings: dirtyRef.current.settings,
             overtime: dirtyRef.current.overtime
         };
@@ -196,7 +204,7 @@ export function useCloudSync(
         });
 
         // ✅ FIX: Ne pas return si rien n'est dirty - vérifier TOUTES les conditions
-        const hasDirtyData = snapshot.entries.size > 0 || snapshot.settings || snapshot.overtime;
+        const hasDirtyData = snapshot.entries.size > 0 || snapshot.deletedIds.size > 0 || snapshot.settings || snapshot.overtime;
 
         if (!hasDirtyData) {
             console.log('[SYNC] abort: nothing dirty');
@@ -205,7 +213,7 @@ export function useCloudSync(
         }
 
         // Clear dirty AVANT sync (nouvelles modifs iront dans nouveau dirty)
-        dirtyRef.current = { entries: new Set(), settings: false, overtime: false };
+        dirtyRef.current = { entries: new Set(), deletedIds: new Set(), settings: false, overtime: false };
         localStorage.removeItem(DIRTY_STORAGE_KEY);
 
         setIsSyncing(true);
@@ -221,6 +229,7 @@ export function useCloudSync(
             // ✅ FIX: Envoyer entries seulement si dirty, sinon undefined
             const payload = {
                 entries: snapshot.entries.size > 0 ? dirtyEntries : undefined,
+                deletedIds: snapshot.deletedIds.size > 0 ? Array.from(snapshot.deletedIds) : undefined,
                 settings: snapshot.settings ? settings : undefined,
                 overtime: snapshot.overtime ? otState : undefined,
                 clientUpdatedAt: lastSyncTimestampRef.current
@@ -262,6 +271,7 @@ export function useCloudSync(
 
                 // Rollback dirty (keep data safe)
                 snapshot.entries.forEach(id => dirtyRef.current.entries.add(id));
+                snapshot.deletedIds.forEach(id => dirtyRef.current.deletedIds.add(id));
                 if (snapshot.settings) dirtyRef.current.settings = true;
                 if (snapshot.overtime) dirtyRef.current.overtime = true;
                 persistDirty();
@@ -286,6 +296,7 @@ export function useCloudSync(
 
             // Rollback dirty
             snapshot.entries.forEach(id => dirtyRef.current.entries.add(id));
+            snapshot.deletedIds.forEach(id => dirtyRef.current.deletedIds.add(id));
             if (snapshot.settings) dirtyRef.current.settings = true;
             if (snapshot.overtime) dirtyRef.current.overtime = true;
             persistDirty();
@@ -297,11 +308,16 @@ export function useCloudSync(
     // ========================================
     // 4. MARK DIRTY (EXPOSÉ AU CONTEXT)
     // ========================================
+    // ========================================
+    // 4. MARK DIRTY (TYPE-SAFE)
+    // ========================================
     const markDirty = useCallback((type: 'entries' | 'settings' | 'overtime', id?: string) => {
         console.log('[SYNC] markDirty called', { type, id });
 
         if (type === 'entries' && id) {
+            // Si on ré-ajoute/modifie, on s'assure qu'il n'est plus marqué "deleted"
             dirtyRef.current.entries.add(id);
+            dirtyRef.current.deletedIds.delete(id);
         } else {
             dirtyRef.current[type] = true;
         }
@@ -316,12 +332,29 @@ export function useCloudSync(
         }, DEBOUNCE_MS);
     }, [persistDirty, syncDirtyData]);
 
+    const markDeleted = useCallback((id: string) => {
+        console.log('[SYNC] markDeleted called', id);
+
+        // Remove from entries, add to deletedIds
+        dirtyRef.current.entries.delete(id);
+        dirtyRef.current.deletedIds.add(id);
+
+        setIsSynced(false);
+        persistDirty();
+
+        // Trigger sync IMMEDIATELY (Deletion is an explicit user action)
+        // No debounce needed for deletions to ensure rapid server consistency
+        clearTimeout(syncTimeoutRef.current);
+        syncDirtyData();
+    }, [persistDirty, syncDirtyData]);
+
     // ========================================
     // 5. FLUSH AVANT FERMETURE (CRITIQUE)
     // ========================================
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             const hasDirty = dirtyRef.current.entries.size > 0 ||
+                dirtyRef.current.deletedIds.size > 0 ||
                 dirtyRef.current.settings ||
                 dirtyRef.current.overtime;
 
@@ -360,6 +393,7 @@ export function useCloudSync(
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
                 const hasDirty = dirtyRef.current.entries.size > 0 ||
+                    dirtyRef.current.deletedIds.size > 0 ||
                     dirtyRef.current.settings ||
                     dirtyRef.current.overtime;
 
@@ -374,6 +408,54 @@ export function useCloudSync(
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [syncDirtyData]);
 
+    // ========================================
+    // 8. ROBUST IMPORT (BULK SYNC)
+    // ========================================
+    const syncImported = useCallback((importedEntries: Entry[]) => {
+        console.log('[SYNC] syncImported called', importedEntries.length);
+
+        // CRITICAL: Update Ref IMMEDIATELY to handle React render lag.
+        // We manually update the ref here because 'setEntries' in the parent 
+        // won't update the 'entries' prop seen by this hook until the next render cycle.
+        // To ensure the immediate sync below sees the new data, we force the ref update.
+        // INTEGRATION RULE: Always call setEntries(imported) in usage component before or with this.
+        entriesRef.current = importedEntries;
+
+        // 1. Mark all as dirty
+        importedEntries.forEach(e => {
+            dirtyRef.current.entries.add(e.id);
+            dirtyRef.current.deletedIds.delete(e.id);
+        });
+
+        // 2. Trigger immediate sync
+        setIsSynced(false);
+        persistDirty();
+
+        clearTimeout(syncTimeoutRef.current);
+        // Instant sync for import
+        syncDirtyData();
+    }, [persistDirty, syncDirtyData]);
+
+    // ========================================
+    // 9. ROBUST LOGOUT (CLEANUP)
+    // ========================================
+    const performLogout = useCallback(() => {
+        console.log('[SYNC] performLogout: Cleaning state');
+        // 1. Pause Sync & Clear Timeout
+        autoSyncPausedRef.current = true;
+        clearTimeout(syncTimeoutRef.current);
+
+        // 2. Clear Internal State
+        dirtyRef.current = { entries: new Set(), deletedIds: new Set(), settings: false, overtime: false };
+
+        // 3. Clear Storage
+        localStorage.removeItem(DIRTY_STORAGE_KEY);
+
+        // 4. Reset Conflict
+        setConflictState({ hasConflict: false, serverUpdatedAt: null });
+        setIsSynced(true);
+    }, []);
+
     return {
         isSyncing,
         isSynced,
@@ -381,7 +463,10 @@ export function useCloudSync(
         conflictState,
         resolveConflictByReload,
         markDirty,
+        markDeleted, // NEW API
         syncNow: syncDirtyData,
-        loadFromCloud
+        loadFromCloud,
+        syncImported,
+        performLogout
     };
 }

@@ -279,196 +279,194 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule, entry }: Dai
                   onClick={onClose}
                   className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl hover:bg-white/50 transition-colors flex items-center justify-center flex-shrink-0"
                 >
-                  <X className="w-5 h-5 text-gray-600" />
                 </button>
               </div>
-          </div>
 
-          {/* Content */}
-          <div className="p-5 sm:p-8 overflow-y-auto flex-1">
-            <div className="space-y-5 sm:space-y-6">
-              {/* Date & Status */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Date</Label>
-                  <DatePicker
-                    value={date}
-                    onChange={setDate}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Type de journée</Label>
-                  <Select value={status} onValueChange={setStatus}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="work">💼 Travail</SelectItem>
-                      <SelectItem value="school">📚 École / Formation</SelectItem>
-                      <SelectItem value="vacation">🏖️ Congés</SelectItem>
-                      <SelectItem value="sick">🤒 Arrêt maladie</SelectItem>
-                      <SelectItem value="holiday">🎉 Jour férié</SelectItem>
-                      <SelectItem value="off">🌙 Repos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Warning Banner */}
-              {recoveryMinutes > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-3 items-start"
-                >
-                  <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-                  <div className="text-sm">
-                    <p className="font-bold text-red-900 leading-5">
-                      Récupération planifiée : {formatDuration(recoveryMinutes)}
-                    </p>
-                    <div className="mt-0.5 text-red-800">
-                      {recoveryEvents.map((event, i) => (
-                        <p key={i} className="text-xs leading-tight">
-                          • {event.start} - {event.end} ({formatDuration(event.minutes)})
-                        </p>
-                      ))}
-                      <p className="text-xs mt-0.5 opacity-90 italic leading-tight">
-                        Vérifiez la cohérence avec vos heures travaillées.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Work Hours */}
-              {isWorkDay && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-gray-700">Horaires de travail</Label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleFillDefault}
-                      className="h-8 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Remplir horaires habituels
-                    </Button>
-                  </div>
-
+              {/* Content */}
+              <div className="p-5 sm:p-8 overflow-y-auto flex-1">
+                <div className="space-y-5 sm:space-y-6">
+                  {/* Date & Status */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-xs text-gray-600">Arrivée</Label>
-                      <TimePicker
-                        value={arrival}
-                        onChange={setArrival}
-                        placeholder="09:00"
+                      <Label className="text-sm font-medium text-gray-700">Date</Label>
+                      <DatePicker
+                        value={date}
+                        onChange={setDate}
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-xs text-gray-600">Début pause</Label>
-                      <TimePicker
-                        value={pauseStart}
-                        onChange={setPauseStart}
-                        placeholder="12:30"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs text-gray-600">Fin pause</Label>
-                      <TimePicker
-                        value={pauseEnd}
-                        onChange={setPauseEnd}
-                        placeholder="13:30"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs text-gray-600">Départ</Label>
-                      <TimePicker
-                        value={departure}
-                        onChange={setDeparture}
-                        placeholder="17:00"
-                      />
+                      <Label className="text-sm font-medium text-gray-700">Type de journée</Label>
+                      <Select value={status} onValueChange={setStatus}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="work">💼 Travail</SelectItem>
+                          <SelectItem value="school">📚 École / Formation</SelectItem>
+                          <SelectItem value="vacation">🏖️ Congés</SelectItem>
+                          <SelectItem value="sick">🤒 Arrêt maladie</SelectItem>
+                          <SelectItem value="holiday">🎉 Jour férié</SelectItem>
+                          <SelectItem value="off">🌙 Repos</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
-                  {/* Duration Display */}
-                  {(arrival && departure) || recoveryMinutes > 0 ? (
+                  {/* Warning Banner */}
+                  {recoveryMinutes > 0 && (
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className={`bg-gradient-to-br ${GRADIENTS.primaryLight} rounded-2xl p-6 border border-purple-100`}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="p-3 bg-red-50 border border-red-200 rounded-lg flex gap-3 items-start"
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-600 mb-1">
-                            {recoveryMinutes > 0 ? "Crédité (Travail + Récup.)" : "Durée totale"}
+                      <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-bold text-red-900 leading-5">
+                          Récupération planifiée : {formatDuration(recoveryMinutes)}
+                        </p>
+                        <div className="mt-0.5 text-red-800">
+                          {recoveryEvents.map((event, i) => (
+                            <p key={i} className="text-xs leading-tight">
+                              • {event.start} - {event.end} ({formatDuration(event.minutes)})
+                            </p>
+                          ))}
+                          <p className="text-xs mt-0.5 opacity-90 italic leading-tight">
+                            Vérifiez la cohérence avec vos heures travaillées.
                           </p>
-                          <p className={`text-4xl font-bold bg-gradient-to-r ${GRADIENTS.primaryButton} bg-clip-text text-transparent`}>
-                            {formatDuration(creditedMinutes)}
-                          </p>
-                          {recoveryMinutes > 0 && (
-                            <div className="flex gap-3 mt-1 text-sm text-gray-500">
-                              <span>Travail : {formatDuration(workMinutes)}</span>
-                              <span>•</span>
-                              <span>Récup. : {formatDuration(recoveryMinutes)}</span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600 mb-1">Objectif journalier</p>
-                          <p className="text-2xl font-bold text-gray-700">7h00</p>
                         </div>
                       </div>
                     </motion.div>
-                  ) : null}
-                </motion.div>
-              )}
+                  )}
 
-              {/* Notes */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">Notes (optionnel)</Label>
-                <Textarea
-                  placeholder="Réunion, déplacement, télétravail..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="min-h-[100px] rounded-xl border-gray-200 resize-none text-sm"
-                />
+                  {/* Work Hours */}
+                  {isWorkDay && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-gray-700">Horaires de travail</Label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleFillDefault}
+                          className="h-8 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Remplir horaires habituels
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-600">Arrivée</Label>
+                          <TimePicker
+                            value={arrival}
+                            onChange={setArrival}
+                            placeholder="09:00"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-600">Début pause</Label>
+                          <TimePicker
+                            value={pauseStart}
+                            onChange={setPauseStart}
+                            placeholder="12:30"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-600">Fin pause</Label>
+                          <TimePicker
+                            value={pauseEnd}
+                            onChange={setPauseEnd}
+                            placeholder="13:30"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs text-gray-600">Départ</Label>
+                          <TimePicker
+                            value={departure}
+                            onChange={setDeparture}
+                            placeholder="17:00"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Duration Display */}
+                      {(arrival && departure) || recoveryMinutes > 0 ? (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className={`bg-gradient-to-br ${GRADIENTS.primaryLight} rounded-2xl p-6 border border-purple-100`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm text-gray-600 mb-1">
+                                {recoveryMinutes > 0 ? "Crédité (Travail + Récup.)" : "Durée totale"}
+                              </p>
+                              <p className={`text-4xl font-bold bg-gradient-to-r ${GRADIENTS.primaryButton} bg-clip-text text-transparent`}>
+                                {formatDuration(creditedMinutes)}
+                              </p>
+                              {recoveryMinutes > 0 && (
+                                <div className="flex gap-3 mt-1 text-sm text-gray-500">
+                                  <span>Travail : {formatDuration(workMinutes)}</span>
+                                  <span>•</span>
+                                  <span>Récup. : {formatDuration(recoveryMinutes)}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-600 mb-1">Objectif journalier</p>
+                              <p className="text-2xl font-bold text-gray-700">7h00</p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ) : null}
+                    </motion.div>
+                  )}
+
+                  {/* Notes */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">Notes (optionnel)</Label>
+                    <Textarea
+                      placeholder="Réunion, déplacement, télétravail..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="min-h-[100px] rounded-xl border-gray-200 resize-none text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Footer */}
-          <div className="px-8 py-6 border-t border-gray-100 bg-gray-50 flex gap-3">
-            <Button
-              onClick={handleSave}
-              className={`flex-1 h-12 text-white rounded-xl font-semibold shadow-md bg-gradient-to-r ${GRADIENTS.primaryButton}`}
-            >
-              <Save className="w-4 h-4" />
-              Enregistrer
-            </Button>
-            <Button
-              onClick={handleClear}
-              variant="outline"
-              className="h-12 px-6 rounded-xl border-gray-200 hover:bg-white"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Effacer
-            </Button>
+              {/* Footer */}
+              <div className="px-8 py-6 border-t border-gray-100 bg-gray-50 flex gap-3">
+                <Button
+                  onClick={handleSave}
+                  className={`flex-1 h-12 text-white rounded-xl font-semibold shadow-md bg-gradient-to-r ${GRADIENTS.primaryButton}`}
+                >
+                  <Save className="w-4 h-4" />
+                  Enregistrer
+                </Button>
+                <Button
+                  onClick={handleClear}
+                  variant="outline"
+                  className="h-12 px-6 rounded-xl border-gray-200 hover:bg-white"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Effacer
+                </Button>
+              </div>
+            </motion.div>
           </div>
-        </motion.div>
-    </div>
         </>
       )
-}
+      }
     </AnimatePresence >
   );
 }

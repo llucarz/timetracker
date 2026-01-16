@@ -282,9 +282,13 @@ class IndexedDBEngine implements StorageEngine {
       clearRequest.onerror = () => reject(clearRequest.error);
     });
 
-    // Bulk insert new entries
+    // Bulk insert new entries using put() to allow upsert
     for (const entry of entries) {
-      await this.addEntry(entry);
+      await new Promise<void>((resolve, reject) => {
+        const request = store.put(entry); // Use put() instead of add() to allow overwriting
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
     }
   }
 

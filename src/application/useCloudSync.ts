@@ -131,7 +131,30 @@ export function useCloudSync(
     // 4. SYNC WITH SNAPSHOT + ROLLBACK
     // ========================================
     const syncDirtyData = useCallback(async () => {
-        if (isSyncing || !settings.account?.key || settings.account.isOffline) {
+        // 🔍 DIAGNOSTIC LOG #1: Entry point
+        console.log('[SYNC] syncDirtyData start', {
+            key: settings?.account?.key,
+            offline: settings?.account?.isOffline,
+            isSyncing,
+            dirty: {
+                entries: dirtyRef.current.entries.size,
+                settings: dirtyRef.current.settings,
+                overtime: dirtyRef.current.overtime,
+            }
+        });
+
+        if (isSyncing) {
+            console.log('[SYNC] abort: already syncing');
+            return;
+        }
+
+        if (!settings.account?.key) {
+            console.log('[SYNC] abort: no account key');
+            return;
+        }
+
+        if (settings.account.isOffline) {
+            console.log('[SYNC] abort: offline mode');
             return;
         }
 
@@ -142,8 +165,18 @@ export function useCloudSync(
             overtime: dirtyRef.current.overtime
         };
 
-        // Rien à sync
-        if (snapshot.entries.size === 0 && !snapshot.settings && !snapshot.overtime) {
+        // 🔍 DIAGNOSTIC LOG #2: Snapshot
+        console.log('[SYNC] snapshot taken', {
+            entriesCount: snapshot.entries.size,
+            settings: snapshot.settings,
+            overtime: snapshot.overtime
+        });
+
+        // ✅ FIX: Ne pas return si rien n'est dirty - vérifier TOUTES les conditions
+        const hasDirtyData = snapshot.entries.size > 0 || snapshot.settings || snapshot.overtime;
+
+        if (!hasDirtyData) {
+            console.log('[SYNC] abort: nothing dirty');
             setIsSynced(true);
             return;
         }
@@ -159,7 +192,7 @@ export function useCloudSync(
             // Préparer payload (seulement dirty data)
             const dirtyEntries = entries.filter(e => snapshot.entries.has(e.id));
 
-            // BLOCKER #1 FIX: Ne jamais envoyer toutes les entries si aucune n'est dirty
+            // ✅ FIX: Envoyer entries seulement si dirty, sinon undefined
             const payload = {
                 entries: snapshot.entries.size > 0 ? dirtyEntries : undefined,
                 settings: snapshot.settings ? settings : undefined,
@@ -167,10 +200,27 @@ export function useCloudSync(
                 clientUpdatedAt: lastSyncTimestampRef.current
             };
 
+            // 🔍 DIAGNOSTIC LOG #3: Payload avant POST
+            console.log('[SYNC] WILL POST /api/data', {
+                url: `/api/data?key=${settings.account.key}`,
+                payload: {
+                    entriesCount: Array.isArray(payload.entries) ? payload.entries.length : payload.entries,
+                    hasSettings: payload.settings !== undefined,
+                    hasOvertime: payload.overtime !== undefined,
+                    clientUpdatedAt: payload.clientUpdatedAt
+                }
+            });
+
             const res = await fetch(`/api/data?key=${settings.account.key}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
+            });
+
+            // 🔍 DIAGNOSTIC LOG #4: Response
+            console.log('[SYNC] POST DONE', {
+                status: res.status,
+                ok: res.ok
             });
 
             if (res.status === 409) {

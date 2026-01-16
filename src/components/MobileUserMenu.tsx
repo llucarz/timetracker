@@ -14,7 +14,7 @@ interface MobileUserMenuProps {
 }
 
 export function MobileUserMenu({ isOpen, onClose, onOpenProfile, onLogin }: MobileUserMenuProps) {
-    const { entries, importEntries, settings, logout, isSyncing, lastSyncError } = useTimeTracker();
+    const { entries, importEntries, settings, logout, isSyncing, isSynced, lastSyncError } = useTimeTracker();
     const { showNotification } = useNotification();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -197,10 +197,15 @@ export function MobileUserMenu({ isOpen, onClose, onOpenProfile, onLogin }: Mobi
                                                     <CloudOff className="w-4 h-4 text-red-500" />
                                                     <span className="text-sm text-red-500">Erreur</span>
                                                 </>
-                                            ) : (
+                                            ) : isSynced ? (
                                                 <>
                                                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                                                     <span className="text-sm text-emerald-600">Sync</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 text-orange-600 animate-spin" />
+                                                    <span className="text-sm text-orange-600">En attente...</span>
                                                 </>
                                             )}
                                         </div>

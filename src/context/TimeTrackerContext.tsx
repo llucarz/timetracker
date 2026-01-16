@@ -25,6 +25,7 @@ interface TimeTrackerContextType {
   settings: Settings;
   otState: OvertimeState;
   isSyncing: boolean;
+  isSynced: boolean;
   lastSyncError: string | null;
   storageType: 'localStorage' | 'indexedDB';
 
@@ -43,6 +44,7 @@ interface TimeTrackerContextType {
 
   // Cloud sync actions
   syncWithCloud: () => Promise<void>;
+  syncNow: () => Promise<void>;
   loadFromCloud: () => Promise<any>;
   login: (data: { entries?: Entry[], settings: Settings, overtime?: OvertimeState }) => void;
   logout: () => void;
@@ -80,6 +82,37 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     overtimeHook.otState,
     entriesHook.isLoaded && settingsHook.isLoaded && overtimeHook.isLoaded
   );
+
+  // Wrapped actions with immediate sync
+  const addEntry = useCallback((entry: Omit<Entry, 'id'>) => {
+    entriesHook.addEntry(entry);
+    syncHook.syncNow(); // Immediate sync
+  }, [entriesHook, syncHook]);
+
+  const updateEntry = useCallback((entry: Entry) => {
+    entriesHook.updateEntry(entry);
+    syncHook.syncNow(); // Immediate sync
+  }, [entriesHook, syncHook]);
+
+  const deleteEntry = useCallback((id: string) => {
+    entriesHook.deleteEntry(id);
+    syncHook.syncNow(); // Immediate sync
+  }, [entriesHook, syncHook]);
+
+  const importEntries = useCallback((newEntries: Omit<Entry, 'id'>[]) => {
+    entriesHook.importEntries(newEntries);
+    syncHook.syncNow(); // Immediate sync
+  }, [entriesHook, syncHook]);
+
+  const updateSettings = useCallback((updates: Partial<Settings>) => {
+    settingsHook.updateSettings(updates);
+    syncHook.syncNow(); // Immediate sync
+  }, [settingsHook, syncHook]);
+
+  const addOvertimeEvent = useCallback((event: Omit<OvertimeEvent, 'id'>) => {
+    overtimeHook.addOvertimeEvent(event);
+    syncHook.syncNow(); // Immediate sync
+  }, [overtimeHook, syncHook]);
 
   // Auth actions
   const logout = useCallback(async () => {
@@ -138,24 +171,26 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
   const contextValue = useMemo(() => ({
     // Entries
     entries: entriesHook.entries,
-    addEntry: entriesHook.addEntry,
-    updateEntry: entriesHook.updateEntry,
-    deleteEntry: entriesHook.deleteEntry,
-    importEntries: entriesHook.importEntries,
+    addEntry,
+    updateEntry,
+    deleteEntry,
+    importEntries,
 
     // Settings
     settings: settingsHook.settings,
-    updateSettings: settingsHook.updateSettings,
+    updateSettings,
 
     // Overtime
     otState: overtimeHook.otState,
-    addOvertimeEvent: overtimeHook.addOvertimeEvent,
+    addOvertimeEvent,
     deleteOvertimeEvent: handleDeleteOvertimeEvent,
 
     // Sync
     isSyncing: syncHook.isSyncing,
+    isSynced: syncHook.isSynced,
     lastSyncError: syncHook.lastSyncError,
     syncWithCloud: syncHook.syncWithCloud,
+    syncNow: syncHook.syncNow,
     loadFromCloud: syncHook.loadFromCloud,
 
     // Auth
@@ -169,17 +204,19 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     settingsHook.settings,
     overtimeHook.otState,
     syncHook.isSyncing,
+    syncHook.isSynced,
     syncHook.lastSyncError,
     storageType,
     // Actions (from useCallback, stable)
-    entriesHook.addEntry,
-    entriesHook.updateEntry,
-    entriesHook.deleteEntry,
-    entriesHook.importEntries,
-    settingsHook.updateSettings,
-    overtimeHook.addOvertimeEvent,
+    addEntry,
+    updateEntry,
+    deleteEntry,
+    importEntries,
+    updateSettings,
+    addOvertimeEvent,
     handleDeleteOvertimeEvent,
     syncHook.syncWithCloud,
+    syncHook.syncNow,
     syncHook.loadFromCloud,
     logout,
     login

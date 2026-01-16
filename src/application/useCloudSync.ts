@@ -1,10 +1,13 @@
 /**
  * useCloudSync - Application Hook
  * 
- * Gère la synchronisation cloud (debounced auto-sync).
+ * Gère la synchronisation cloud immédiate (immediate sync on every action).
+ * - Sync immédiat après chaque modification (plus de debounce)
+ * - Chargement automatique depuis la BDD au démarrage
+ * - Indicateur isSynced pour vérifier que localStorage === BDD
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Entry, Settings, OvertimeState } from '../lib/types';
 
 export function useCloudSync(
@@ -14,7 +17,12 @@ export function useCloudSync(
     isDataLoaded: boolean
 ) {
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isSynced, setIsSynced] = useState(false);
     const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+    const [hasLoadedFromCloud, setHasLoadedFromCloud] = useState(false);
+
+    // Track if we need to sync (data has changed since last sync)
+    const needsSyncRef = useRef(false);
 
     const syncWithCloud = useCallback(async () => {
         if (!settings.account?.key || settings.account.isOffline) return;
@@ -32,9 +40,14 @@ export function useCloudSync(
             if (!res.ok) {
                 throw new Error(`Sync failed: ${res.status}`);
             }
+
+            setIsSynced(true);
+            needsSyncRef.current = false;
+            console.log('✅ Cloud sync successful');
         } catch (error) {
-            console.error('Cloud sync failed:', error);
+            console.error('❌ Cloud sync failed:', error);
             setLastSyncError(error instanceof Error ? error.message : 'Unknown error');
+            setIsSynced(false);
         } finally {
             setIsSyncing(false);
         }
@@ -46,32 +59,69 @@ export function useCloudSync(
         try {
             const res = await fetch(`/api/data?key=${settings.account.key}`);
             if (!res.ok) return null;
-            return await res.json();
+            const data = await res.json();
+            console.log('✅ Cloud data loaded');
+            return data;
         } catch (error) {
-            console.error('Cloud load failed:', error);
+            console.error('❌ Cloud load failed:', error);
             return null;
         }
     }, [settings.account]);
 
-    // Auto-sync with debounce (2 seconds)
-    useEffect(() => {
+    // Immediate sync function (exposed to context)
+    const syncNow = useCallback(async () => {
         if (!isDataLoaded || !settings.account?.key || settings.account.isOffline) return;
+        if (isSyncing) {
+            // Mark that we need to sync again after current sync completes
+            needsSyncRef.current = true;
+            return;
+        }
 
-        // CRITICAL FIX: Don't start a new sync if one is already in progress
-        // This prevents infinite sync loops on slow connections (e.g., Vercel)
-        if (isSyncing) return;
+        await syncWithCloud();
+    }, [isDataLoaded, settings.account, isSyncing, syncWithCloud]);
 
-        const timeout = setTimeout(() => {
-            syncWithCloud();
-        }, 2000);
+    // Load from cloud on initial mount (only once)
+    useEffect(() => {
+        if (!isDataLoaded || hasLoadedFromCloud) return;
+        if (!settings.account?.key || settings.account.isOffline) return;
 
-        return () => clearTimeout(timeout);
-    }, [entries, settings, otState, isDataLoaded, syncWithCloud, isSyncing]);
+        const loadInitialData = async () => {
+            console.log('🔄 Loading initial data from cloud...');
+            const cloudData = await loadFromCloud();
+
+            if (cloudData) {
+                // Data will be merged by the context/parent component
+                setHasLoadedFromCloud(true);
+                setIsSynced(true);
+            }
+        };
+
+        loadInitialData();
+    }, [isDataLoaded, settings.account, hasLoadedFromCloud, loadFromCloud]);
+
+    // Mark as needing sync when data changes
+    useEffect(() => {
+        if (!isDataLoaded || !hasLoadedFromCloud) return;
+        if (!settings.account?.key || settings.account.isOffline) return;
+
+        // Data has changed, mark as not synced
+        setIsSynced(false);
+        needsSyncRef.current = true;
+    }, [entries, settings, otState, isDataLoaded, hasLoadedFromCloud]);
+
+    // Retry sync if needed after current sync completes
+    useEffect(() => {
+        if (!isSyncing && needsSyncRef.current && isDataLoaded) {
+            syncNow();
+        }
+    }, [isSyncing, isDataLoaded, syncNow]);
 
     return {
         isSyncing,
+        isSynced,
         lastSyncError,
         syncWithCloud,
+        syncNow,
         loadFromCloud
     };
 }

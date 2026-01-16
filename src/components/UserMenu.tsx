@@ -24,7 +24,7 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenuProps) {
-  const { entries, importEntries, updateSettings, settings, logout, isSyncing, lastSyncError } = useTimeTracker();
+  const { entries, importEntries, updateSettings, settings, logout, isSyncing, isSynced, lastSyncError } = useTimeTracker();
   const { showNotification } = useNotification();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -197,8 +197,10 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
                       <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
                     ) : lastSyncError ? (
                       <CloudOff className="w-3 h-3 text-red-500" />
-                    ) : (
+                    ) : isSynced ? (
                       <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                    ) : (
+                      <Loader2 className="w-3 h-3 text-orange-500 animate-spin" />
                     )}
                   </>
                 ) : (
@@ -237,10 +239,15 @@ export function UserMenu({ userName, company, onOpenProfile, onLogin }: UserMenu
                       <CloudOff className="w-3 h-3 text-red-500" />
                       <span className="text-xs text-red-500">Erreur</span>
                     </>
-                  ) : (
+                  ) : isSynced ? (
                     <>
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                       <span className="text-xs text-emerald-600">Sync</span>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="w-3 h-3 text-orange-600 animate-spin" />
+                      <span className="text-xs text-orange-600">En attente...</span>
                     </>
                   )}
                 </div>

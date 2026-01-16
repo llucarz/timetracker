@@ -102,7 +102,7 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
 
   const deleteEntry = useCallback((id: string) => {
     entriesHook.deleteEntry(id);
-    syncHook.markDirty('entries', id);
+    syncHook.markDeleted(id);
   }, [entriesHook, syncHook]);
 
   const importEntries = useCallback((newEntries: Omit<Entry, 'id'>[]) => {

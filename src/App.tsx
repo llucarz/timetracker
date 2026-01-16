@@ -13,9 +13,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { LayoutDashboard, Clock, TrendingUp, Menu, X } from "lucide-react";
 import { GRADIENTS } from "./ui/design-system/tokens";
 
+import { Entry } from "./lib/types";
+
 function AppContent() {
   const { settings, updateSettings } = useTimeTracker();
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -52,6 +55,11 @@ function AppContent() {
     pauseStart: settings.baseHours?.same?.lunchStart || "12:30",
     pauseEnd: settings.baseHours?.same?.lunchEnd || "13:30",
     departure: settings.baseHours?.same?.end || "18:00",
+  };
+
+  const handleStartEntry = () => {
+    setEditingEntry(null); // Explicit Create Mode
+    setIsEntryModalOpen(true);
   };
 
   const navigationItems = [
@@ -132,7 +140,7 @@ function AppContent() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <Dashboard onStartEntry={() => setIsEntryModalOpen(true)} />
+              <Dashboard onStartEntry={handleStartEntry} />
             </motion.div>
           )}
 
@@ -207,6 +215,7 @@ function AppContent() {
         isOpen={isEntryModalOpen}
         onClose={() => setIsEntryModalOpen(false)}
         defaultSchedule={defaultSchedule}
+        entry={editingEntry ?? undefined}
       />
 
       {/* Profile Modal */}

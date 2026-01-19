@@ -148,7 +148,7 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
                 variant="outline"
                 className="h-12 sm:h-14 px-6 sm:px-8 bg-white/20 text-white border-white/30 hover:bg-white/30 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg"
               >
-                🧪 Test Sync
+
               </Button>
             </div>
           </div>

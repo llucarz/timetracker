@@ -54,7 +54,6 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
 
     useEffect(() => {
         if (isOpen && settings && !isInitialized) {
-            console.log("Initializing ProfileModal with settings:", settings.baseHours);
             setWeeklyTarget(settings.weeklyTarget.toString());
             setWorkdaysPerWeek(settings.workDays.toString());
 

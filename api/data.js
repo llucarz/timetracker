@@ -58,8 +58,7 @@ export default async function handler(req, res) {
   const metaKey = `tt:${key}:meta`;
 
   // 🔍 DIAGNOSTIC LOG #1: Verify Redis keys
-  console.log('[SYNC] redisKey =', redisKey);
-  console.log('[SYNC] metaKey =', metaKey);
+
 
   try {
     if (method === 'GET') {
@@ -70,7 +69,7 @@ export default async function handler(req, res) {
       let overtime = null;
 
       if (!raw) {
-        console.log('[SYNC] GET: No data found for key', redisKey);
+
         return res.status(200).json({ entries, settings, overtime });
       }
 
@@ -96,7 +95,7 @@ export default async function handler(req, res) {
         overtime = raw.overtime || null;
       }
 
-      console.log('[SYNC] GET: Returning', entries.length, 'entries');
+
       return res.status(200).json({ entries, settings, overtime });
     }
 
@@ -105,9 +104,7 @@ export default async function handler(req, res) {
 
       // 🔍 DIAGNOSTIC LOGS
       const mode = body.mode || 'standard';
-      console.log(`[SYNC] POST MODE: ${mode}`);
-      console.log('[SYNC] POST: entries defined?', body.entries !== undefined);
-      if (Array.isArray(body.entries)) console.log(`[SYNC] POST: entries count = ${body.entries.length}`);
+
 
       // Conflict detection
       const { clientUpdatedAt, deletedIds } = body;
@@ -120,7 +117,7 @@ export default async function handler(req, res) {
       if (serverUpdatedAt && clientUpdatedAt &&
         new Date(serverUpdatedAt) > new Date(clientUpdatedAt) &&
         mode !== 'force') { // Added 'force' escape hatch just in case
-        console.log('[SYNC] POST: Conflict detected');
+
         return res.status(409).json({
           error: 'Conflict detected',
           serverUpdatedAt
@@ -156,7 +153,7 @@ export default async function handler(req, res) {
 
       // Handle explicit Deletions
       if (deletedIds && Array.isArray(deletedIds) && deletedIds.length > 0) {
-        console.log('[SYNC] POST: Deleting', deletedIds.length, 'entries');
+
         nextEntries = nextEntries.filter(e => !deletedIds.includes(e.id));
       }
 
@@ -175,8 +172,7 @@ export default async function handler(req, res) {
       };
 
       // 🔍 WRITE LOGS
-      console.log('[SYNC] POST: Writing to Redis key =', redisKey);
-      console.log(`[SYNC] POST: Entries: ${previousCount} -> ${nextEntries.length}`);
+
 
       // Store JSON brut
       await redis.set(redisKey, JSON.stringify(toStore));
@@ -188,7 +184,7 @@ export default async function handler(req, res) {
         version: (currentVersion + 1).toString()
       });
 
-      console.log('[SYNC] POST: ✅ Write successful');
+
 
       // SAFETY CHECK: Critical Alert for Silent Failures
       const receivedEntriesCount = Array.isArray(body.entries) ? body.entries.length : 0;

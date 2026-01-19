@@ -30,7 +30,7 @@ export function useCloudSync(
     otState: OvertimeState,
     isDataLoaded: boolean
 ) {
-    console.log('[SYNC] useCloudSync mounted');
+
 
     // 1. STRICT INTERNAL STATE MACHINE
     const [bootState, setBootState] = useState<BootState>('idle');
@@ -139,7 +139,7 @@ export function useCloudSync(
             const data = await res.json();
             lastSyncTimestampRef.current = data.updatedAt;
 
-            console.log('✅ BOOT SUCCESS');
+
             setBootState('ready');
             setCloudState('idle'); // Ensure clean slate
             setLastError(null);
@@ -176,7 +176,7 @@ export function useCloudSync(
         }
 
         // 4. Trigger Boot
-        console.log('[BOOT] Triggering for key:', key);
+
         bootKeyRef.current = key;
         setBootState('loading');
         setCloudState('idle');
@@ -261,7 +261,7 @@ export function useCloudSync(
             const { updatedAt } = await res.json();
             lastSyncTimestampRef.current = updatedAt;
 
-            console.log('✅ SYNC SUCCESS');
+
             setCloudState('idle'); // BACK TO IDLE
 
         } catch (error) {
@@ -372,7 +372,7 @@ export function useCloudSync(
         const key = settings.account?.key;
         if (!key || settings.account?.isOffline) return;
 
-        console.log(`[IMPORT] Starting bulk sync for ${importedEntries.length} entries`);
+
 
         try {
             // 1. Prepare Payload
@@ -386,7 +386,7 @@ export function useCloudSync(
                 clientUpdatedAt: new Date().toISOString()
             };
 
-            console.log(`[IMPORT] Sending payload with ${validEntries.length} entries`);
+
 
             // 2. Send (Bypass Debounce/Queue)
             setCloudState('syncing');
@@ -407,7 +407,7 @@ export function useCloudSync(
             }
 
             const data = await res.json();
-            console.log(`[IMPORT] Success. Written: ${data.entriesWritten}`);
+
 
             // 3. Cleanup
             lastSyncTimestampRef.current = data.updatedAt;
@@ -426,7 +426,7 @@ export function useCloudSync(
     }, [settings.account]);
 
     const performLogout = useCallback(() => {
-        console.log('[SYNC] performLogout: Cleaning state');
+
         autoSyncPausedRef.current = true;
         clearTimeout(syncTimeoutRef.current);
 

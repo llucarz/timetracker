@@ -138,7 +138,7 @@ export default async function handler(req, res) {
 
       // ---- ENTRIES HANDLING (Strict Merge) ----
       let nextEntries = existingData.entries || [];
-      const previousCount = nextEntries.length;
+
 
       // Rule: IF entries are provided, we MERGE them (Upsert)
       // We do NOT replace because standard sync sends partials.
@@ -204,7 +204,6 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).end('Method Not Allowed');
   } catch (err) {
-    console.error('[SYNC] ERROR:', err);
     return res.status(500).json({ error: 'Upstash error', detail: String(err) });
   }
 }

@@ -111,18 +111,13 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
         const targetWeeklyMinutes = parseFloat(weeklyTarget) * 60;
         let totalWeeklyMinutes = 0;
 
-        // Calculate total weekly minutes based on mode
-        console.log("Saving Profile - Mode:", mode);
-
         if (mode === "same") {
-            console.log("Same Schedule Values:", sameSchedule);
             const dailyMinutes = computeMinutesFromTimes({
                 start: sameSchedule.arrival,
                 lunchStart: sameSchedule.pauseStart,
                 lunchEnd: sameSchedule.pauseEnd,
                 end: sameSchedule.departure
             });
-            console.log("Computed daily minutes:", dailyMinutes);
 
             // Validate daily hours don't exceed 24h
             if (dailyMinutes > 1440) {

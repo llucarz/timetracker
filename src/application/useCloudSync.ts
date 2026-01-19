@@ -130,7 +130,7 @@ export function useCloudSync(
             });
 
             if (!res.ok) {
-                console.warn(`[BOOT] Load failed ${res.status}`);
+
                 setBootState('error');
                 setLastError(`Erreur chargement (${res.status})`);
                 return null;
@@ -145,7 +145,7 @@ export function useCloudSync(
             setLastError(null);
             return data;
         } catch (error) {
-            console.error('❌ BOOT FAILED:', error);
+
             setBootState('error');
             setLastError(error instanceof Error ? error.message : 'Erreur inconnue');
             return null;
@@ -240,7 +240,7 @@ export function useCloudSync(
             if (res.status === 409) {
                 // 409 CONFLICT
                 const { serverUpdatedAt } = await res.json();
-                console.warn('⚠️ 409 CONFLICT');
+
 
                 setCloudState('conflict');
                 setConflictServerDate(serverUpdatedAt);
@@ -265,7 +265,7 @@ export function useCloudSync(
             setCloudState('idle'); // BACK TO IDLE
 
         } catch (error) {
-            console.error('❌ SYNC ERROR:', error);
+
             setCloudState('error');
             setLastError(error instanceof Error ? error.message : 'Erreur inconnue');
 
@@ -419,7 +419,7 @@ export function useCloudSync(
             persistDirty();
 
         } catch (error) {
-            console.error('[IMPORT] Error:', error);
+
             setCloudState('error');
             setLastError('Erreur sauvegard import');
         }

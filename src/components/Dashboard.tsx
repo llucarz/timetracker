@@ -18,7 +18,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onStartEntry }: DashboardProps) {
-  const { entries, otState, settings, markDirty, syncNow } = useTimeTracker();
+  const { entries, otState, settings } = useTimeTracker();
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAllEntriesModalOpen, setIsAllEntriesModalOpen] = useState(false);
@@ -137,19 +137,8 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
                 <ArrowRight className="w-4 sm:w-5 h-4 sm:h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
 
-              {/* TEMPORARY TEST BUTTON */}
-              <Button
-                onClick={() => {
-                  console.log('[SYNC] manual markDirty test');
-                  if (markDirty) markDirty('settings');
-                  if (syncNow) syncNow();
-                }}
-                size="lg"
-                variant="outline"
-                className="h-12 sm:h-14 px-6 sm:px-8 bg-white/20 text-white border-white/30 hover:bg-white/30 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg"
-              >
 
-              </Button>
+
             </div>
           </div>
 

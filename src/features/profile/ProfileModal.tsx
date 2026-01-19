@@ -49,8 +49,12 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
         }))
     );
 
+    // Track initialization to prevent resets during updates
+    const [isInitialized, setIsInitialized] = useState(false);
+
     useEffect(() => {
-        if (isOpen && settings) {
+        if (isOpen && settings && !isInitialized) {
+            console.log("Initializing ProfileModal with settings:", settings.baseHours);
             setWeeklyTarget(settings.weeklyTarget.toString());
             setWorkdaysPerWeek(settings.workDays.toString());
 
@@ -84,8 +88,13 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
                     }));
                 }
             }
+            setIsInitialized(true);
         }
-    }, [isOpen, settings]);
+
+        if (!isOpen) {
+            setIsInitialized(false);
+        }
+    }, [isOpen, settings, isInitialized]);
 
     // Lock scroll when modal is open
     useEffect(() => {
@@ -104,13 +113,17 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
         let totalWeeklyMinutes = 0;
 
         // Calculate total weekly minutes based on mode
+        console.log("Saving Profile - Mode:", mode);
+
         if (mode === "same") {
+            console.log("Same Schedule Values:", sameSchedule);
             const dailyMinutes = computeMinutesFromTimes({
                 start: sameSchedule.arrival,
                 lunchStart: sameSchedule.pauseStart,
                 lunchEnd: sameSchedule.pauseEnd,
                 end: sameSchedule.departure
             });
+            console.log("Computed daily minutes:", dailyMinutes);
 
             // Validate daily hours don't exceed 24h
             if (dailyMinutes > 1440) {

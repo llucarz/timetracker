@@ -11,7 +11,7 @@ interface AdjustmentsHistoryProps {
 }
 
 export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
-    const { deleteOvertimeEvent } = useTimeTracker();
+    const { deleteOvertimeEvent, deleteEntry } = useTimeTracker();
     const { showNotification } = useNotification();
     const [historyFilter, setHistoryFilter] = useState("all");
 
@@ -164,7 +164,11 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                     {item.isManual && (
                                         <button
                                             onClick={() => {
-                                                deleteOvertimeEvent(item.id);
+                                                if (item.source === "entry") {
+                                                    deleteEntry(item.id);
+                                                } else {
+                                                    deleteOvertimeEvent(item.id);
+                                                }
                                                 showNotification({ type: "success", title: "Succès", message: "Ajustement supprimé" });
                                             }}
                                             className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"

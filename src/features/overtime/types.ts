@@ -7,4 +7,5 @@ export interface HistoryItem {
     isManual: boolean;
     start?: string;
     end?: string;
+    source: "entry" | "event";
 }

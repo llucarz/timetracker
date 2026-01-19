@@ -176,7 +176,8 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
 
     // 3. Delete the overtime event
     overtimeHook.deleteOvertimeEvent(id);
-  }, [overtimeHook.otState.events, overtimeHook.deleteOvertimeEvent, entriesHook.entries, entriesHook.deleteEntry]);
+    syncHook.markDirty('overtime');
+  }, [overtimeHook.otState.events, overtimeHook.deleteOvertimeEvent, entriesHook.entries, entriesHook.deleteEntry, syncHook]);
 
   // CRITICAL FIX: Memoize context value to prevent unnecessary re-renders
   // This ensures that consumer components don't re-render unless data actually changes

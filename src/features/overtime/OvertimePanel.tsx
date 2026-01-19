@@ -28,17 +28,22 @@ export function OvertimePanel() {
                 comment: event.note,
                 isManual: true,
                 start: event.start,
-                end: event.end
+                end: event.end,
+                source: "event"
             });
         });
 
-        // 2. Earned (Daily positive delta from actual work)
+        // 2. Earned (Daily delta from Work OR Recovery entries)
         entries.forEach(entry => {
-            if (entry.status && entry.status !== "work") return; // Only work days
+            // Include Work AND Recovery entries
+            if (!entry.status || (entry.status !== "work" && entry.status !== "recovery")) return;
 
-            const workMinutes = computeMinutes(entry);
+            // Robustness: Force 0 worked minutes for recovery days, ignoring any potential start/end times
+            const workMinutes = entry.status === "recovery" ? 0 : computeMinutes(entry);
+
             const recoveryMinutes = getRecoveryMinutesForDay(entry.date, otState.events);
             const totalMinutes = workMinutes + recoveryMinutes;
+
             // Use schedule-based daily target
             const dailyTarget = getDailyTargetMinutes(entry.date, settings);
             const delta = totalMinutes - dailyTarget;
@@ -50,7 +55,19 @@ export function OvertimePanel() {
                     type: "earned",
                     minutes: delta,
                     comment: "Heures supplémentaires",
-                    isManual: false
+                    isManual: false,
+                    source: "entry"
+                });
+            } else if (delta < 0 && entry.status === "recovery") {
+                // Recovery Entry (Imported or Manual Entry)
+                items.push({
+                    id: entry.id,
+                    date: entry.date,
+                    type: "recovered",
+                    minutes: Math.abs(delta),
+                    comment: "Récupération (Journée)",
+                    isManual: true, // Deletable
+                    source: "entry"
                 });
             }
         });

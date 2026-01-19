@@ -309,7 +309,7 @@ export function useCloudSync(
             // Si on ré-ajoute/modifie, on s'assure qu'il n'est plus marqué "deleted"
             dirtyRef.current.entries.add(id);
             dirtyRef.current.deletedIds.delete(id);
-        } else {
+        } else if (type === 'settings' || type === 'overtime') {
             dirtyRef.current[type] = true;
         }
         persistDirty();

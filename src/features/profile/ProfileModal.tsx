@@ -58,6 +58,8 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
             setWorkdaysPerWeek(settings.workDays.toString());
 
             if (settings.baseHours) {
+                console.log("[ProfileModal] Initializing with baseHours:", settings.baseHours);
+                console.log("[ProfileModal] Mode from DB:", settings.baseHours.mode);
                 setMode(settings.baseHours.mode === "per-day" ? "different" : "same");
 
                 // Load same schedule

@@ -343,103 +343,133 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{
-                            duration: 0.4,
-                            ease: [0.4, 0, 0.2, 1]
-                        }}
-                        className="relative rounded-xl border border-gray-100 overflow-hidden flex-1 flex flex-col min-h-0"
+                        transition={{ duration: 0.4 }}
+                        className="relative rounded-xl border border-gray-100 flex-1 flex flex-col min-h-0 bg-white"
                     >
                         {/* Desktop Table View (hidden on small screens) */}
-                        <div
-                            className="hidden lg:block overflow-x-auto overflow-y-auto flex-1 custom-scrollbar"
-                            ref={scrollContainerRef}
-                            onScroll={handleScroll}
-                        >
-                            <table className="w-full">
-                                <thead className="bg-gray-50 sticky top-0 z-10">
-                                    <tr>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Arrivée</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Pause</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Reprise</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Départ</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Statut</th>
-                                        <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Notes</th>
-                                        <th className="text-center px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 bg-white">
-                                    {filteredEntries.map((entry, index) => {
-                                        const duration = minToHM(computeMinutes(entry));
+                        <div className="hidden lg:flex flex-col relative rounded-xl overflow-hidden">
+                            <div
+                                className={`overflow-x-auto overflow-y-auto custom-scrollbar ${filteredEntries.length > 6 ? 'max-h-96' : 'h-auto'}`}
+                                ref={scrollContainerRef}
+                                onScroll={handleScroll}
+                            >
+                                <table className="w-full">
+                                    <thead className="bg-gray-50/80 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
+                                        <tr>
+                                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Arrivée</th>
+                                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Pause</th>
+                                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Reprise</th>
+                                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Départ</th>
+                                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
+                                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Statut</th>
+                                            <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Notes</th>
+                                            <th className="text-center px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100 bg-white">
+                                        {filteredEntries.map((entry, index) => {
+                                            const isRecovery = entry.status === "recovery";
+                                            let duration = minToHM(computeMinutes(entry));
 
-                                        return (
-                                            <motion.tr
-                                                key={entry.id}
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                transition={{ delay: Math.min(index * 0.05, 0.5) }}
-                                                className="hover:bg-gray-50 transition-colors"
-                                            >
-                                                <td className="px-3 py-2.5">
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium text-gray-900 text-sm">
-                                                            {new Date(entry.date).toLocaleDateString('fr-FR', {
-                                                                day: 'numeric',
-                                                                month: 'short'
-                                                            })}
+                                            if (isRecovery && entry.start && entry.end) {
+                                                const start = hmToMin(entry.start);
+                                                const end = hmToMin(entry.end);
+                                                duration = "-" + minToHM(end - start);
+                                            }
+
+                                            return (
+                                                <motion.tr
+                                                    key={entry.id}
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    transition={{ delay: Math.min(index * 0.05, 0.5) }}
+                                                    className="hover:bg-gray-50/80 transition-colors group"
+                                                >
+                                                    <td className="px-3 py-2.5">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-medium text-gray-900 text-sm">
+                                                                {new Date(entry.date).toLocaleDateString('fr-FR', {
+                                                                    day: 'numeric',
+                                                                    month: 'short'
+                                                                })}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500">
+                                                                {new Date(entry.date).toLocaleDateString('fr-FR', { weekday: 'short' })}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-3 py-2.5">
+                                                        <span className="font-mono text-sm text-gray-700">{entry.start || "—"}</span>
+                                                    </td>
+                                                    <td className="px-3 py-2.5">
+                                                        <span className="font-mono text-sm text-gray-700">{entry.lunchStart || "—"}</span>
+                                                    </td>
+                                                    <td className="px-3 py-2.5">
+                                                        <span className="font-mono text-sm text-gray-700">{entry.lunchEnd || "—"}</span>
+                                                    </td>
+                                                    <td className="px-3 py-2.5">
+                                                        <span className="font-mono text-sm text-gray-700">{entry.end || "—"}</span>
+                                                    </td>
+                                                    <td className="px-3 py-2.5">
+                                                        <span className={`font-semibold ${isRecovery ? "text-red-600" : "text-gray-900"}`}>{duration}</span>
+                                                    </td>
+                                                    <td className="px-3 py-2.5">
+                                                        <Badge
+                                                            variant={entry.status === "work" ? "default" : "secondary"}
+                                                            className={`rounded-full text-xs font-medium capitalize shadow-sm ${isRecovery ? "bg-red-100 text-red-700 hover:bg-red-200" : ""}`}
+                                                        >
+                                                            {statusTranslations[entry.status || "work"] || entry.status}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-3 py-2.5 max-w-[150px]">
+                                                        <span className="text-sm text-gray-500 truncate block font-medium group-hover:text-gray-700 transition-colors">
+                                                            {entry.notes || "—"}
                                                         </span>
-                                                        <span className="text-xs text-gray-500">
-                                                            {new Date(entry.date).toLocaleDateString('fr-FR', { weekday: 'short' })}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-2.5">
-                                                    <span className="font-mono text-sm text-gray-700">{entry.start || "—"}</span>
-                                                </td>
-                                                <td className="px-3 py-2.5">
-                                                    <span className="font-mono text-sm text-gray-700">{entry.lunchStart || "—"}</span>
-                                                </td>
-                                                <td className="px-3 py-2.5">
-                                                    <span className="font-mono text-sm text-gray-700">{entry.lunchEnd || "—"}</span>
-                                                </td>
-                                                <td className="px-3 py-2.5">
-                                                    <span className="font-mono text-sm text-gray-700">{entry.end || "—"}</span>
-                                                </td>
-                                                <td className="px-3 py-2.5">
-                                                    <span className="font-semibold text-gray-900">{duration}</span>
-                                                </td>
-                                                <td className="px-3 py-2.5">
-                                                    <Badge
-                                                        variant={entry.status === "work" ? "default" : "secondary"}
-                                                        className="rounded-full text-xs font-medium capitalize"
-                                                    >
-                                                        {statusTranslations[entry.status] || entry.status}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-3 py-2.5">
-                                                    <span className="text-sm text-gray-500 max-w-[150px] truncate block" title={entry.notes}>{entry.notes || "—"}</span>
-                                                </td>
-                                                <td className="px-3 py-2.5 text-center">
-                                                    <button
-                                                        onClick={() => handleEditEntry(entry)}
-                                                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-purple-50 transition-colors"
-                                                    >
-                                                        <Pencil className="w-4 h-4 text-purple-600" />
-                                                    </button>
-                                                </td>
-                                            </motion.tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
+                                                    </td>
+                                                    <td className="px-3 py-2.5 text-center">
+                                                        <button
+                                                            onClick={() => handleEditEntry(entry)}
+                                                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:text-purple-600 hover:bg-purple-50 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
+                                                </motion.tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Scroll indicator - desktop only */}
+                            {filteredEntries.length > 6 && !isScrolledToBottom && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="hidden lg:flex absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none items-end justify-center pb-3"
+                                >
+                                    <div className="bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm border border-gray-100 text-xs font-medium text-gray-500 flex items-center gap-1.5 animate-bounce-slight">
+                                        <ChevronLeft className="w-3.5 h-3.5 -rotate-90 text-purple-500" />
+                                        <span>Faites défiler pour voir plus</span>
+                                    </div>
+                                </motion.div>
+                            )}
                         </div>
 
                         {/* Mobile Card View (visible on small screens) */}
                         <div className="lg:hidden overflow-y-auto flex-1 p-2">
                             <div className="space-y-3">
                                 {filteredEntries.map((entry, index) => {
-                                    const duration = minToHM(computeMinutes(entry));
+                                    const isRecovery = entry.status === "recovery";
+                                    let duration = minToHM(computeMinutes(entry));
+
+                                    if (isRecovery && entry.start && entry.end) {
+                                        const start = hmToMin(entry.start);
+                                        const end = hmToMin(entry.end);
+                                        duration = "-" + minToHM(end - start);
+                                    }
 
                                     return (
                                         <motion.div
@@ -447,7 +477,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             transition={{ delay: Math.min(index * 0.05, 0.5) }}
-                                            className="bg-gray-50 rounded-lg p-4 space-y-3"
+                                            className="bg-gray-50/50 border border-gray-100 rounded-xl p-4 space-y-3 shadow-sm"
                                         >
                                             <div className="flex items-center justify-between">
                                                 <div>
@@ -460,13 +490,13 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                     </p>
                                                     <Badge
                                                         variant={entry.status === "work" ? "default" : "secondary"}
-                                                        className="rounded-full text-xs font-medium mt-1 capitalize"
+                                                        className={`rounded-full text-xs font-medium mt-1 capitalize ${isRecovery ? "bg-red-100 text-red-700 hover:bg-red-200" : ""}`}
                                                     >
-                                                        {statusTranslations[entry.status] || entry.status}
+                                                        {statusTranslations[entry.status || "work"] || entry.status}
                                                     </Badge>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="font-bold text-gray-900 text-lg">{duration}</p>
+                                                    <p className={`font-bold text-lg ${isRecovery ? "text-red-600" : "text-gray-900"}`}>{duration}</p>
                                                     <button
                                                         onClick={() => handleEditEntry(entry)}
                                                         className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-purple-50 transition-colors"
@@ -477,28 +507,41 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                             </div>
 
                                             {entry.status === "work" && (
-                                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                                <div className="grid grid-cols-2 gap-3 text-xs bg-white p-2 rounded-lg border border-gray-100">
                                                     <div>
-                                                        <p className="text-gray-500">Arrivée</p>
+                                                        <p className="text-gray-400 font-medium">Arrivée</p>
                                                         <p className="font-mono text-gray-900 mt-0.5">{entry.start || "—"}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-gray-500">Départ</p>
+                                                        <p className="text-gray-400 font-medium">Départ</p>
                                                         <p className="font-mono text-gray-900 mt-0.5">{entry.end || "—"}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-gray-500">Pause</p>
+                                                        <p className="text-gray-400 font-medium">Pause</p>
                                                         <p className="font-mono text-gray-900 mt-0.5">{entry.lunchStart || "—"}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-gray-500">Reprise</p>
+                                                        <p className="text-gray-400 font-medium">Reprise</p>
                                                         <p className="font-mono text-gray-900 mt-0.5">{entry.lunchEnd || "—"}</p>
                                                     </div>
                                                 </div>
                                             )}
 
+                                            {isRecovery && (
+                                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                                    <div>
+                                                        <p className="text-gray-500">Début</p>
+                                                        <p className="font-mono text-gray-900 mt-0.5">{entry.start || "—"}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-gray-500">Fin</p>
+                                                        <p className="font-mono text-gray-900 mt-0.5">{entry.end || "—"}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {entry.notes && (
-                                                <p className="text-xs text-gray-600 italic border-t border-gray-200 pt-2">
+                                                <p className="text-xs text-gray-600 italic border-t border-gray-200 pt-2 px-1">
                                                     {entry.notes}
                                                 </p>
                                             )}
@@ -507,16 +550,6 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                 })}
                             </div>
                         </div>
-
-                        {/* Scroll indicator - desktop only */}
-                        {filteredEntries.length > 5 && !isScrolledToBottom && (
-                            <div className="hidden lg:block absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none">
-                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-gray-400 flex items-center gap-1">
-                                    <ChevronLeft className="w-3 h-3 -rotate-90" />
-                                    <span>Faites défiler pour voir plus</span>
-                                </div>
-                            </div>
-                        )}
                     </motion.div>
                 </AnimatePresence>
 

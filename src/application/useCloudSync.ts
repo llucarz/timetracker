@@ -28,7 +28,8 @@ export function useCloudSync(
     entries: Entry[],
     settings: Settings,
     otState: OvertimeState,
-    isDataLoaded: boolean
+    isDataLoaded: boolean,
+    onBootLoad?: (data: any) => void // NEW: Callback to apply data
 ) {
 
 
@@ -182,12 +183,19 @@ export function useCloudSync(
         setCloudState('idle');
         setLastError(null);
 
-        loadFromCloud().catch(() => {
-            // Safety catch, though loadFromCloud handles its own errors
-            setBootState('error');
-        });
+        loadFromCloud()
+            .then(data => {
+                if (data && onBootLoad) {
+                    console.log("[useCloudSync] Boot data loaded, applying to app state...", data);
+                    onBootLoad(data);
+                }
+            })
+            .catch(() => {
+                // Safety catch, though loadFromCloud handles its own errors
+                setBootState('error');
+            });
 
-    }, [settings.account?.key, settings.account?.isOffline, loadFromCloud, bootState]);
+    }, [settings.account?.key, settings.account?.isOffline, loadFromCloud, bootState, onBootLoad]);
 
 
     // ========================================

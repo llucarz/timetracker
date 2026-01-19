@@ -80,11 +80,27 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     settingsHook.isLoaded
   );
 
+  // Handle Boot Data Application
+  const handleBootLoad = useCallback((data: { entries?: Entry[], settings?: Settings, overtime?: OvertimeState }) => {
+    if (data.entries) {
+      entriesHook.importEntries(data.entries);
+    }
+    if (data.settings) {
+      // Force settings update from cloud
+      settingsHook.updateSettings(data.settings);
+    }
+    // Note: Overtime is currently derived. If we want to force sync overtime events specifically:
+    if (data.overtime && data.overtime.events) {
+      // For now, we rely on derived state, but this hook provides the slot if needed.
+    }
+  }, [entriesHook, settingsHook]);
+
   const syncHook = useCloudSync(
     entriesHook.entries,
     settingsHook.settings,
     overtimeHook.otState,
-    entriesHook.isLoaded && settingsHook.isLoaded && overtimeHook.isLoaded
+    entriesHook.isLoaded && settingsHook.isLoaded && overtimeHook.isLoaded,
+    handleBootLoad // Pass the callback
   );
 
   // Wrapped actions with dirty tracking (debounce 1s + flush)

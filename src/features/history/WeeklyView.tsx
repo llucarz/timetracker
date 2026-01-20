@@ -412,7 +412,25 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                         <span className="font-mono text-sm text-gray-700">{entry.end || "—"}</span>
                                                     </td>
                                                     <td className="px-3 py-2.5">
-                                                        <span className={`font-semibold ${isRecovery ? "text-red-600" : "text-gray-900"}`}>{duration}</span>
+                                                        <div className="flex flex-col">
+                                                            <span className={`font-semibold ${isRecovery ? "text-red-600" : "text-gray-900"}`}>{duration}</span>
+                                                            {!isRecovery && entry.status === "work" && (() => {
+                                                                const worked = computeMinutes(entry);
+                                                                const target = getDailyTargetMinutes(entry.date, settings);
+                                                                const delta = worked - target;
+
+                                                                if (delta === 0) return null;
+
+                                                                const isDeficit = delta < 0;
+                                                                const formattedDelta = (isDeficit ? "- " : "+ ") + minToHM(Math.abs(delta));
+
+                                                                return (
+                                                                    <span className={`text-[10px] font-medium ${isDeficit ? "text-orange-600" : "text-emerald-600"}`}>
+                                                                        {formattedDelta} {isDeficit ? "(Absence non justifiée)" : "(sup.)"}
+                                                                    </span>
+                                                                );
+                                                            })()}
+                                                        </div>
                                                     </td>
                                                     <td className="px-3 py-2.5">
                                                         <Badge
@@ -497,6 +515,22 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className={`font-bold text-lg ${isRecovery ? "text-red-600" : "text-gray-900"}`}>{duration}</p>
+                                                    {!isRecovery && entry.status === "work" && (() => {
+                                                        const worked = computeMinutes(entry);
+                                                        const target = getDailyTargetMinutes(entry.date, settings);
+                                                        const delta = worked - target;
+
+                                                        if (delta === 0) return null;
+
+                                                        const isDeficit = delta < 0;
+                                                        const formattedDelta = (isDeficit ? "- " : "+ ") + minToHM(Math.abs(delta));
+
+                                                        return (
+                                                            <p className={`text-xs font-medium ${isDeficit ? "text-orange-600" : "text-emerald-600"}`}>
+                                                                {formattedDelta} {isDeficit ? "(Absence non justifiée)" : "(sup.)"}
+                                                            </p>
+                                                        );
+                                                    })()}
                                                     <button
                                                         onClick={() => handleEditEntry(entry)}
                                                         className="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-purple-50 transition-colors"

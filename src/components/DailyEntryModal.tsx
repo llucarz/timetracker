@@ -249,14 +249,14 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule, entry }: Dai
             className="fixed inset-0 w-full h-full bg-black/20 backdrop-blur-sm z-50"
           />
 
-          {/* Modal - Plein écran sur mobile */}
-          <div className="fixed inset-0 md:flex md:items-center md:justify-center z-50 md:p-4">
+          {/* Modal - Style unifié avec ProfileModal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
-              initial={{ opacity: 0, y: "100%" }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: "100%" }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className="bg-white h-full md:h-auto md:rounded-3xl card-shadow md:max-w-2xl w-full md:max-h-[90vh] overflow-hidden flex flex-col"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-3xl card-shadow max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
             >
               {/* Header - Plus compact sur mobile */}
               {/* Header */}
@@ -299,7 +299,7 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule, entry }: Dai
 
                     <div className="space-y-2">
                       <Label className="text-sm font-medium text-gray-700">Type de journée</Label>
-                      <Select value={status} onValueChange={setStatus}>
+                      <Select value={status} onValueChange={(val) => setStatus(val as any)}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>

@@ -105,6 +105,28 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                             Récupérées
                         </span>
                     </button>
+                    <button
+                        onClick={() => setHistoryFilter("deficit")}
+                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors relative z-10"
+                    >
+                        {historyFilter === "deficit" && (
+                            <motion.div
+                                layoutId="filterIndicator"
+                                className="absolute inset-0 bg-white shadow-sm rounded-md"
+                                transition={{
+                                    type: "spring",
+                                    stiffness: 300,
+                                    damping: 30
+                                }}
+                            />
+                        )}
+                        <span className={`relative z-10 ${historyFilter === "deficit"
+                            ? "text-gray-900"
+                            : "text-gray-600"
+                            }`}>
+                            Absences
+                        </span>
+                    </button>
                 </div>
             </div>
 

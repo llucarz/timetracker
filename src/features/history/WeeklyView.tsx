@@ -259,41 +259,69 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                     }`}
             >
                 {/* Header */}
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4 flex-shrink-0">
-                    <div>
-                        <h3 className="font-semibold text-gray-900 mb-0.5 text-base">Entrées de temps</h3>
-                        <p className="text-xs text-gray-500">
-                            {period === "week" && `Semaine du ${(() => {
-                                const d = new Date(currentDate);
-                                const day = d.getDay() || 7;
-                                if (day !== 1) d.setDate(d.getDate() - (day - 1));
-                                return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-                            })()}`}
-                            {period === "month" && currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-                            {period === "year" && `Année ${currentDate.getFullYear()}`}
-                        </p>
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4 flex-shrink-0">
+                    <div className="flex items-center justify-between w-full lg:w-auto">
+                        <div>
+                            <h3 className="font-semibold text-gray-900 mb-0.5 text-base">Entrées de temps</h3>
+                            <p className="text-xs text-gray-500">
+                                {period === "week" && `Semaine du ${(() => {
+                                    const d = new Date(currentDate);
+                                    const day = d.getDay() || 7;
+                                    if (day !== 1) d.setDate(d.getDate() - (day - 1));
+                                    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+                                })()}`}
+                                {period === "month" && currentDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                                {period === "year" && `Année ${currentDate.getFullYear()}`}
+                            </p>
+                        </div>
+
+                        {/* Mobile Navigation & Expand (Hidden on Desktop) */}
+                        <div className="flex lg:hidden items-center gap-2">
+                            {!isFullscreen && (
+                                <div className="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg">
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-md bg-white shadow-sm hover:bg-gray-50 text-gray-600" onClick={handlePrevious}>
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-md bg-white shadow-sm hover:bg-gray-50 text-gray-600" onClick={handleNext}>
+                                        <ChevronRight className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            )}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsFullscreen(!isFullscreen)}
+                                className={`rounded-lg ${isFullscreen
+                                    ? "absolute top-4 right-4 h-9 w-9 p-0 bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg z-10"
+                                    : "h-8 w-8 p-0 bg-white shadow-sm hover:bg-gray-50 text-gray-600"
+                                    }`}
+                            >
+                                {isFullscreen ? (
+                                    <Minimize2 className="w-4 h-4" />
+                                ) : (
+                                    <Maximize2 className="w-4 h-4" />
+                                )}
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <div className="flex items-center justify-end gap-2 sm:gap-3 flex-wrap w-full lg:w-auto">
                         {!isFullscreen && (
                             <>
-                                {/* Period Tabs with animated indicator */}
-                                <div className="relative bg-gray-100 p-0.5 sm:p-1 rounded-lg sm:rounded-xl flex gap-0.5 sm:gap-1">
-                                    {/* Tabs */}
+                                {/* Period Tabs (Full width on mobile, auto on desktop) */}
+                                <div className="relative bg-gray-100 p-0.5 sm:p-1 rounded-xl grid grid-cols-3 lg:flex gap-0.5 sm:gap-1 w-full lg:w-auto">
                                     {[{ key: "week", label: "Semaine" }, { key: "month", label: "Mois" }, { key: "year", label: "Année" }].map((p) => (
                                         <button
                                             key={p.key}
                                             onClick={(event) => handlePeriodClick(p.key as any, event)}
-                                            className={`relative z-10 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-medium rounded-md sm:rounded-lg transition-colors ${period === p.key ? "text-gray-900" : "text-gray-600 hover:text-gray-900"
+                                            className={`relative z-10 px-2 sm:px-3 py-1.5 sm:py-2 text-xs font-medium rounded-lg transition-colors flex justify-center items-center ${period === p.key ? "text-gray-900" : "text-gray-600 hover:text-gray-900"
                                                 }`}
                                         >
-                                            {p.label}
-
-                                            {/* Animated background */}
+                                            <span className="relative z-10">{p.label}</span>
                                             {period === p.key && (
                                                 <motion.div
                                                     layoutId="activeTab"
-                                                    className="absolute inset-0 bg-white rounded-md sm:rounded-lg shadow-sm -z-10"
+                                                    className="absolute inset-0 bg-white rounded-lg shadow-sm"
                                                     transition={{
                                                         type: "spring",
                                                         stiffness: 380,
@@ -305,8 +333,8 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                     ))}
                                 </div>
 
-                                {/* Navigation buttons */}
-                                <div className="flex items-center gap-1 bg-gray-100 p-0.5 sm:p-1 rounded-lg sm:rounded-xl">
+                                {/* Desktop Navigation (Hidden on Mobile) */}
+                                <div className="hidden lg:flex items-center gap-1 bg-gray-100 p-0.5 sm:p-1 rounded-xl">
                                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg bg-white shadow-sm hover:bg-gray-50" onClick={handlePrevious}>
                                         <ChevronLeft className="w-4 h-4" />
                                     </Button>
@@ -317,12 +345,12 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                             </>
                         )}
 
-                        {/* Bouton Plein écran */}
+                        {/* Desktop Expand (Hidden on Mobile) */}
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setIsFullscreen(!isFullscreen)}
-                            className={`rounded-lg ${isFullscreen
+                            className={`hidden lg:inline-flex rounded-lg ${isFullscreen
                                 ? "absolute top-4 right-4 h-9 w-9 p-0 bg-white/90 backdrop-blur-sm hover:bg-white shadow-lg z-10"
                                 : "h-8 w-8 p-0 bg-white shadow-sm hover:bg-gray-50"
                                 }`}

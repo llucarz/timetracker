@@ -181,7 +181,7 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="flex items-center flex-shrink-0">
                                     <p className={`text-base font-semibold ${item.type === "earned" ? "text-emerald-600" :
                                         item.type === "deficit" ? "text-orange-600" : "text-red-600"
                                         }`}>
@@ -197,9 +197,9 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                                 }
                                                 showNotification({ type: "success", title: "Succès", message: "Ajustement supprimé" });
                                             }}
-                                            className="w-8 h-8 rounded-lg hover:bg-red-50 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                                            className="h-8 rounded-lg hover:bg-red-50 flex items-center justify-center transition-all duration-200 overflow-hidden w-0 opacity-0 group-hover:w-8 group-hover:opacity-100 group-hover:ml-2"
                                         >
-                                            <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                            <Trash2 className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
                                         </button>
                                     )}
                                 </div>

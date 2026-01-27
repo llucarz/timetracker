@@ -43,7 +43,12 @@ export function useCloudSync(
 
     // REFS
     const entriesRef = useRef(entries);
+    const settingsRef = useRef(settings); // NEW: Track settings
+    const otStateRef = useRef(otState);   // NEW: Track overtime
+
     useEffect(() => { entriesRef.current = entries; }, [entries]);
+    useEffect(() => { settingsRef.current = settings; }, [settings]);
+    useEffect(() => { otStateRef.current = otState; }, [otState]);
 
     const dirtyRef = useRef<DirtyState>({
         entries: new Set(),
@@ -206,7 +211,10 @@ export function useCloudSync(
         if (autoSyncPausedRef.current) return;
         if (cloudState === 'syncing') return;
         if (bootState !== 'ready') return; // Cannot sync if not booted
-        if (!settings.account?.key || settings.account.isOffline) return;
+        
+        // Use Ref for current settings to avoid stale closure
+        const currentSettings = settingsRef.current;
+        if (!currentSettings.account?.key || currentSettings.account.isOffline) return;
 
         // CHECK DIRTY
         const snapshot: DirtyState = {
@@ -233,12 +241,12 @@ export function useCloudSync(
             const payload = {
                 entries: snapshot.entries.size > 0 ? entriesRef.current.filter(e => snapshot.entries.has(e.id)) : undefined,
                 deletedIds: snapshot.deletedIds.size > 0 ? Array.from(snapshot.deletedIds) : undefined,
-                settings: snapshot.settings ? settings : undefined,
-                overtime: snapshot.overtime ? otState : undefined,
+                settings: snapshot.settings ? settingsRef.current : undefined,  // Use Ref
+                overtime: snapshot.overtime ? otStateRef.current : undefined,   // Use Ref
                 clientUpdatedAt: lastSyncTimestampRef.current
             };
 
-            const res = await fetch(`/api/data?key=${settings.account.key}`, {
+            const res = await fetch(`/api/data?key=${currentSettings.account.key}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include', // Important for Safari
@@ -284,7 +292,7 @@ export function useCloudSync(
             if (snapshot.overtime) dirtyRef.current.overtime = true;
             persistDirty();
         }
-    }, [cloudState, bootState, settings, otState, persistDirty]);
+    }, [cloudState, bootState, persistDirty]); // removed settings/otState dependencies
 
     // ========================================
     // CONFLICT RESOLUTION

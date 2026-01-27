@@ -75,7 +75,7 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
         const capitalizedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
 
         // Calculate overtime using schedule-based daily target
-        const dailyTarget = getDailyTargetMinutes(e.date, settings);
+        const dailyTarget = getDailyTargetMinutes(e.date, settings, e);
         const otMins = mins - dailyTarget;
         const otStr = e.status === 'work' ? (otMins > 0 ? `+${minToHM(otMins)}` : minToHM(otMins)) : null;
 

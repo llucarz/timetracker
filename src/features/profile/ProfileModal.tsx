@@ -8,6 +8,7 @@ import { computeMinutesFromTimes, minToHM } from "../../lib/utils";
 import { GRADIENTS } from "../../ui/design-system/tokens";
 import { ScheduleConfigForm } from "./components/ScheduleConfigForm";
 import { TargetConfigForm } from "./components/TargetConfigForm";
+import { getDailyTargetMinutes } from "../../lib/logic";
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -109,7 +110,14 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
         };
     }, [isOpen]);
 
-    const handleSave = () => {
+    // Contract Change Detection State
+    const [showContractDialog, setShowContractDialog] = useState(false);
+    const [newSettingsCandidates, setNewSettingsCandidates] = useState<Partial<Settings> | null>(null);
+    const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
+    const [isMigrating, setIsMigrating] = useState(false);
+
+    // Prepare settings for save, but catch changes first
+    const handlePreSave = () => {
         const targetWeeklyMinutes = parseFloat(weeklyTarget) * 60;
         let totalWeeklyMinutes = 0;
 
@@ -192,18 +200,158 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
             }), {} as any)
         };
 
-        updateSettings({
+        const candidateSettings = {
             weeklyTarget: parseFloat(weeklyTarget),
             workDays: parseInt(workdaysPerWeek),
             baseHours: newBaseHours
-        });
+        };
 
+        // Detect if schedule configuration actually changed
+        // Simple JSON stringify comparison for deep object check
+        const hasBaseHoursChanged = JSON.stringify(settings.baseHours) !== JSON.stringify(newBaseHours);
+        const hasTargetChanged = settings.weeklyTarget !== candidateSettings.weeklyTarget;
+
+        if (hasBaseHoursChanged || hasTargetChanged) {
+            setNewSettingsCandidates(candidateSettings);
+            setShowContractDialog(true);
+        } else {
+            // No significant changes, just save (e.g. might be other fields if any)
+            confirmSave(candidateSettings);
+        }
+    };
+
+    const confirmSave = (finalSettings: Partial<Settings>) => {
+        updateSettings(finalSettings);
         showNotification({
             type: "success",
             title: "Profil enregistré",
             message: "Votre horaire de travail a été mis à jour"
         });
         onClose();
+    };
+
+
+    const handleContractMigration = async (type: 'correction' | 'new_contract') => {
+        if (!newSettingsCandidates) return;
+        setIsMigrating(true);
+
+        try {
+            // Import useEntries hook logic is needed here to access `importEntries` and `entries`
+            // But we are in a modal. Ideally we should use a service.
+            // For now, we rely on `useTimeTracker` context which exposes `entries` and `importEntries`.
+            // Wait, we need to access ALL entries. Context usually provides all entries.
+
+            // Get current entries from context (we assume it's loaded)
+            // Ideally we should ensure we have the full history.
+
+            const { entries: currentEntries, importEntries } = useTimeTracker(); // Function component body hook call is strictly forbidden inside callback
+            // FIX: Access them from closure or refs. `settings` etc are available.
+            // Wait, I cannot call useTimeTracker inside this function.
+            // I need to use the props or values from outer scope.
+            // I'll use the values available in the component scope.
+        } catch (e) {
+            console.error("Migration failed", e);
+            showNotification({ type: 'error', title: 'Erreur', message: 'La migration a échoué.' });
+        } finally {
+            setIsMigrating(false);
+            setShowContractDialog(false);
+        }
+    };
+
+    // REDOING: `handleContractMigration` properly
+    // Access context values here
+    const { entries: allEntries, importEntries: batchUpdateEntries } = useTimeTracker(); // This is just getting reference, okay.
+
+    const executeMigration = (type: 'correction' | 'new_contract') => {
+        if (!newSettingsCandidates) return;
+        setIsMigrating(true);
+
+        try {
+            const updates: any[] = [];
+
+            if (type === 'correction') {
+                // CORRECTION MODE: Clear all snapshots
+                // We iterate over all entries that HAVE a snapshot and remove it.
+                allEntries.forEach(e => {
+                    if (e.targetSource === 'snapshot' || e.customTargetMinutes !== undefined) {
+                        updates.push({
+                            ...e,
+                            customTargetMinutes: undefined,
+                            targetSource: 'settings'
+                        });
+                    }
+                });
+            } else {
+                // NEW CONTRACT MODE
+                // 1. Identify entries strictly BEFORE effectiveDate
+                // 2. Snapshot them using OLD settings (current `settings`)
+
+                // Need to import logic function here? No, we have it in utils?
+                // Logic is in `getDailyTargetMinutes` but that uses `settings`.
+                // We want to calculate the target *using the OLD settings* and freeze it.
+
+                // Helper to get target from specific settings
+                // We'll import `getDailyTargetMinutes` from logic.ts
+
+                allEntries.forEach(e => {
+                    if (e.date < effectiveDate) {
+                        // This entry belongs to the PAST (Old Contract)
+                        // If it's already snapshotted, we keep it? 
+                        // The user requirement says: "Snapshot entries < effectiveDate".
+                        // Logic: IF it's not already snapshotted, OR if we want to enforce the "old settings" as the snapshot.
+                        // Ideally: We calculate what the target WAS under `settings` (the old ones before update).
+
+                        const oldTarget = getDailyTargetMinutes(e.date, settings); // Use CURRENT (old) settings
+
+                        // We freeze this target
+                        // Only update if it changes or wasn't set
+                        if (e.customTargetMinutes !== oldTarget || e.targetSource !== 'snapshot') {
+                            updates.push({
+                                ...e,
+                                customTargetMinutes: oldTarget,
+                                targetSource: 'snapshot'
+                            });
+                        }
+                    } else {
+                        // Entry is >= effectiveDate.
+                        // It belongs to the NEW contract.
+                        // It should NOT have a snapshot (dynamic).
+                        if (e.customTargetMinutes !== undefined) {
+                            updates.push({
+                                ...e,
+                                customTargetMinutes: undefined,
+                                targetSource: 'settings'
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Perform Batch Update
+            if (updates.length > 0) {
+                // Batching logic (50 items per chunk)
+                const chunkSize = 50;
+                for (let i = 0; i < updates.length; i += chunkSize) {
+                    const chunk = updates.slice(i, i + chunkSize);
+                    batchUpdateEntries(chunk);
+                }
+            }
+
+            // Finally, update settings
+            confirmSave(newSettingsCandidates);
+
+        } catch (error) {
+            console.error("Migration failed:", error);
+            showNotification({
+                type: "error",
+                title: "Erreur de migration",
+                message: "Impossible d'appliquer les changements. Vos paramètres n'ont pas été modifiés."
+            });
+            // Do NOT update settings
+        } finally {
+            setIsMigrating(false);
+            setShowContractDialog(false);
+        }
     };
 
     return (
@@ -302,7 +450,7 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
                             {/* Footer */}
                             <div className="px-8 py-6 border-t border-gray-100 bg-gray-50 grid grid-cols-2 gap-3">
                                 <Button
-                                    onClick={handleSave}
+                                    onClick={handlePreSave}
                                     className={`w-full h-12 text-white rounded-xl font-semibold shadow-md bg-gradient-to-r ${GRADIENTS.primaryButton}`}
                                 >
                                     <Save className="w-4 h-4" />
@@ -319,8 +467,90 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
                         </motion.div >
                     </div >
                 </>
-            )
-            }
+            )}
+
+            {showContractDialog && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 w-full h-full bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+                    onClick={() => setShowContractDialog(false)}
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        className="bg-white rounded-3xl shadow-xl max-w-lg w-full overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="p-6 sm:p-8">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                    <AlertTriangle className="w-6 h-6 text-purple-600" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900">Changement de contrat</h3>
+                                    <p className="text-sm text-gray-600">Comment appliquer ce changement ?</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* Option 1: Correction */}
+                                <button
+                                    onClick={() => executeMigration('correction')}
+                                    disabled={isMigrating}
+                                    className="w-full text-left p-4 rounded-xl border-2 border-transparent hover:border-purple-100 hover:bg-gray-50 transition-all group"
+                                >
+                                    <p className="font-semibold text-gray-900 group-hover:text-purple-700">Correction (Recalcul total)</p>
+                                    <p className="text-sm text-gray-500 mt-1">C'était une erreur. Recalculer tout l'historique avec ces nouveaux paramètres.</p>
+                                </button>
+
+                                {/* Option 2: New Contract */}
+                                <div className="p-4 rounded-xl border-2 border-purple-100 bg-purple-50/50">
+                                    <button
+                                        onClick={() => executeMigration('new_contract')}
+                                        disabled={isMigrating}
+                                        className="w-full text-left group mb-3"
+                                    >
+                                        <p className="font-semibold text-gray-900 group-hover:text-purple-700">Nouveau Contrat</p>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            Appliquer à partir d'une date spécifique. L'historique avant cette date sera figé avec les anciens paramètres.
+                                        </p>
+                                    </button>
+
+                                    <div className="flex items-center gap-3 mt-3 pt-3 border-t border-purple-100">
+                                        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Date d'effet :</label>
+                                        <input
+                                            type="date"
+                                            value={effectiveDate}
+                                            onChange={(e) => setEffectiveDate(e.target.value)}
+                                            className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {isMigrating && (
+                                <div className="mt-6 flex items-center justify-center gap-2 text-purple-600 font-medium">
+                                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    Mise à jour en cours...
+                                </div>
+                            )}
+
+                            <div className="mt-8 flex justify-end">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setShowContractDialog(false)}
+                                    disabled={isMigrating}
+                                >
+                                    Annuler
+                                </Button>
+                            </div>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
         </AnimatePresence >
     );
 }

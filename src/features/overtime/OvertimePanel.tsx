@@ -45,7 +45,7 @@ export function OvertimePanel() {
             const totalMinutes = workMinutes + recoveryMinutes;
 
             // Use schedule-based daily target
-            const dailyTarget = getDailyTargetMinutes(entry.date, settings);
+            const dailyTarget = getDailyTargetMinutes(entry.date, settings, entry);
             const delta = totalMinutes - dailyTarget;
 
             if (delta > 0) {

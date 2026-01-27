@@ -339,7 +339,7 @@ export function computeOvertimeEarned(entries: Entry[], settings: Settings, even
       dailyTargetMinutes = 0; // Absence days have 0 target
     } else {
       // Use schedule-based target or fallback to average
-      dailyTargetMinutes = getDailyTargetMinutes(e.date, settings);
+      dailyTargetMinutes = getDailyTargetMinutes(e.date, settings, e);
     }
 
     totalDelta += totalMinutes - dailyTargetMinutes;

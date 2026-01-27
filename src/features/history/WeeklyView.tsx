@@ -163,7 +163,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                 if (isWork) {
                     workDaysInWeekSet.add(entry.date);
                     // Add this day's target to weekly total
-                    weeklyTargetMinutes += getDailyTargetMinutes(entry.date, settings);
+                    weeklyTargetMinutes += getDailyTargetMinutes(entry.date, settings, entry);
                 }
             }
 
@@ -173,7 +173,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                 if (isWork) {
                     workDaysInMonthSet.add(entry.date);
                     // Add this day's target to monthly total
-                    monthlyTargetMinutes += getDailyTargetMinutes(entry.date, settings);
+                    monthlyTargetMinutes += getDailyTargetMinutes(entry.date, settings, entry);
                 }
             }
 
@@ -416,7 +416,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                             <span className={`font-semibold ${isRecovery ? "text-red-600" : "text-gray-900"}`}>{duration}</span>
                                                             {!isRecovery && entry.status === "work" && (() => {
                                                                 const worked = computeMinutes(entry);
-                                                                const target = getDailyTargetMinutes(entry.date, settings);
+                                                                const target = getDailyTargetMinutes(entry.date, settings, entry);
                                                                 const delta = worked - target;
 
                                                                 if (delta === 0) return null;
@@ -517,7 +517,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                     <p className={`font-bold text-lg ${isRecovery ? "text-red-600" : "text-gray-900"}`}>{duration}</p>
                                                     {!isRecovery && entry.status === "work" && (() => {
                                                         const worked = computeMinutes(entry);
-                                                        const target = getDailyTargetMinutes(entry.date, settings);
+                                                        const target = getDailyTargetMinutes(entry.date, settings, entry);
                                                         const delta = worked - target;
 
                                                         if (delta === 0) return null;

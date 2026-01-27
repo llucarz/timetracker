@@ -72,7 +72,7 @@ export function useEntryStats(
                 if (isWork) {
                     workDaysInWeekSet.add(entry.date);
                     // Add this day's target to weekly total
-                    weeklyTargetMinutes += getDailyTargetMinutes(entry.date, settings);
+                    weeklyTargetMinutes += getDailyTargetMinutes(entry.date, settings, entry);
                 }
             }
 
@@ -85,7 +85,7 @@ export function useEntryStats(
                 if (isWork) {
                     workDaysInMonthSet.add(entry.date);
                     // Add this day's target to monthly total
-                    monthlyTargetMinutes += getDailyTargetMinutes(entry.date, settings);
+                    monthlyTargetMinutes += getDailyTargetMinutes(entry.date, settings, entry);
                 }
             }
 

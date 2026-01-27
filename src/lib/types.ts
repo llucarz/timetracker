@@ -46,6 +46,19 @@ export interface Entry {
 
   /** Timestamp for sync conflict resolution (Date.now()) */
   updatedAt?: number;
+
+  /** 
+   * Snapshot of daily target in minutes at the time this entry was frozen/created.
+   * Used for historical contracts preservation (e.g., 35h -> 39h change).
+   */
+  customTargetMinutes?: number;
+
+  /**
+   * Source of the daily target calculation.
+   * - 'settings': Calculated dynamically from current global settings (Legacy/Default)
+   * - 'snapshot': Fixed value from customTargetMinutes (Frozen)
+   */
+  targetSource?: 'settings' | 'snapshot';
 }
 
 /**

@@ -45,7 +45,7 @@ export function getPlannedWorkMinutesForWeekday(
   // Mode 1: Per-day schedule (different hours each day)
   if (settings.baseHours.mode === "per-day" && settings.baseHours.days) {
     const daySchedule = settings.baseHours.days[dayKey];
-    
+
     if (!daySchedule || !daySchedule.enabled) {
       return null; // Day not worked
     }
@@ -106,24 +106,26 @@ export function getPlannedWorkMinutesForWeekday(
  * It prioritizes schedule-based targets over the average calculation.
  * 
  * Priority order:
- * 1. Per-day schedule (if configured) - e.g., Mon-Thu = 8h, Fri = 7h
- * 2. Same schedule for all days (if configured) - e.g., always 7h30
- * 3. Fallback: weeklyTarget / workDays (average) - e.g., 39h / 5 = 7h48
+ * 1. Historical Snapshot (if entry exists and has frozen target) - NEW
+ * 2. Per-day schedule (if configured)
+ * 3. Same schedule for all days (if configured)
+ * 4. Fallback: weeklyTarget / workDays (average)
  * 
  * @param date - ISO date string (YYYY-MM-DD)
  * @param settings - User settings
+ * @param entry - Optional Time Entry (to check for snapshots)
  * @returns Daily target in minutes (always >= 0)
- * 
- * @example
- * // User configured: Mon-Thu = 8h, Fri = 7h, weeklyTarget = 39h
- * getDailyTargetMinutes("2026-01-13", settings) // Monday → 480 min (8h)
- * getDailyTargetMinutes("2026-01-17", settings) // Friday → 420 min (7h)
- * 
- * @example
- * // User has no schedule configured, weeklyTarget = 35h, workDays = 5
- * getDailyTargetMinutes("2026-01-13", settings) // → 420 min (7h, fallback)
  */
-export function getDailyTargetMinutes(date: string, settings: Settings): number {
+export function getDailyTargetMinutes(
+  date: string,
+  settings: Settings,
+  entry?: Entry
+): number {
+  // 1. Check for Historical Snapshot (Frozen Contract)
+  if (entry?.customTargetMinutes !== undefined && entry.targetSource === 'snapshot') {
+    return entry.customTargetMinutes;
+  }
+
   // Parse date to get weekday
   const dateObj = new Date(date + "T12:00:00Z"); // Noon UTC to avoid timezone issues
   const weekday = dateObj.getUTCDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
@@ -183,7 +185,7 @@ export function getDailyOvertimeMinutes(
   giftMinutes: number = 0
 ): number {
   const workedMinutes = getWorkedMinutes(entry);
-  const baseTargetMinutes = getDailyTargetMinutes(entry.date, settings);
+  const baseTargetMinutes = getDailyTargetMinutes(entry.date, settings, entry);
   const effectiveTargetMinutes = Math.max(0, baseTargetMinutes - giftMinutes);
 
   return workedMinutes - effectiveTargetMinutes;

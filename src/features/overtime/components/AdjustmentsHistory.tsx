@@ -128,10 +128,13 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                 className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-200 group"
                             >
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${item.type === "earned" ? "bg-emerald-100" : "bg-red-100"
+                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${item.type === "earned" ? "bg-emerald-100" :
+                                        item.type === "deficit" ? "bg-orange-100" : "bg-red-100"
                                         }`}>
                                         {item.type === "earned" ? (
                                             <ArrowUpRight className="w-4 h-4 text-emerald-600" />
+                                        ) : item.type === "deficit" ? (
+                                            <Clock className="w-4 h-4 text-orange-600" />
                                         ) : (
                                             <Clock className="w-4 h-4 text-red-600" />
                                         )}
@@ -157,7 +160,8 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                 </div>
 
                                 <div className="flex items-center gap-2 flex-shrink-0">
-                                    <p className={`text-base font-semibold ${item.type === "earned" ? "text-emerald-600" : "text-red-600"
+                                    <p className={`text-base font-semibold ${item.type === "earned" ? "text-emerald-600" :
+                                        item.type === "deficit" ? "text-orange-600" : "text-red-600"
                                         }`}>
                                         {item.type === "earned" ? "+" : "-"}{formatDuration(item.minutes)}
                                     </p>

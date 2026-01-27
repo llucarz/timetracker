@@ -58,17 +58,31 @@ export function OvertimePanel() {
                     isManual: false,
                     source: "entry"
                 });
-            } else if (delta < 0 && entry.status === "recovery") {
-                // Recovery Entry (Imported or Manual Entry)
-                items.push({
-                    id: entry.id,
-                    date: entry.date,
-                    type: "recovered",
-                    minutes: Math.abs(delta),
-                    comment: "Récupération (Journée)",
-                    isManual: true, // Deletable
-                    source: "entry"
-                });
+            } else if (delta < 0) {
+                // Handle deficits (Consumption)
+                if (entry.status === "recovery") {
+                    // Explicit Recovery Entry
+                    items.push({
+                        id: entry.id,
+                        date: entry.date,
+                        type: "recovered",
+                        minutes: Math.abs(delta),
+                        comment: "Récupération (Journée)",
+                        isManual: true, // Deletable
+                        source: "entry"
+                    });
+                } else if (entry.status === "work") {
+                    // Implicit Work Deficit (Absence non justifiée)
+                    items.push({
+                        id: `deficit-${entry.id}`,
+                        date: entry.date,
+                        type: "deficit",
+                        minutes: Math.abs(delta),
+                        comment: "Absence non justifiée",
+                        isManual: false, // Not directly deletable (must edit entry)
+                        source: "entry"
+                    });
+                }
             }
         });
 

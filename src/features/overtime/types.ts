@@ -1,7 +1,7 @@
 export interface HistoryItem {
     id: string;
     date: string;
-    type: "earned" | "recovered";
+    type: "earned" | "recovered" | "deficit";
     minutes: number;
     comment?: string;
     isManual: boolean;

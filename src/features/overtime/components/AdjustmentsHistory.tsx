@@ -29,7 +29,7 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
             transition={{ duration: 0.4, delay: 0.2 }}
             className="bg-white rounded-2xl p-5 border border-gray-200 shadow-lg"
         >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div>
                     <h3 className="text-base font-semibold text-gray-900">Historique des ajustements</h3>
                     <p className="text-xs text-gray-500 mt-0.5">
@@ -38,15 +38,15 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                 </div>
 
                 {/* Filter Buttons */}
-                <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-lg relative">
+                <div className="grid grid-cols-4 gap-1 sm:flex sm:items-center sm:gap-1.5 bg-gray-100 p-1 rounded-xl sm:rounded-lg w-full sm:w-auto relative">
                     <button
                         onClick={() => setHistoryFilter("all")}
-                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors relative z-10"
+                        className="px-1 sm:px-3 py-1.5 rounded-lg sm:rounded-md text-[10px] sm:text-xs font-medium transition-colors relative z-10 flex justify-center items-center"
                     >
                         {historyFilter === "all" && (
                             <motion.div
                                 layoutId="filterIndicator"
-                                className="absolute inset-0 bg-white shadow-sm rounded-md"
+                                className="absolute inset-0 bg-white shadow-sm rounded-lg sm:rounded-md"
                                 transition={{
                                     type: "spring",
                                     stiffness: 300,
@@ -54,7 +54,7 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                 }}
                             />
                         )}
-                        <span className={`relative z-10 ${historyFilter === "all"
+                        <span className={`relative z-10 truncate ${historyFilter === "all"
                             ? "text-gray-900"
                             : "text-gray-600"
                             }`}>
@@ -63,12 +63,12 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                     </button>
                     <button
                         onClick={() => setHistoryFilter("earned")}
-                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors relative z-10"
+                        className="px-1 sm:px-3 py-1.5 rounded-lg sm:rounded-md text-[10px] sm:text-xs font-medium transition-colors relative z-10 flex justify-center items-center"
                     >
                         {historyFilter === "earned" && (
                             <motion.div
                                 layoutId="filterIndicator"
-                                className="absolute inset-0 bg-white shadow-sm rounded-md"
+                                className="absolute inset-0 bg-white shadow-sm rounded-lg sm:rounded-md"
                                 transition={{
                                     type: "spring",
                                     stiffness: 300,
@@ -76,7 +76,7 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                 }}
                             />
                         )}
-                        <span className={`relative z-10 ${historyFilter === "earned"
+                        <span className={`relative z-10 truncate ${historyFilter === "earned"
                             ? "text-gray-900"
                             : "text-gray-600"
                             }`}>
@@ -85,12 +85,12 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                     </button>
                     <button
                         onClick={() => setHistoryFilter("recovered")}
-                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors relative z-10"
+                        className="px-1 sm:px-3 py-1.5 rounded-lg sm:rounded-md text-[10px] sm:text-xs font-medium transition-colors relative z-10 flex justify-center items-center"
                     >
                         {historyFilter === "recovered" && (
                             <motion.div
                                 layoutId="filterIndicator"
-                                className="absolute inset-0 bg-white shadow-sm rounded-md"
+                                className="absolute inset-0 bg-white shadow-sm rounded-lg sm:rounded-md"
                                 transition={{
                                     type: "spring",
                                     stiffness: 300,
@@ -98,7 +98,7 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                 }}
                             />
                         )}
-                        <span className={`relative z-10 ${historyFilter === "recovered"
+                        <span className={`relative z-10 truncate ${historyFilter === "recovered"
                             ? "text-gray-900"
                             : "text-gray-600"
                             }`}>
@@ -107,12 +107,12 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                     </button>
                     <button
                         onClick={() => setHistoryFilter("deficit")}
-                        className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors relative z-10"
+                        className="px-1 sm:px-3 py-1.5 rounded-lg sm:rounded-md text-[10px] sm:text-xs font-medium transition-colors relative z-10 flex justify-center items-center"
                     >
                         {historyFilter === "deficit" && (
                             <motion.div
                                 layoutId="filterIndicator"
-                                className="absolute inset-0 bg-white shadow-sm rounded-md"
+                                className="absolute inset-0 bg-white shadow-sm rounded-lg sm:rounded-md"
                                 transition={{
                                     type: "spring",
                                     stiffness: 300,
@@ -120,7 +120,7 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                 }}
                             />
                         )}
-                        <span className={`relative z-10 ${historyFilter === "deficit"
+                        <span className={`relative z-10 truncate ${historyFilter === "deficit"
                             ? "text-gray-900"
                             : "text-gray-600"
                             }`}>

@@ -547,16 +547,16 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                         <p className="font-mono text-gray-900 mt-0.5">{entry.start || "—"}</p>
                                                     </div>
                                                     <div>
-                                                        <p className="text-gray-400 font-medium">Départ</p>
-                                                        <p className="font-mono text-gray-900 mt-0.5">{entry.end || "—"}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-400 font-medium">Pause</p>
+                                                        <p className="text-gray-400 font-medium">Début pause</p>
                                                         <p className="font-mono text-gray-900 mt-0.5">{entry.lunchStart || "—"}</p>
                                                     </div>
                                                     <div>
                                                         <p className="text-gray-400 font-medium">Reprise</p>
                                                         <p className="font-mono text-gray-900 mt-0.5">{entry.lunchEnd || "—"}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-gray-400 font-medium">Départ</p>
+                                                        <p className="font-mono text-gray-900 mt-0.5">{entry.end || "—"}</p>
                                                     </div>
                                                 </div>
                                             )}

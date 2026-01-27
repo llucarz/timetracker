@@ -6,6 +6,7 @@ import { Textarea } from "../../../components/ui/textarea";
 import { Checkbox } from "../../../components/ui/checkbox";
 import { Label } from "../../../components/ui/label";
 import { DatePicker } from "../../../components/DatePicker";
+import { TimePicker } from "../../../components/TimePicker";
 import { useNotification } from "../../../context/NotificationContext";
 import { useTimeTracker } from "../../../context/TimeTrackerContext";
 import { computeMinutesFromTimes, formatDuration, hmToMin, checkOverlap } from "../../../lib/utils";
@@ -190,21 +191,21 @@ export function RecoveryForm() {
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <Label className="text-sm font-medium text-gray-900 mb-1.5 block">Début</Label>
-                            <Input
-                                type="time"
+                            <TimePicker
                                 value={startTime}
-                                onChange={(e) => setStartTime(e.target.value)}
-                                className="h-10 rounded-lg border-gray-300 bg-white text-sm font-mono"
+                                onChange={setStartTime}
+                                placeholder="09:00"
+                                className="h-10 rounded-lg border-gray-300 bg-white text-sm"
                             />
                         </div>
 
                         <div>
                             <Label className="text-sm font-medium text-gray-900 mb-1.5 block">Fin</Label>
-                            <Input
-                                type="time"
+                            <TimePicker
                                 value={endTime}
-                                onChange={(e) => setEndTime(e.target.value)}
-                                className="h-10 rounded-lg border-gray-300 bg-white text-sm font-mono"
+                                onChange={setEndTime}
+                                placeholder="17:00"
+                                className="h-10 rounded-lg border-gray-300 bg-white text-sm"
                             />
                         </div>
                     </div>

@@ -259,27 +259,29 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule, entry }: Dai
               className="bg-white h-full md:h-auto md:rounded-3xl card-shadow md:max-w-2xl w-full md:max-h-[90vh] overflow-hidden flex flex-col"
             >
               {/* Header - Plus compact sur mobile */}
-              <div className={`px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-100 bg-gradient-to-r ${GRADIENTS.primaryLight} flex-shrink-0`}>
+              {/* Header */}
+              <div className={`px-8 py-6 border-b border-gray-100 bg-gradient-to-r ${GRADIENTS.primaryLight} flex-shrink-0`}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br ${GRADIENTS.primaryDouble} flex items-center justify-center shadow-lg shadow-purple-200`}>
-                      <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-white" strokeWidth={2.5} />
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${GRADIENTS.primaryDouble} flex items-center justify-center shadow-lg shadow-purple-200`}>
+                      <Calendar className="w-6 h-6 text-white" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">
+                        {entry ? "Modifier l'entrée" : "Mes heures"}
+                      </h2>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {entry ? "Modification" : "Journée de travail"}
+                      </p>
                     </div>
                   </div>
-                  <div>
-                    <h2 className="text-lg sm:text-2xl font-bold text-gray-900">
-                      {entry ? "Modifier l'entrée" : "Mes heures"}
-                    </h2>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-0.5">
-                      {entry ? "Modification" : "Journée de travail"}
-                    </p>
-                  </div>
+                  <button
+                    onClick={onClose}
+                    className="w-10 h-10 rounded-xl hover:bg-white/50 transition-colors flex items-center justify-center flex-shrink-0"
+                  >
+                    <X className="w-5 h-5 text-gray-600" />
+                  </button>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl hover:bg-white/50 transition-colors flex items-center justify-center flex-shrink-0"
-                >
-                </button>
               </div>
 
               {/* Content */}

@@ -1,4 +1,4 @@
-import { Input } from "../../../components/ui/input";
+import { TimePicker } from "../../../components/TimePicker";
 import { Label } from "../../../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { Checkbox } from "../../../components/ui/checkbox";
@@ -86,41 +86,37 @@ export function ScheduleConfigForm({
                 >
                     <div className="bg-gray-50 rounded-xl p-6">
                         <h4 className="font-semibold text-gray-900 mb-4">Horaires de travail par défaut</h4>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label className="text-sm text-gray-700">Heure d'arrivée</Label>
-                                <Input
-                                    type="time"
+                                <TimePicker
                                     value={sameSchedule.arrival}
-                                    onChange={(e) => handleSameScheduleChange('arrival', e.target.value)}
-                                    className="h-11 rounded-xl border-gray-200 font-mono"
+                                    onChange={(val) => handleSameScheduleChange('arrival', val)}
+                                    className="h-11 rounded-xl border-gray-200"
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-sm text-gray-700">Début pause</Label>
-                                <Input
-                                    type="time"
+                                <TimePicker
                                     value={sameSchedule.pauseStart}
-                                    onChange={(e) => handleSameScheduleChange('pauseStart', e.target.value)}
-                                    className="h-11 rounded-xl border-gray-200 font-mono"
+                                    onChange={(val) => handleSameScheduleChange('pauseStart', val)}
+                                    className="h-11 rounded-xl border-gray-200"
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-sm text-gray-700">Fin pause</Label>
-                                <Input
-                                    type="time"
+                                <TimePicker
                                     value={sameSchedule.pauseEnd}
-                                    onChange={(e) => handleSameScheduleChange('pauseEnd', e.target.value)}
-                                    className="h-11 rounded-xl border-gray-200 font-mono"
+                                    onChange={(val) => handleSameScheduleChange('pauseEnd', val)}
+                                    className="h-11 rounded-xl border-gray-200"
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-sm text-gray-700">Heure de départ</Label>
-                                <Input
-                                    type="time"
+                                <TimePicker
                                     value={sameSchedule.departure}
-                                    onChange={(e) => handleSameScheduleChange('departure', e.target.value)}
-                                    className="h-11 rounded-xl border-gray-200 font-mono"
+                                    onChange={(val) => handleSameScheduleChange('departure', val)}
+                                    className="h-11 rounded-xl border-gray-200"
                                 />
                             </div>
                         </div>
@@ -183,57 +179,53 @@ export function ScheduleConfigForm({
                                     </div>
 
                                     {schedule.isWorkday && (
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="space-y-2">
                                                 <Label className="text-sm text-gray-700">Heure d'arrivée</Label>
-                                                <Input
-                                                    type="time"
+                                                <TimePicker
                                                     value={schedule.arrival}
-                                                    onChange={(e) => {
+                                                    onChange={(val) => {
                                                         const newSchedules = [...daySchedules];
-                                                        newSchedules[index].arrival = e.target.value;
+                                                        newSchedules[index].arrival = val;
                                                         setDaySchedules(newSchedules);
                                                     }}
-                                                    className="h-11 rounded-xl border-gray-200 font-mono"
+                                                    className="h-11 rounded-xl border-gray-200"
                                                 />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-sm text-gray-700">Début pause</Label>
-                                                <Input
-                                                    type="time"
+                                                <TimePicker
                                                     value={schedule.pauseStart}
-                                                    onChange={(e) => {
+                                                    onChange={(val) => {
                                                         const newSchedules = [...daySchedules];
-                                                        newSchedules[index].pauseStart = e.target.value;
+                                                        newSchedules[index].pauseStart = val;
                                                         setDaySchedules(newSchedules);
                                                     }}
-                                                    className="h-11 rounded-xl border-gray-200 font-mono"
+                                                    className="h-11 rounded-xl border-gray-200"
                                                 />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-sm text-gray-700">Fin pause</Label>
-                                                <Input
-                                                    type="time"
+                                                <TimePicker
                                                     value={schedule.pauseEnd}
-                                                    onChange={(e) => {
+                                                    onChange={(val) => {
                                                         const newSchedules = [...daySchedules];
-                                                        newSchedules[index].pauseEnd = e.target.value;
+                                                        newSchedules[index].pauseEnd = val;
                                                         setDaySchedules(newSchedules);
                                                     }}
-                                                    className="h-11 rounded-xl border-gray-200 font-mono"
+                                                    className="h-11 rounded-xl border-gray-200"
                                                 />
                                             </div>
                                             <div className="space-y-2">
                                                 <Label className="text-sm text-gray-700">Heure de départ</Label>
-                                                <Input
-                                                    type="time"
+                                                <TimePicker
                                                     value={schedule.departure}
-                                                    onChange={(e) => {
+                                                    onChange={(val) => {
                                                         const newSchedules = [...daySchedules];
-                                                        newSchedules[index].departure = e.target.value;
+                                                        newSchedules[index].departure = val;
                                                         setDaySchedules(newSchedules);
                                                     }}
-                                                    className="h-11 rounded-xl border-gray-200 font-mono"
+                                                    className="h-11 rounded-xl border-gray-200"
                                                 />
                                             </div>
                                         </div>

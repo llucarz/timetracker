@@ -74,9 +74,11 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
         const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'long' });
         const capitalizedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
 
-        // Calculate overtime using schedule-based daily target
+        // Calculate overtime using schedule-based daily target, including any recovery taken
         const dailyTarget = getDailyTargetMinutes(e.date, settings, e);
-        const otMins = mins - dailyTarget;
+        const recoveryMins = e.status === 'work' ? (otState.events || []).filter(ev => ev.date === e.date).reduce((acc, ev) => acc + Math.abs(ev.minutes || 0), 0) : 0;
+        const totalCredited = mins + recoveryMins;
+        const otMins = totalCredited - dailyTarget;
         const otStr = e.status === 'work' ? (otMins > 0 ? `+${minToHM(otMins)}` : minToHM(otMins)) : null;
 
         return {

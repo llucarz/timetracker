@@ -45,16 +45,19 @@ export function useOvertime(
     useEffect(() => {
         if (!isLoaded || !entriesLoaded || !settingsLoaded) return;
 
-        const recalculated = OvertimeCalculator.recalculateState(
-            otState,
-            entries,
-            settings
-        );
+        setOtState(prevState => {
+            const recalculated = OvertimeCalculator.recalculateState(
+                prevState,
+                entries,
+                settings
+            );
 
-        // Only update if values changed (prevent loops)
-        if (OvertimeCalculator.hasChanged(otState, recalculated)) {
-            setOtState(recalculated);
-        }
+            // Only update if values changed (prevent loops)
+            if (OvertimeCalculator.hasChanged(prevState, recalculated)) {
+                return recalculated;
+            }
+            return prevState;
+        });
     }, [entries, settings.weeklyTarget, settings.workDays, isLoaded, entriesLoaded, settingsLoaded]);
 
     // Persist to storage

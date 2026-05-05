@@ -19,7 +19,7 @@ import { Entry, Settings, OvertimeState } from "./types";
 const DB_NAME = "TimeTrackerDB";
 
 /** Database schema version (increment when changing structure) */
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 /** IndexedDB object store names */
 const STORES = {

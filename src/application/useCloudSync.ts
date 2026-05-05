@@ -254,16 +254,43 @@ export function useCloudSync(
             });
 
             if (res.status === 409) {
-                // 409 CONFLICT
-                const { serverUpdatedAt } = await res.json();
+                // 409: server has newer data (e.g., another tab synced first).
+                // Auto-resolve: fetch the latest timestamp and retry ONCE.
+                console.log('[Sync] 409 conflict detected, auto-retrying with latest server timestamp...');
+                try {
+                    const latestRes = await fetch(`/api/data?key=${currentSettings.account.key}`, { credentials: 'include' });
+                    if (latestRes.ok) {
+                        const latestData = await latestRes.json();
+                        lastSyncTimestampRef.current = latestData.updatedAt || null;
 
+                        // Retry the sync with the refreshed timestamp
+                        const retryPayload = { ...payload, clientUpdatedAt: lastSyncTimestampRef.current };
+                        const retryRes = await fetch(`/api/data?key=${currentSettings.account.key}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify(retryPayload)
+                        });
 
+                        if (retryRes.ok) {
+                            const { updatedAt } = await retryRes.json();
+                            lastSyncTimestampRef.current = updatedAt;
+                            setCloudState('idle');
+                            console.log('[Sync] Auto-retry succeeded.');
+                            return;
+                        }
+                    }
+                } catch (retryError) {
+                    console.warn('[Sync] Auto-retry failed:', retryError);
+                }
+
+                // Retry failed → fall back to blocking conflict mode
+                const conflictData = await res.json().catch(() => ({}));
                 setCloudState('conflict');
-                setConflictServerDate(serverUpdatedAt);
+                setConflictServerDate(conflictData.serverUpdatedAt || null);
                 setLastError('Conflit détecté');
-                autoSyncPausedRef.current = true; // PAUSE AUTO-SYNC
+                autoSyncPausedRef.current = true;
 
-                // Rollback dirty
                 snapshot.entries.forEach(id => dirtyRef.current.entries.add(id));
                 snapshot.deletedIds.forEach(id => dirtyRef.current.deletedIds.add(id));
                 if (snapshot.settings) dirtyRef.current.settings = true;

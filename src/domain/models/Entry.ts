@@ -56,7 +56,7 @@ export class EntryDomain {
      */
     static mergeEntries(
         existing: Entry[],
-        incoming: Omit<Entry, 'id'>[]
+        incoming: (Omit<Entry, 'id'> & { id?: string })[]
     ): Entry[] {
         const merged = [...existing];
 
@@ -64,8 +64,11 @@ export class EntryDomain {
             const idx = merged.findIndex(e => e.date === entry.date);
             const entryWithId: Entry = {
                 ...entry,
-                id: idx > -1 ? merged[idx].id : crypto.randomUUID(),
-                updatedAt: Date.now()
+                // CRITICAL: prefer the incoming (cloud) ID if present.
+                // Falling back to local ID or generating a new one only when necessary.
+                // ID mismatch between client and server causes deletes/updates to silently fail.
+                id: entry.id || (idx > -1 ? merged[idx].id : crypto.randomUUID()),
+                updatedAt: entry.updatedAt || Date.now()
             };
 
             if (idx > -1) {

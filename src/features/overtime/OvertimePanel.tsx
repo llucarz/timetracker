@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useTimeTracker } from "../../context/TimeTrackerContext";
-import { computeMinutes, getRecoveryMinutesForDay } from "../../lib/utils";
+import { computeMinutes, getRecoveryMinutesForDay, hmToMin } from "../../lib/utils";
 import { getDailyTargetMinutes } from "../../lib/logic";
 import { BalanceCard } from "./components/BalanceCard";
 import { RecentRecoveries } from "./components/RecentRecoveries";
@@ -33,20 +33,41 @@ export function OvertimePanel() {
             });
         });
 
-        // 2. Earned (Daily delta from Work entries only)
-        // Note: recovery-status entries are intentionally excluded here because they are
-        // already represented in the events loop above (each RecoveryForm submission creates
-        // both an OvertimeEvent AND a recovery Entry for the same day). Processing recovery
-        // entries here would cause duplicate "recovered" items in the history.
+        // 2. Earned / Deficit (Work entries) + Standalone recovery entries
+        // Note: recovery entries paired with an OvertimeEvent are skipped here because
+        // they are already shown via the events loop above (RecoveryForm creates both).
         entries.forEach(entry => {
-            // Only process work entries (not recovery, vacation, sick, etc.)
+            if (entry.status === "recovery") {
+                // Only show if there is NO paired OvertimeEvent (standalone, from DailyEntryModal)
+                const hasPairedEvent = otState.events.some(ev => ev.date === entry.date && ev.minutes < 0);
+                if (hasPairedEvent) return;
+
+                if (entry.start && entry.end) {
+                    const duration = Math.max(0, hmToMin(entry.end) - hmToMin(entry.start));
+                    if (duration > 0) {
+                        items.push({
+                            id: entry.id,
+                            date: entry.date,
+                            type: "recovered",
+                            minutes: duration,
+                            comment: entry.notes || "Récupération",
+                            isManual: true,
+                            start: entry.start,
+                            end: entry.end,
+                            source: "entry"
+                        });
+                    }
+                }
+                return;
+            }
+
+            // Only process work entries for earned/deficit
             if (!entry.status || entry.status !== "work") return;
 
             const workMinutes = computeMinutes(entry);
             const recoveryMinutes = getRecoveryMinutesForDay(entry.date, otState.events);
             const totalMinutes = workMinutes + recoveryMinutes;
 
-            // Use schedule-based daily target
             const dailyTarget = getDailyTargetMinutes(entry.date, settings, entry);
             const delta = totalMinutes - dailyTarget;
 
@@ -61,14 +82,13 @@ export function OvertimePanel() {
                     source: "entry"
                 });
             } else if (delta < 0) {
-                // Implicit Work Deficit (Absence non justifiée)
                 items.push({
                     id: `deficit-${entry.id}`,
                     date: entry.date,
                     type: "deficit",
                     minutes: Math.abs(delta),
                     comment: "Absence non justifiée",
-                    isManual: false, // Not directly deletable (must edit entry)
+                    isManual: false,
                     source: "entry"
                 });
             }

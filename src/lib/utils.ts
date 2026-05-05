@@ -317,11 +317,23 @@ export function computeOvertimeEarned(entries: Entry[], settings: Settings, even
   for (const e of entries) {
     if (!e || !e.date) continue;
 
-    // Skip recovery-status entries: their balance impact is already fully handled
-    // via OvertimeEvent.usedMinutes (created simultaneously by RecoveryForm).
-    // Processing them here would double-count the deduction:
-    //   once from the negative earned delta, once from usedMinutes.
-    if (e.status === "recovery") continue;
+    if (e.status === "recovery") {
+      // Recovery entries come in two forms:
+      // A) Created by RecoveryForm → always paired with an OvertimeEvent (negative minutes).
+      //    The OvertimeEvent already handles the balance via usedMinutes, so we skip the entry
+      //    to avoid double-counting.
+      // B) Created via DailyEntryModal → no OvertimeEvent. We must deduct from earned
+      //    using the actual time span stored on the entry.
+      const hasPairedEvent = events.some(ev => ev.date === e.date && ev.minutes < 0);
+      if (hasPairedEvent) continue; // Case A: handled by usedMinutes
+
+      // Case B: standalone recovery — deduct actual duration from earned
+      if (e.start && e.end) {
+        const duration = Math.max(0, hmToMin(e.end) - hmToMin(e.start));
+        totalDelta -= duration;
+      }
+      continue;
+    }
 
     // Add minutes worked for this entry
     const workMinutes = computeMinutes(e);

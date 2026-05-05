@@ -317,10 +317,16 @@ export function computeOvertimeEarned(entries: Entry[], settings: Settings, even
   for (const e of entries) {
     if (!e || !e.date) continue;
 
+    // Skip recovery-status entries: their balance impact is already fully handled
+    // via OvertimeEvent.usedMinutes (created simultaneously by RecoveryForm).
+    // Processing them here would double-count the deduction:
+    //   once from the negative earned delta, once from usedMinutes.
+    if (e.status === "recovery") continue;
+
     // Add minutes worked for this entry
     const workMinutes = computeMinutes(e);
 
-    // Add recovery minutes for this date (credits back time taken off)
+    // Add recovery minutes for this date (credits back time taken off for work days)
     const recoveryMinutes = getRecoveryMinutesForDay(e.date, events);
 
     // Total credited minutes for this day

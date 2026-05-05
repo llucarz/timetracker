@@ -33,14 +33,16 @@ export function OvertimePanel() {
             });
         });
 
-        // 2. Earned (Daily delta from Work OR Recovery entries)
+        // 2. Earned (Daily delta from Work entries only)
+        // Note: recovery-status entries are intentionally excluded here because they are
+        // already represented in the events loop above (each RecoveryForm submission creates
+        // both an OvertimeEvent AND a recovery Entry for the same day). Processing recovery
+        // entries here would cause duplicate "recovered" items in the history.
         entries.forEach(entry => {
-            // Include Work AND Recovery entries
-            if (!entry.status || (entry.status !== "work" && entry.status !== "recovery")) return;
+            // Only process work entries (not recovery, vacation, sick, etc.)
+            if (!entry.status || entry.status !== "work") return;
 
-            // Robustness: Force 0 worked minutes for recovery days, ignoring any potential start/end times
-            const workMinutes = entry.status === "recovery" ? 0 : computeMinutes(entry);
-
+            const workMinutes = computeMinutes(entry);
             const recoveryMinutes = getRecoveryMinutesForDay(entry.date, otState.events);
             const totalMinutes = workMinutes + recoveryMinutes;
 
@@ -59,30 +61,16 @@ export function OvertimePanel() {
                     source: "entry"
                 });
             } else if (delta < 0) {
-                // Handle deficits (Consumption)
-                if (entry.status === "recovery") {
-                    // Explicit Recovery Entry
-                    items.push({
-                        id: entry.id,
-                        date: entry.date,
-                        type: "recovered",
-                        minutes: Math.abs(delta),
-                        comment: "Récupération (Journée)",
-                        isManual: true, // Deletable
-                        source: "entry"
-                    });
-                } else if (entry.status === "work") {
-                    // Implicit Work Deficit (Absence non justifiée)
-                    items.push({
-                        id: `deficit-${entry.id}`,
-                        date: entry.date,
-                        type: "deficit",
-                        minutes: Math.abs(delta),
-                        comment: "Absence non justifiée",
-                        isManual: false, // Not directly deletable (must edit entry)
-                        source: "entry"
-                    });
-                }
+                // Implicit Work Deficit (Absence non justifiée)
+                items.push({
+                    id: `deficit-${entry.id}`,
+                    date: entry.date,
+                    type: "deficit",
+                    minutes: Math.abs(delta),
+                    comment: "Absence non justifiée",
+                    isManual: false, // Not directly deletable (must edit entry)
+                    source: "entry"
+                });
             }
         });
 

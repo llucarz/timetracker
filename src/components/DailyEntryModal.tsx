@@ -167,26 +167,42 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule, entry }: Dai
     } else {
       // MODE CRÉATION (Nouveau Entry)
 
+      // MODE CRÉATION (Nouveau Entry)
+
       // PROTECTION: 1 Entry Per Day Rule
       const existing = entries.find(e => e.date === date);
       if (existing) {
-        showNotification({
-          type: "error",
-          title: "Doublon détecté",
-          message: "Une entrée existe déjà pour cette date. Utilisez le crayon pour la modifier."
+        // If the existing entry is a recovery entry and the user is trying to log work,
+        // we allow it and upgrade the entry to a work entry. The OvertimeEvent still handles the recovery part.
+        if (existing.status === "recovery" && status === "work") {
+          updateEntry({
+            ...existing,
+            start: arrival,
+            lunchStart: pauseStart,
+            lunchEnd: pauseEnd,
+            end: departure,
+            notes: notes || existing.notes,
+            status: "work",
+          });
+        } else {
+          showNotification({
+            type: "error",
+            title: "Doublon détecté",
+            message: "Une entrée existe déjà pour cette date. Utilisez le crayon pour la modifier."
+          });
+          return;
+        }
+      } else {
+        addEntry({
+          date,
+          start: arrival,
+          lunchStart: pauseStart,
+          lunchEnd: pauseEnd,
+          end: departure,
+          notes: notes,
+          status: status as any,
         });
-        return;
       }
-
-      addEntry({
-        date,
-        start: arrival,
-        lunchStart: pauseStart,
-        lunchEnd: pauseEnd,
-        end: departure,
-        notes: notes,
-        status: status as any,
-      });
     }
 
     const formattedDate = new Date(date).toLocaleDateString("fr-FR", {

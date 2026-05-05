@@ -104,11 +104,26 @@ export default async function handler(req, res) {
     }
 
     if (method === 'POST') {
-      // Vercel auto-parses JSON bodies into req.body.
-      // readJson() was reading a stream already consumed by Vercel → always returned {}.
-      const body = req.body || {};
+      // Parse body: try req.body (Vercel auto-parse), then stream fallback
+      let body = {};
+      if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
+        body = req.body;
+      } else if (req.body && typeof req.body === 'string') {
+        try { body = JSON.parse(req.body); } catch { body = {}; }
+      } else {
+        body = await new Promise((resolve) => {
+          let data = '';
+          req.on('data', chunk => (data += chunk));
+          req.on('end', () => { try { resolve(JSON.parse(data || '{}')); } catch { resolve({}); } });
+          req.on('error', () => resolve({}));
+        });
+      }
 
-      // 🔍 DIAGNOSTIC LOGS
+      // DIAGNOSTIC
+      console.log('[POST /api/data] body keys:', Object.keys(body));
+      console.log('[POST /api/data] entries:', Array.isArray(body.entries) ? body.entries.length : 'none');
+      console.log('[POST /api/data] deletedIds:', body.deletedIds);
+
       const mode = body.mode || 'standard';
 
 

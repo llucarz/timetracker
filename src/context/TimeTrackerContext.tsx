@@ -86,14 +86,14 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
       entriesHook.importEntries(data.entries);
     }
     if (data.settings) {
-      // Force settings update from cloud
       settingsHook.updateSettings(data.settings);
     }
-    // Note: Overtime is currently derived. If we want to force sync overtime events specifically:
-    if (data.overtime && data.overtime.events) {
-      // For now, we rely on derived state, but this hook provides the slot if needed.
+    // Restore overtime events from cloud if available
+    // (local state may have lost events due to storage migration)
+    if (data.overtime && Array.isArray(data.overtime.events)) {
+      overtimeHook.setOvertimeFromCloud(data.overtime);
     }
-  }, [entriesHook, settingsHook]);
+  }, [entriesHook, settingsHook, overtimeHook]);
 
   const syncHook = useCloudSync(
     entriesHook.entries,

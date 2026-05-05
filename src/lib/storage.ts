@@ -436,21 +436,24 @@ class StorageManager {
 
     // Migration: localStorage → IndexedDB
     if (shouldUseIDB && !this.useIndexedDB) {
-      // console.log("🔄 Migration: localStorage → IndexedDB");
       const oldEngine = this.engine;
       this.engine = new IndexedDBEngine();
       this.useIndexedDB = true;
 
-      // Copy data from old engine to new engine
       const entries = await oldEngine.getEntries();
       const settings = await oldEngine.getSettings();
       const overtime = await oldEngine.getOvertimeState();
 
       if (entries.length > 0) await this.engine.importEntries(entries);
       if (settings) await this.engine.updateSettings(settings);
-      if (overtime) await this.engine.updateOvertimeState(overtime);
-
-      // console.log("✅ Migration complete: Now using IndexedDB");
+      // Only migrate overtime if IDB doesn't already have events
+      // (prevents overwriting valid IDB events with empty localStorage data)
+      if (overtime && (overtime.events?.length ?? 0) > 0) {
+        const existingIDBOvertime = await this.engine.getOvertimeState();
+        if (!existingIDBOvertime || (existingIDBOvertime.events?.length ?? 0) === 0) {
+          await this.engine.updateOvertimeState(overtime);
+        }
+      }
     }
     // Migration: IndexedDB → localStorage (logout)
     else if (!shouldUseIDB && this.useIndexedDB) {

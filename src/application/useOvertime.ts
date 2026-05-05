@@ -80,10 +80,28 @@ export function useOvertime(
         setOtState(prev => OvertimeDomain.removeEvent(prev, id));
     }, []);
 
+    /**
+     * Restore overtime state from cloud data.
+     * Only applies if cloud has more events than current local state
+     * (protects against overwriting more recent local changes).
+     */
+    const setOvertimeFromCloud = useCallback((cloudState: OvertimeState) => {
+        setOtState(prev => {
+            const cloudEvents = cloudState.events?.length ?? 0;
+            const localEvents = prev.events?.length ?? 0;
+            // Prefer cloud if it has more events OR local is empty
+            if (cloudEvents > localEvents || localEvents === 0) {
+                return cloudState;
+            }
+            return prev;
+        });
+    }, []);
+
     return {
         otState,
         isLoaded,
         addOvertimeEvent,
-        deleteOvertimeEvent
+        deleteOvertimeEvent,
+        setOvertimeFromCloud
     };
 }

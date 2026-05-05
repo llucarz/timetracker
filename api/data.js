@@ -96,11 +96,17 @@ export default async function handler(req, res) {
       }
 
 
-      return res.status(200).json({ entries, settings, overtime });
+      const storedUpdatedAt = (typeof raw === 'object' && !Array.isArray(raw) && raw?.updatedAt)
+        ? raw.updatedAt
+        : (typeof raw === 'string' ? (() => { try { const p = JSON.parse(raw); return p?.updatedAt || null; } catch { return null; } })() : null);
+
+      return res.status(200).json({ entries, settings, overtime, updatedAt: storedUpdatedAt });
     }
 
     if (method === 'POST') {
-      const body = await readJson(req);
+      // Vercel auto-parses JSON bodies into req.body.
+      // readJson() was reading a stream already consumed by Vercel → always returned {}.
+      const body = req.body || {};
 
       // 🔍 DIAGNOSTIC LOGS
       const mode = body.mode || 'standard';
@@ -208,17 +214,5 @@ export default async function handler(req, res) {
   }
 }
 
-function readJson(req) {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', chunk => (data += chunk));
-    req.on('end', () => {
-      try {
-        resolve(JSON.parse(data || '{}'));
-      } catch (e) {
-        reject(e);
-      }
-    });
-    req.on('error', reject);
-  });
-}
+// readJson removed: Vercel auto-parses JSON into req.body.
+// Using req.body directly in the POST handler above.

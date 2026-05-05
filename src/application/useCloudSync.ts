@@ -143,7 +143,7 @@ export function useCloudSync(
             }
 
             const data = await res.json();
-            lastSyncTimestampRef.current = data.updatedAt;
+            lastSyncTimestampRef.current = data.updatedAt || null;
 
 
             setBootState('ready');

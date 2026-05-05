@@ -327,9 +327,14 @@ export function computeOvertimeEarned(entries: Entry[], settings: Settings, even
       const hasPairedEvent = events.some(ev => ev.date === e.date && ev.minutes < 0);
       if (hasPairedEvent) continue; // Case A: handled by usedMinutes
 
-      // Case B: standalone recovery — deduct actual duration from earned
+      // Case B: standalone recovery — deduct actual duration from earned,
+      // capped at the daily target to handle full-day recovery correctly.
+      // A full-day recovery entry stores 09:00-18:30 (raw clock time) but should
+      // only deduct the daily target (e.g. 7h), not the full clock span.
       if (e.start && e.end) {
-        const duration = Math.max(0, hmToMin(e.end) - hmToMin(e.start));
+        const rawDuration = Math.max(0, hmToMin(e.end) - hmToMin(e.start));
+        const dailyTarget = getDailyTargetMinutes(e.date, settings, e);
+        const duration = dailyTarget > 0 ? Math.min(rawDuration, dailyTarget) : rawDuration;
         totalDelta -= duration;
       }
       continue;

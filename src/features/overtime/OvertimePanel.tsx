@@ -43,7 +43,9 @@ export function OvertimePanel() {
                 if (hasPairedEvent) return;
 
                 if (entry.start && entry.end) {
-                    const duration = Math.max(0, hmToMin(entry.end) - hmToMin(entry.start));
+                    const rawDuration = Math.max(0, hmToMin(entry.end) - hmToMin(entry.start));
+                    const dailyTarget = getDailyTargetMinutes(entry.date, settings, entry);
+                    const duration = dailyTarget > 0 ? Math.min(rawDuration, dailyTarget) : rawDuration;
                     if (duration > 0) {
                         items.push({
                             id: entry.id,

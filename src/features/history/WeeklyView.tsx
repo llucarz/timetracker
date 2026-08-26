@@ -3,8 +3,9 @@ import { GRADIENTS, SHADOWS } from "../../ui/design-system/tokens";
 import { motion, AnimatePresence } from "motion/react";
 import { EditEntryModal } from "../../components/EditEntryModal";
 import { useTimeTracker } from "../../context/TimeTrackerContext";
-import { minToHM, computeMinutes, formatDuration, hmToMin, toLocalDateKey } from "../../lib/utils";
-import { getDailyTargetMinutes } from "../../lib/logic";
+import { minToHM, computeMinutes, formatDuration, parseLocalDate, todayKey, toLocalDateKey } from "../../lib/utils";
+import { getDailyOvertimeMinutes, getDailyTargetMinutes, getRecoveryDeductionMinutes } from "../../lib/logic";
+import { getStatusLabel } from "../../lib/status";
 import { StatCard } from "./components/StatCard";
 import { Badge } from "../../components/ui/badge";
 import { PeriodPicker } from "../../components/PeriodPicker";
@@ -26,18 +27,8 @@ interface WeeklyViewProps {
     onPeriodChange: (period: "week" | "month" | "year") => void;
 }
 
-const statusTranslations: Record<string, string> = {
-    work: "Travail",
-    school: "École",
-    vacation: "Congés",
-    sick: "Maladie",
-    holiday: "Férié",
-    off: "Repos",
-    recovery: "Récupération"
-};
-
 export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
-    const { entries, settings } = useTimeTracker();
+    const { entries, settings, otState } = useTimeTracker();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedEntry, setSelectedEntry] = useState<any>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -77,7 +68,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
 
         return entries
             .filter(e => e.date >= startStr && e.date <= endStr)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            .sort((a, b) => b.date.localeCompare(a.date));
     }, [entries, period, currentDate]);
 
     const handlePrevious = () => {
@@ -115,8 +106,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
 
     // Calculate stats
     const stats = useMemo(() => {
-        const now = new Date();
-        const today = now.toISOString().split('T')[0];
+        const today = todayKey();
         const anchor = new Date(currentDate);
 
         // Start of week (Monday) based on currentDate
@@ -149,7 +139,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
         let monthlyTargetMinutes = 0;
 
         entries.forEach(entry => {
-            const entryDate = new Date(entry.date);
+            const entryDate = parseLocalDate(entry.date);
             const minutes = computeMinutes(entry);
             const isWork = !entry.status || entry.status === "work";
 
@@ -400,10 +390,10 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                             const isRecovery = entry.status === "recovery";
                                             let duration = minToHM(computeMinutes(entry));
 
-                                            if (isRecovery && entry.start && entry.end) {
-                                                const start = hmToMin(entry.start);
-                                                const end = hmToMin(entry.end);
-                                                duration = "-" + minToHM(end - start);
+                                            if (isRecovery) {
+                                                // Same deduction the balance uses: a full day stores
+                                                // its raw clock span but only costs the daily target.
+                                                duration = "-" + minToHM(getRecoveryDeductionMinutes(entry, settings));
                                             }
 
                                             return (
@@ -417,13 +407,13 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                     <td className="px-3 py-2.5">
                                                         <div className="flex flex-col">
                                                             <span className="font-medium text-gray-900 text-sm">
-                                                                {new Date(entry.date).toLocaleDateString('fr-FR', {
+                                                                {parseLocalDate(entry.date).toLocaleDateString('fr-FR', {
                                                                     day: 'numeric',
                                                                     month: 'short'
                                                                 })}
                                                             </span>
                                                             <span className="text-xs text-gray-500">
-                                                                {new Date(entry.date).toLocaleDateString('fr-FR', { weekday: 'short' })}
+                                                                {parseLocalDate(entry.date).toLocaleDateString('fr-FR', { weekday: 'short' })}
                                                             </span>
                                                         </div>
                                                     </td>
@@ -443,9 +433,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                         <div className="flex flex-col">
                                                             <span className={`font-semibold ${isRecovery ? "text-red-600" : "text-gray-900"}`}>{duration}</span>
                                                             {!isRecovery && entry.status === "work" && (() => {
-                                                                const worked = computeMinutes(entry);
-                                                                const target = getDailyTargetMinutes(entry.date, settings, entry);
-                                                                const delta = worked - target;
+                                                                const delta = getDailyOvertimeMinutes(entry, settings, otState.events);
 
                                                                 if (delta === 0) return null;
 
@@ -465,7 +453,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                             variant={entry.status === "work" ? "default" : "secondary"}
                                                             className={`rounded-full text-xs font-medium capitalize shadow-sm ${isRecovery ? "bg-red-100 text-red-700 hover:bg-red-200" : ""}`}
                                                         >
-                                                            {statusTranslations[entry.status || "work"] || entry.status}
+                                                            {getStatusLabel(entry.status)}
                                                         </Badge>
                                                     </td>
                                                     <td className="px-3 py-2.5 max-w-[150px]">
@@ -511,10 +499,8 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                     const isRecovery = entry.status === "recovery";
                                     let duration = minToHM(computeMinutes(entry));
 
-                                    if (isRecovery && entry.start && entry.end) {
-                                        const start = hmToMin(entry.start);
-                                        const end = hmToMin(entry.end);
-                                        duration = "-" + minToHM(end - start);
+                                    if (isRecovery) {
+                                        duration = "-" + minToHM(getRecoveryDeductionMinutes(entry, settings));
                                     }
 
                                     return (
@@ -528,7 +514,7 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <p className="font-semibold text-gray-900 text-sm">
-                                                        {new Date(entry.date).toLocaleDateString('fr-FR', {
+                                                        {parseLocalDate(entry.date).toLocaleDateString('fr-FR', {
                                                             day: 'numeric',
                                                             month: 'long',
                                                             weekday: 'short'
@@ -538,15 +524,13 @@ export function WeeklyView({ period, onPeriodChange }: WeeklyViewProps) {
                                                         variant={entry.status === "work" ? "default" : "secondary"}
                                                         className={`rounded-full text-xs font-medium mt-1 capitalize ${isRecovery ? "bg-red-100 text-red-700 hover:bg-red-200" : ""}`}
                                                     >
-                                                        {statusTranslations[entry.status || "work"] || entry.status}
+                                                        {getStatusLabel(entry.status)}
                                                     </Badge>
                                                 </div>
                                                 <div className="text-right">
                                                     <p className={`font-bold text-lg ${isRecovery ? "text-red-600" : "text-gray-900"}`}>{duration}</p>
                                                     {!isRecovery && entry.status === "work" && (() => {
-                                                        const worked = computeMinutes(entry);
-                                                        const target = getDailyTargetMinutes(entry.date, settings, entry);
-                                                        const delta = worked - target;
+                                                        const delta = getDailyOvertimeMinutes(entry, settings, otState.events);
 
                                                         if (delta === 0) return null;
 

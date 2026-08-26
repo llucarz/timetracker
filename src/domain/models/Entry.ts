@@ -1,6 +1,6 @@
 /**
  * EntryDomain - Domain Model
- * 
+ *
  * Operations sur le modèle Entry.
  * Pure functions pour CRUD operations.
  */
@@ -30,14 +30,23 @@ export class EntryDomain {
     }
 
     /**
-     * Ajoute ou remplace une entry dans une liste
-     * Règle : une seule entry par date
+     * Ajoute ou remplace une entry dans une liste.
+     *
+     * Deux règles, pas une :
+     * - une seule entry par date
+     * - une seule entry par id
+     *
+     * Filtrer sur la seule date laissait l'ancienne ligne en place quand on
+     * déplaçait une entry vers une autre date : on se retrouvait avec deux lignes
+     * portant le MÊME id, comptées deux fois dans les totaux.
      */
     static upsertEntry(
         entries: Entry[],
         newEntry: Entry
     ): Entry[] {
-        const filtered = entries.filter(e => e.date !== newEntry.date);
+        const filtered = entries.filter(
+            e => e.date !== newEntry.date && e.id !== newEntry.id
+        );
         return [...filtered, newEntry].sort((a, b) =>
             a.date.localeCompare(b.date)
         );
@@ -51,8 +60,13 @@ export class EntryDomain {
     }
 
     /**
-     * Merge entries (pour import/sync)
-     * Newer updatedAt wins
+     * Merge entries (pour import/sync).
+     *
+     * Le plus récent gagne, pour de vrai : la version entrante ne remplace la
+     * version locale que si son updatedAt est strictement plus récent. Écraser
+     * sans comparer faisait qu'une entry cloud plus ANCIENNE effaçait une
+     * modification locale pas encore synchronisée — les horaires "changeaient
+     * tout seuls" après un rechargement.
      */
     static mergeEntries(
         existing: Entry[],
@@ -62,19 +76,25 @@ export class EntryDomain {
 
         incoming.forEach(entry => {
             const idx = merged.findIndex(e => e.date === entry.date);
+            const current = idx > -1 ? merged[idx] : null;
+
             const entryWithId: Entry = {
                 ...entry,
                 // CRITICAL: prefer the incoming (cloud) ID if present.
                 // Falling back to local ID or generating a new one only when necessary.
                 // ID mismatch between client and server causes deletes/updates to silently fail.
-                id: entry.id || (idx > -1 ? merged[idx].id : crypto.randomUUID()),
+                id: entry.id || current?.id || crypto.randomUUID(),
                 updatedAt: entry.updatedAt || Date.now()
             };
 
-            if (idx > -1) {
-                merged[idx] = entryWithId;
-            } else {
+            if (!current) {
                 merged.push(entryWithId);
+                return;
+            }
+
+            // Keep whichever version was written last.
+            if (entryWithId.updatedAt! >= (current.updatedAt || 0)) {
+                merged[idx] = entryWithId;
             }
         });
 

@@ -5,8 +5,8 @@
  * All UI components should use these functions instead of calculating targets locally.
  */
 
-import { Entry, Settings } from "./types";
-import { computeMinutes, hmToMin } from "./utils";
+import { Entry, OvertimeEvent, Settings } from "./types";
+import { computeMinutes, getRecoveryMinutesForDay, hmToMin } from "./utils";
 
 /**
  * Day key mapping for Settings.baseHours.days
@@ -21,7 +21,8 @@ const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
  * 
  * @param weekday - Day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
  * @param settings - User settings containing schedule configuration
- * @returns Planned work minutes for that weekday, or null if no schedule configured
+ * @returns Planned work minutes for that weekday, 0 if the day is explicitly not
+ *          worked, or null if nothing is configured (caller falls back to the average)
  * 
  * @example
  * // User has per-day schedule: Mon-Thu = 8h, Fri = 7h
@@ -46,8 +47,15 @@ export function getPlannedWorkMinutesForWeekday(
   if (settings.baseHours.mode === "per-day" && settings.baseHours.days) {
     const daySchedule = settings.baseHours.days[dayKey];
 
-    if (!daySchedule || !daySchedule.enabled) {
-      return null; // Day not worked
+    if (!daySchedule) {
+      return null; // Nothing configured for that weekday
+    }
+
+    // Explicitly not a working day: the target is ZERO, not "unknown".
+    // Returning null here made the caller fall back to the weekly average, so a
+    // Saturday still expected a full day of work.
+    if (!daySchedule.enabled) {
+      return 0;
     }
 
     // Validate schedule has all required times
@@ -74,6 +82,14 @@ export function getPlannedWorkMinutesForWeekday(
 
   // Mode 2: Same schedule for all days
   if (settings.baseHours.mode === "same" && settings.baseHours.same) {
+    // Even in "same" mode the user declares WHICH days are worked.
+    // Without this check a Saturday would inherit a full daily target and any
+    // hour logged there would read as a deficit instead of overtime.
+    const daySchedule = settings.baseHours.days?.[dayKey];
+    if (daySchedule && !daySchedule.enabled) {
+      return 0; // Day not worked -> no target, so any hour logged is overtime
+    }
+
     const schedule = settings.baseHours.same;
 
     if (!schedule.start || !schedule.end) {
@@ -148,9 +164,9 @@ export function getDailyTargetMinutes(
 
 /**
  * Gets worked minutes for an entry.
- * 
+ *
  * Wrapper around computeMinutes for consistency and future extensibility.
- * 
+ *
  * @param entry - Time entry
  * @returns Total worked minutes (excluding lunch break)
  */
@@ -159,34 +175,93 @@ export function getWorkedMinutes(entry: Entry): number {
 }
 
 /**
- * Calculates daily overtime for a single entry.
- * 
- * Formula: workedMinutes - (effectiveTargetMinutes - giftMinutes)
- * 
- * Gift minutes REDUCE the target (they don't add to worked time).
- * Example: Target 8h, gift 30min → effective target 7h30
- * 
+ * Statuses that suspend the daily target: nothing is expected to be worked,
+ * so the day contributes neither surplus nor deficit.
+ */
+const ABSENCE_STATUSES = ["school", "vacation", "sick", "holiday"] as const;
+
+/**
+ * Whether a status is a justified absence (no target expected for that day).
+ *
+ * @param status - Entry status
+ */
+export function isAbsenceStatus(status: Entry["status"] | undefined): boolean {
+  return ABSENCE_STATUSES.includes(status as typeof ABSENCE_STATUSES[number]);
+}
+
+/**
+ * SINGLE SOURCE OF TRUTH: effective target for one entry, absences included.
+ *
+ * Unlike getDailyTargetMinutes (which answers "what is expected on that date"),
+ * this answers "what is expected of THIS entry" - an absence expects nothing.
+ *
  * @param entry - Time entry
  * @param settings - User settings
- * @param giftMinutes - Gift/recovery minutes for this day (reduces target)
+ * @returns Target in minutes (0 for absences and recovery days)
+ */
+export function getEffectiveTargetMinutes(entry: Entry, settings: Settings): number {
+  if (isAbsenceStatus(entry.status) || entry.status === "recovery") {
+    return 0;
+  }
+  return getDailyTargetMinutes(entry.date, settings, entry);
+}
+
+/**
+ * SINGLE SOURCE OF TRUTH: daily overtime for one entry.
+ *
+ * Every view (dashboard, history table, overtime panel) MUST use this function.
+ * Computing it locally is what made the same day read +0h on one screen and
+ * -4h on another.
+ *
+ * Formula: worked + recoveryCredit - effectiveTarget
+ *
+ * The recovery credit covers the part of the day taken off: the balance is
+ * debited once, through OvertimeState.usedMinutes, not twice.
+ *
+ * @param entry - Time entry
+ * @param settings - User settings
+ * @param events - All overtime events (recovery slots for that date are credited)
  * @returns Overtime in minutes (positive = surplus, negative = deficit)
- * 
+ *
  * @example
- * // Worked 8h24, target 8h, no gift
- * getDailyOvertimeMinutes(entry, settings, 0) // → +24 minutes
- * 
+ * // Worked 8h24, target 8h, no recovery
+ * getDailyOvertimeMinutes(entry, settings, []) // -> +24
+ *
  * @example
- * // Worked 8h00, target 8h, gift 30min
- * getDailyOvertimeMinutes(entry, settings, 30) // → +30 minutes (target reduced to 7h30)
+ * // Worked 4h, target 8h, 4h recovery taken that morning
+ * getDailyOvertimeMinutes(entry, settings, events) // -> 0
  */
 export function getDailyOvertimeMinutes(
   entry: Entry,
   settings: Settings,
-  giftMinutes: number = 0
+  events: OvertimeEvent[] = []
 ): number {
-  const workedMinutes = getWorkedMinutes(entry);
-  const baseTargetMinutes = getDailyTargetMinutes(entry.date, settings, entry);
-  const effectiveTargetMinutes = Math.max(0, baseTargetMinutes - giftMinutes);
+  // Recovery days are accounted for through the overtime events, not here.
+  if (entry.status === "recovery") return 0;
 
-  return workedMinutes - effectiveTargetMinutes;
+  const workedMinutes = getWorkedMinutes(entry);
+  const recoveryMinutes = getRecoveryMinutesForDay(entry.date, events);
+  const targetMinutes = getEffectiveTargetMinutes(entry, settings);
+
+  return workedMinutes + recoveryMinutes - targetMinutes;
+}
+
+/**
+ * Minutes a standalone recovery ENTRY deducts from the balance.
+ *
+ * A full-day recovery stores the raw clock span (e.g. 09:00-18:30) but must only
+ * deduct the daily target (e.g. 7h48) - lunch is not recovered time. Used both
+ * by the balance computation and by the history views, so they always agree.
+ *
+ * @param entry - Entry with status "recovery"
+ * @param settings - User settings
+ * @returns Minutes to deduct (>= 0)
+ */
+export function getRecoveryDeductionMinutes(entry: Entry, settings: Settings): number {
+  if (!entry.start || !entry.end) return 0;
+
+  const rawDuration = Math.max(0, hmToMin(entry.end) - hmToMin(entry.start));
+  const dailyTarget = getDailyTargetMinutes(entry.date, settings, entry);
+
+  return dailyTarget > 0 ? Math.min(rawDuration, dailyTarget) : rawDuration;
 }

@@ -31,7 +31,8 @@ export function useOvertime(
         const loadData = async () => {
             try {
                 const loaded = await storage.getOvertimeState();
-                setOtState(loaded || defaultOtState);
+                // Never trust a persisted usedMinutes: derive it from the events.
+                setOtState(loaded ? OvertimeDomain.withDerivedTotals(loaded) : defaultOtState);
                 setIsLoaded(true);
             } catch (error) {
                 console.error('Failed to load overtime state:', error);
@@ -41,7 +42,12 @@ export function useOvertime(
         loadData();
     }, []);
 
-    // Auto-recalculate when entries or settings change
+    // Auto-recalculate when entries, settings OR events change.
+    //
+    // otState.events matters: adding a recovery debits usedMinutes immediately,
+    // while the matching credit lives in earnedMinutes. Leaving events out of the
+    // deps left the balance wrong by exactly the recovery amount until the next
+    // reload. settings matters too: baseHours drives every daily target.
     useEffect(() => {
         if (!isLoaded || !entriesLoaded || !settingsLoaded) return;
 
@@ -58,7 +64,7 @@ export function useOvertime(
             }
             return prevState;
         });
-    }, [entries, settings.weeklyTarget, settings.workDays, isLoaded, entriesLoaded, settingsLoaded]);
+    }, [entries, settings, otState.events, isLoaded, entriesLoaded, settingsLoaded]);
 
     // Persist to storage
     useEffect(() => {
@@ -85,18 +91,21 @@ export function useOvertime(
 
     /**
      * Restore overtime state from cloud data.
-     * Only applies if cloud has more events than current local state
-     * (protects against overwriting more recent local changes).
+     *
+     * Merges by event id rather than comparing list lengths: the number of events
+     * is not a freshness signal. A local event the cloud has not seen yet is kept,
+     * and a cloud event missing locally is restored.
      */
     const setOvertimeFromCloud = useCallback((cloudState: OvertimeState) => {
         setOtState(prev => {
-            const cloudEvents = cloudState.events?.length ?? 0;
-            const localEvents = prev.events?.length ?? 0;
-            // Prefer cloud if it has more events OR local is empty
-            if (cloudEvents > localEvents || localEvents === 0) {
-                return cloudState;
-            }
-            return prev;
+            const byId = new Map<string, OvertimeEvent>();
+            (cloudState.events || []).forEach(e => { if (e?.id) byId.set(e.id, e); });
+            (prev.events || []).forEach(e => { if (e?.id) byId.set(e.id, e); });
+
+            return OvertimeDomain.withDerivedTotals({
+                ...prev,
+                events: Array.from(byId.values())
+            });
         });
     }, []);
 

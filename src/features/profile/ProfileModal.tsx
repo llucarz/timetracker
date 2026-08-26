@@ -9,6 +9,9 @@ import { GRADIENTS } from "../../ui/design-system/tokens";
 import { ScheduleConfigForm } from "./components/ScheduleConfigForm";
 import { TargetConfigForm } from "./components/TargetConfigForm";
 import { getDailyTargetMinutes } from "../../lib/logic";
+// Aliased: `Settings` is already taken by the lucide icon above, so `Partial<UserSettings>`
+// silently referred to the icon component instead of the settings model.
+import type { Settings as UserSettings } from "../../lib/types";
 
 interface ProfileModalProps {
     isOpen: boolean;
@@ -22,7 +25,13 @@ const daysOfWeek = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi",
 const dayKeys = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: ProfileModalProps) {
-    const { settings, updateSettings, clearData } = useTimeTracker();
+    const {
+        settings,
+        updateSettings,
+        clearData,
+        entries: allEntries,
+        importEntries: batchUpdateEntries
+    } = useTimeTracker();
     const { showNotification } = useNotification();
     const [mode, setMode] = useState<"same" | "different">("same");
     const [weeklyTarget, setWeeklyTarget] = useState("35");
@@ -59,8 +68,6 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
             setWorkdaysPerWeek(settings.workDays.toString());
 
             if (settings.baseHours) {
-                console.log("[ProfileModal] Initializing with baseHours:", settings.baseHours);
-                console.log("[ProfileModal] Mode from DB:", settings.baseHours.mode);
                 setMode(settings.baseHours.mode === "per-day" ? "different" : "same");
 
                 // Load same schedule
@@ -112,7 +119,7 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
 
     // Contract Change Detection State
     const [showContractDialog, setShowContractDialog] = useState(false);
-    const [newSettingsCandidates, setNewSettingsCandidates] = useState<Partial<Settings> | null>(null);
+    const [newSettingsCandidates, setNewSettingsCandidates] = useState<Partial<UserSettings> | null>(null);
     const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
     const [isMigrating, setIsMigrating] = useState(false);
 
@@ -220,7 +227,7 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
         }
     };
 
-    const confirmSave = (finalSettings: Partial<Settings>) => {
+    const confirmSave = (finalSettings: Partial<UserSettings>) => {
         updateSettings(finalSettings);
         showNotification({
             type: "success",
@@ -230,37 +237,6 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
         onClose();
     };
 
-
-    const handleContractMigration = async (type: 'correction' | 'new_contract') => {
-        if (!newSettingsCandidates) return;
-        setIsMigrating(true);
-
-        try {
-            // Import useEntries hook logic is needed here to access `importEntries` and `entries`
-            // But we are in a modal. Ideally we should use a service.
-            // For now, we rely on `useTimeTracker` context which exposes `entries` and `importEntries`.
-            // Wait, we need to access ALL entries. Context usually provides all entries.
-
-            // Get current entries from context (we assume it's loaded)
-            // Ideally we should ensure we have the full history.
-
-            const { entries: currentEntries, importEntries } = useTimeTracker(); // Function component body hook call is strictly forbidden inside callback
-            // FIX: Access them from closure or refs. `settings` etc are available.
-            // Wait, I cannot call useTimeTracker inside this function.
-            // I need to use the props or values from outer scope.
-            // I'll use the values available in the component scope.
-        } catch (e) {
-            console.error("Migration failed", e);
-            showNotification({ type: 'error', title: 'Erreur', message: 'La migration a échoué.' });
-        } finally {
-            setIsMigrating(false);
-            setShowContractDialog(false);
-        }
-    };
-
-    // REDOING: `handleContractMigration` properly
-    // Access context values here
-    const { entries: allEntries, importEntries: batchUpdateEntries } = useTimeTracker(); // This is just getting reference, okay.
 
     const executeMigration = (type: 'correction' | 'new_contract') => {
         if (!newSettingsCandidates) return;
@@ -283,28 +259,12 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
                 });
             } else {
                 // NEW CONTRACT MODE
-                // 1. Identify entries strictly BEFORE effectiveDate
-                // 2. Snapshot them using OLD settings (current `settings`)
-
-                // Need to import logic function here? No, we have it in utils?
-                // Logic is in `getDailyTargetMinutes` but that uses `settings`.
-                // We want to calculate the target *using the OLD settings* and freeze it.
-
-                // Helper to get target from specific settings
-                // We'll import `getDailyTargetMinutes` from logic.ts
-
+                // Entries strictly BEFORE effectiveDate belong to the old contract:
+                // freeze the target they had under the settings still in place.
                 allEntries.forEach(e => {
                     if (e.date < effectiveDate) {
-                        // This entry belongs to the PAST (Old Contract)
-                        // If it's already snapshotted, we keep it? 
-                        // The user requirement says: "Snapshot entries < effectiveDate".
-                        // Logic: IF it's not already snapshotted, OR if we want to enforce the "old settings" as the snapshot.
-                        // Ideally: We calculate what the target WAS under `settings` (the old ones before update).
+                        const oldTarget = getDailyTargetMinutes(e.date, settings); // still the OLD settings here
 
-                        const oldTarget = getDailyTargetMinutes(e.date, settings); // Use CURRENT (old) settings
-
-                        // We freeze this target
-                        // Only update if it changes or wasn't set
                         if (e.customTargetMinutes !== oldTarget || e.targetSource !== 'snapshot') {
                             updates.push({
                                 ...e,
@@ -313,9 +273,7 @@ export function ProfileModal({ isOpen, onClose, onLogin, onExport, onImport }: P
                             });
                         }
                     } else {
-                        // Entry is >= effectiveDate.
-                        // It belongs to the NEW contract.
-                        // It should NOT have a snapshot (dynamic).
+                        // Entry belongs to the NEW contract: no snapshot, stays dynamic.
                         if (e.customTargetMinutes !== undefined) {
                             updates.push({
                                 ...e,

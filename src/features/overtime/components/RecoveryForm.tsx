@@ -9,10 +9,11 @@ import { DatePicker } from "../../../components/DatePicker";
 import { TimePicker } from "../../../components/TimePicker";
 import { useNotification } from "../../../context/NotificationContext";
 import { useTimeTracker } from "../../../context/TimeTrackerContext";
-import { computeMinutesFromTimes, formatDuration, hmToMin, checkOverlap } from "../../../lib/utils";
+import { formatDuration, hmToMin, checkOverlap } from "../../../lib/utils";
+import { getDailyTargetMinutes } from "../../../lib/logic";
 
 export function RecoveryForm() {
-    const { otState, addOvertimeEvent, addEntry, settings } = useTimeTracker();
+    const { otState, addOvertimeEvent, addEntry, entries, settings } = useTimeTracker();
     const { showNotification } = useNotification();
     const [recoveryDate, setRecoveryDate] = useState("");
     const [startTime, setStartTime] = useState("");
@@ -20,11 +21,6 @@ export function RecoveryForm() {
     const [comment, setComment] = useState("");
     const [isFullDayRecovery, setIsFullDayRecovery] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // Calculate daily target for accurate full-day deduction
-    const dailyTargetMinutes = settings.workDays > 0
-        ? (settings.weeklyTarget / settings.workDays) * 60
-        : 0;
 
     const handleAddAdjustment = async () => {
         if (isSubmitting) return;
@@ -45,7 +41,7 @@ export function RecoveryForm() {
             const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
             const dayKey = dayKeys[dayOfWeek] as string;
 
-            let schedule = null;
+            let schedule: { start: string; lunchStart: string; lunchEnd: string; end: string } | null = null;
 
             if (settings.baseHours?.mode === "same") {
                 schedule = settings.baseHours.same;
@@ -77,9 +73,18 @@ export function RecoveryForm() {
                 return;
             }
 
-            // Calculate full day minutes based on Daily Target (User Expectation)
-            // Instead of calculating from schedule times (which might vary), we use the theoretical daily value
-            minutes = dailyTargetMinutes;
+            // Deduct the target OF THAT DAY, not the weekly average: with a
+            // per-day schedule a 7h Friday must not cost a 7h48 average day.
+            minutes = getDailyTargetMinutes(recoveryDate, settings);
+
+            if (minutes <= 0) {
+                showNotification({
+                    type: "error",
+                    title: "Horaires non configurés",
+                    message: "Aucun objectif quotidien pour ce jour. Vérifiez vos horaires dans le profil."
+                });
+                return;
+            }
 
             finalStartTime = schedule.start;
             finalEndTime = schedule.end;
@@ -121,21 +126,32 @@ export function RecoveryForm() {
                 end: finalEndTime
             });
 
-            // 2. Create a visual entry in the schedule
-            addEntry({
-                date: recoveryDate,
-                start: finalStartTime,
-                end: finalEndTime,
-                lunchStart: "", // Recovery usually continuous or blocked time
-                lunchEnd: "",
-                status: "recovery",
-                notes: comment || "Récupération"
-            });
+            // 2. Create a visual entry in the schedule - ONLY if the day is free.
+            //
+            // Entries are unique per date: creating one here used to silently
+            // delete the work entry already logged that day. A half-day recovery
+            // wiped the morning you had worked. The OvertimeEvent above already
+            // carries the deduction, so an existing entry is left untouched.
+            const existingEntry = entries.find(e => e.date === recoveryDate);
+
+            if (!existingEntry) {
+                addEntry({
+                    date: recoveryDate,
+                    start: finalStartTime,
+                    end: finalEndTime,
+                    lunchStart: "", // Recovery usually continuous or blocked time
+                    lunchEnd: "",
+                    status: "recovery",
+                    notes: comment || "Récupération"
+                });
+            }
 
             showNotification({
                 type: "success",
                 title: "Récupération enregistrée",
-                message: `${formatDuration(minutes)} déduites de votre solde.`
+                message: existingEntry
+                    ? `${formatDuration(minutes)} déduites. La journée déjà saisie a été conservée.`
+                    : `${formatDuration(minutes)} déduites de votre solde.`
             });
 
             setStartTime("");

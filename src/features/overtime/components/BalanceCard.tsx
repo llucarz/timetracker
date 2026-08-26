@@ -25,7 +25,7 @@ export function BalanceCard({ balanceMinutes }: BalanceCardProps) {
                         {formatDHM(minutesToDHM(balanceMinutes))}
                     </p>
                     <p className="text-xs text-white/80 mt-1">
-                        {minToHM(Math.abs(balanceMinutes))}
+                        {minToHM(balanceMinutes)}
                     </p>
                     {daysEquivalent && (
                         <p className="text-xs text-white/90 mt-1 font-medium bg-white/20 px-2 py-0.5 rounded-md inline-block">

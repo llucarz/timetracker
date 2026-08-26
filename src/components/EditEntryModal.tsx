@@ -21,7 +21,7 @@ interface EditEntryModalProps {
 }
 
 export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) {
-  const { updateEntry, deleteEntry, otState, deleteOvertimeEvent, settings } = useTimeTracker();
+  const { entries, updateEntry, deleteEntry, otState, deleteOvertimeEvent, settings } = useTimeTracker();
   const { showNotification } = useNotification();
   const [date, setDate] = useState("");
   const [arrival, setArrival] = useState("");
@@ -125,6 +125,20 @@ export function EditEntryModal({ isOpen, onClose, entry }: EditEntryModalProps) 
     }
 
     if (entry) {
+      // Moving an entry onto a date that is already taken would silently destroy
+      // the other day (entries are unique per date), so refuse it explicitly.
+      if (date !== entry.date) {
+        const occupant = entries.find(e => e.date === date && e.id !== entry.id);
+        if (occupant) {
+          showNotification({
+            type: "error",
+            title: "Date déjà occupée",
+            message: "Une entrée existe déjà pour cette date. Supprimez-la d'abord."
+          });
+          return;
+        }
+      }
+
       updateEntry({
         ...entry,
         date,

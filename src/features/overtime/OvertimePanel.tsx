@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { useTimeTracker } from "../../context/TimeTrackerContext";
-import { computeMinutes, getRecoveryMinutesForDay, hmToMin } from "../../lib/utils";
-import { getDailyTargetMinutes } from "../../lib/logic";
+import { getDailyOvertimeMinutes, getRecoveryDeductionMinutes } from "../../lib/logic";
 import { BalanceCard } from "./components/BalanceCard";
 import { RecentRecoveries } from "./components/RecentRecoveries";
 import { RecoveryForm } from "./components/RecoveryForm";
@@ -42,10 +41,8 @@ export function OvertimePanel() {
                 const hasPairedEvent = otState.events.some(ev => ev.date === entry.date && ev.minutes < 0);
                 if (hasPairedEvent) return;
 
-                if (entry.start && entry.end) {
-                    const rawDuration = Math.max(0, hmToMin(entry.end) - hmToMin(entry.start));
-                    const dailyTarget = getDailyTargetMinutes(entry.date, settings, entry);
-                    const duration = dailyTarget > 0 ? Math.min(rawDuration, dailyTarget) : rawDuration;
+                {
+                    const duration = getRecoveryDeductionMinutes(entry, settings);
                     if (duration > 0) {
                         items.push({
                             id: entry.id,
@@ -66,12 +63,7 @@ export function OvertimePanel() {
             // Only process work entries for earned/deficit
             if (!entry.status || entry.status !== "work") return;
 
-            const workMinutes = computeMinutes(entry);
-            const recoveryMinutes = getRecoveryMinutesForDay(entry.date, otState.events);
-            const totalMinutes = workMinutes + recoveryMinutes;
-
-            const dailyTarget = getDailyTargetMinutes(entry.date, settings, entry);
-            const delta = totalMinutes - dailyTarget;
+            const delta = getDailyOvertimeMinutes(entry, settings, otState.events);
 
             if (delta > 0) {
                 items.push({
@@ -96,7 +88,7 @@ export function OvertimePanel() {
             }
         });
 
-        return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return items.sort((a, b) => b.date.localeCompare(a.date));
     }, [otState.events, entries, settings]);
 
     // Get recent recoveries (last 2)

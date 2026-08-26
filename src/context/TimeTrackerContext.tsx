@@ -184,7 +184,6 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
         );
 
         if (recoveryEntry) {
-          console.log(`Deleting corresponding recovery entry: ${recoveryEntry.id} for date ${event.date}`);
           entriesHook.deleteEntry(recoveryEntry.id);
         }
       }
@@ -249,7 +248,6 @@ export function TimeTrackerProvider({ children }: { children: ReactNode }) {
     updateSettings,
     addOvertimeEvent,
     handleDeleteOvertimeEvent,
-    syncHook.syncWithCloud,
     syncHook.syncNow,
     syncHook.loadFromCloud,
     logout,

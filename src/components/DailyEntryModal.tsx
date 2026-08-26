@@ -154,9 +154,23 @@ export function DailyEntryModal({ isOpen, onClose, defaultSchedule, entry }: Dai
 
     // MODE MODIFICATION (ID Explicite)
     if (entry) {
+      // Moving an entry onto a date that is already taken would silently destroy
+      // the other day (entries are unique per date), so refuse it explicitly.
+      if (date !== entry.date) {
+        const occupant = entries.find(e => e.date === date && e.id !== entry.id);
+        if (occupant) {
+          showNotification({
+            type: "error",
+            title: "Date déjà occupée",
+            message: "Une entrée existe déjà pour cette date. Supprimez-la d'abord."
+          });
+          return;
+        }
+      }
+
       updateEntry({
         ...entry,
-        date, // Allow updating date, but might cause collision? Leaving as is, user asked about Creat logic.
+        date,
         start: arrival,
         lunchStart: pauseStart,
         lunchEnd: pauseEnd,

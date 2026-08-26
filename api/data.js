@@ -23,10 +23,20 @@ function setCors(req, res) {
     'http://localhost:5173', // Vite default
   ];
 
-  const isAllowed = origin && (
-    allowedDomains.includes(origin) ||
-    origin.endsWith('.vercel.app') // Preview & Production Vercel domains
-  );
+  // Only OUR deployments, not every site hosted on Vercel. `.endsWith('.vercel.app')`
+  // let any third-party Vercel page call this API with the user's credentials.
+  // VERCEL_PROJECT_PRODUCTION_URL / VERCEL_URL are injected by Vercel at build time.
+  [process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.VERCEL_URL]
+    .filter(Boolean)
+    .forEach(host => allowedDomains.push(`https://${host}`));
+
+  (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean)
+    .forEach(o => allowedDomains.push(o));
+
+  const isAllowed = origin && allowedDomains.includes(origin);
 
   if (isAllowed) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -172,11 +182,30 @@ export default async function handler(req, res) {
         nextEntries = Array.from(map.values());
       }
 
-      // Handle explicit Deletions
-      if (deletedIds && Array.isArray(deletedIds) && deletedIds.length > 0) {
+      // Enforce the business rule server-side too: ONE entry per date.
+      // Merging by id alone let a recreated entry (new id, same date) pile up as a
+      // duplicate the client then resolved arbitrarily on load.
+      nextEntries = dedupeByDate(nextEntries);
 
+      // Handle explicit Deletions
+      const tombstones = { ...(existingData.tombstones || {}) };
+
+      if (deletedIds && Array.isArray(deletedIds) && deletedIds.length > 0) {
+        const deletedAt = new Date().toISOString();
+        deletedIds.forEach(id => { tombstones[id] = deletedAt; });
         nextEntries = nextEntries.filter(e => !deletedIds.includes(e.id));
       }
+
+      // Drop anything a client re-uploaded after it was deleted elsewhere.
+      // Without tombstones a second device still holding the entry resurrected it
+      // on its next sync.
+      nextEntries = nextEntries.filter(e => {
+        const deletedAt = tombstones[e.id];
+        if (!deletedAt) return true;
+        const entryUpdatedAt = e.updatedAt ? new Date(e.updatedAt).toISOString() : null;
+        // Keep only if the entry was written AFTER its deletion (deliberate re-creation).
+        return entryUpdatedAt !== null && entryUpdatedAt > deletedAt;
+      });
 
       // ---- SETTINGS HANDLING (Strict Check) ----
       // Only update if explicit AND not null (prevent accidental wipe)
@@ -189,6 +218,7 @@ export default async function handler(req, res) {
         entries: nextEntries,
         settings: nextSettings,
         overtime: nextOvertime,
+        tombstones: pruneTombstones(tombstones),
         updatedAt: new Date().toISOString()
       };
 
@@ -227,6 +257,33 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ error: 'Upstash error', detail: String(err) });
   }
+}
+
+/**
+ * Keeps a single entry per date, the most recently written one.
+ * Entries without updatedAt are treated as the oldest.
+ */
+function dedupeByDate(entries) {
+  const byDate = new Map();
+
+  for (const entry of entries) {
+    if (!entry || !entry.date) continue;
+
+    const current = byDate.get(entry.date);
+    if (!current || (entry.updatedAt || 0) >= (current.updatedAt || 0)) {
+      byDate.set(entry.date, entry);
+    }
+  }
+
+  return Array.from(byDate.values());
+}
+
+/** Tombstones older than 90 days are dropped: every client has long since synced. */
+function pruneTombstones(tombstones) {
+  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  return Object.fromEntries(
+    Object.entries(tombstones).filter(([, deletedAt]) => deletedAt > cutoff)
+  );
 }
 
 // readJson removed: Vercel auto-parses JSON into req.body.

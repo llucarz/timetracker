@@ -57,10 +57,15 @@
             "@types/react": "^19.2.6",
             "@types/react-dom": "^19.2.3",
             "@vitejs/plugin-react-swc": "^3.10.2",
-            "vite": "6.3.5"
+            "typescript": "^5.9.3",
+            "vite": "6.3.5",
+            "vitest": "^2.1.9"
       },
       "scripts": {
             "dev": "vite",
-            "build": "vite build"
+            "build": "npm run typecheck && vite build",
+            "typecheck": "tsc --noEmit",
+            "test": "vitest run",
+            "test:watch": "vitest"
       }
 }

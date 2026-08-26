@@ -8,8 +8,8 @@ import { useState, useMemo } from "react";
 import { EditEntryModal } from "./EditEntryModal";
 import { AllEntriesModal } from "./AllEntriesModal";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { computeMinutes, minToHM, toDateKey, toLocalDateKey, weekRangeOf, minutesToDHM, formatDHM } from "../lib/utils";
-import { getDailyTargetMinutes } from "../lib/logic";
+import { computeMinutes, minToHM, parseLocalDate, todayKey, weekRangeOf, minutesToDHM, formatDHM } from "../lib/utils";
+import { getDailyOvertimeMinutes } from "../lib/logic";
 import { Entry } from "../lib/types";
 import { GRADIENTS, SHADOWS } from "../ui/design-system/tokens";
 
@@ -23,20 +23,10 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAllEntriesModalOpen, setIsAllEntriesModalOpen] = useState(false);
 
-  // Traduction des statuts
-  const statusTranslations: Record<string, string> = {
-    work: "Travail",
-    school: "École",
-    vacation: "Congés",
-    sick: "Maladie",
-    holiday: "Férié",
-    off: "Repos"
-  };
-
   const stats = useMemo(() => {
-    const today = toLocalDateKey(new Date());
+    const today = todayKey();
     const { start: weekStart, end: weekEnd } = weekRangeOf(today);
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const currentMonth = today.slice(0, 7); // YYYY-MM, in the user's timezone
 
     let todayMins = 0;
     let weekMins = 0;
@@ -64,32 +54,36 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
     };
   }, [entries, otState.balanceMinutes]);
 
+  // The 5 most recent days ACTUALLY WORKED, most recent first.
+  //
+  // Was sorted on updatedAt (last write) and unfiltered: editing an old entry
+  // pushed it to the top, and days off took up slots in a list titled
+  // "derniers jours travaillés".
   const recentEntries = useMemo(() => {
-    return [...entries]
-      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    const today = todayKey();
+
+    return entries
+      .filter(e => e.status === 'work' && e.date <= today && computeMinutes(e) > 0)
+      .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, 5)
       .map(e => {
         const mins = computeMinutes(e);
-        const dateObj = new Date(e.date);
+        const dateObj = parseLocalDate(e.date);
         const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'long' });
         const capitalizedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
 
-        // Calculate overtime using schedule-based daily target, including any recovery taken
-        const dailyTarget = getDailyTargetMinutes(e.date, settings, e);
-        const recoveryMins = e.status === 'work' ? (otState.events || []).filter(ev => ev.date === e.date).reduce((acc, ev) => acc + Math.abs(ev.minutes || 0), 0) : 0;
-        const totalCredited = mins + recoveryMins;
-        const otMins = totalCredited - dailyTarget;
-        const otStr = e.status === 'work' ? (otMins > 0 ? `+${minToHM(otMins)}` : minToHM(otMins)) : null;
+        const otMins = getDailyOvertimeMinutes(e, settings, otState.events);
+        const otStr = otMins > 0 ? `+${minToHM(otMins)}` : minToHM(otMins);
 
         return {
           ...e,
           day: capitalizedDay,
-          hours: e.status === 'work' ? minToHM(mins) : statusTranslations[e.status] || e.status,
+          hours: minToHM(mins),
           overtime: otStr,
-          displayStatus: e.status === 'work' ? 'Work' : 'Other'
+          displayStatus: 'Work'
         };
       });
-  }, [entries, settings]);
+  }, [entries, settings, otState.events]);
 
   const handleEditEntry = (entry: any) => {
     setSelectedEntry(entry);
@@ -244,7 +238,7 @@ export function Dashboard({ onStartEntry }: DashboardProps) {
                     </div>
                     <div className="min-w-0">
                       <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">
-                        {new Date(entry.date).toLocaleDateString('fr-FR', {
+                        {parseLocalDate(entry.date).toLocaleDateString('fr-FR', {
                           day: 'numeric',
                           month: 'long',
                           year: 'numeric'

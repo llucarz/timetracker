@@ -58,7 +58,7 @@ export function useCloudSync(
     });
 
     const autoSyncPausedRef = useRef(false);
-    const syncTimeoutRef = useRef<NodeJS.Timeout>();
+    const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
     const lastSyncTimestampRef = useRef<string | null>(null);
 
     // GUARD: Boot tracking
@@ -191,7 +191,7 @@ export function useCloudSync(
         loadFromCloud()
             .then(data => {
                 if (data && onBootLoad) {
-                    console.log("[useCloudSync] Boot data loaded, applying to app state...", data);
+                    // NB: never log `data` - it is the user's full work history.
                     onBootLoad(data);
                 }
             })
@@ -256,7 +256,7 @@ export function useCloudSync(
             if (res.status === 409) {
                 // 409: server has newer data (e.g., another tab synced first).
                 // Auto-resolve: fetch the latest timestamp and retry ONCE.
-                console.log('[Sync] 409 conflict detected, auto-retrying with latest server timestamp...');
+                console.warn('[Sync] 409 conflict detected, auto-retrying with latest server timestamp...');
                 try {
                     const latestRes = await fetch(`/api/data?key=${currentSettings.account.key}`, { credentials: 'include' });
                     if (latestRes.ok) {
@@ -276,7 +276,6 @@ export function useCloudSync(
                             const { updatedAt } = await retryRes.json();
                             lastSyncTimestampRef.current = updatedAt;
                             setCloudState('idle');
-                            console.log('[Sync] Auto-retry succeeded.');
                             return;
                         }
                     }
@@ -388,9 +387,18 @@ export function useCloudSync(
                 e.preventDefault();
                 e.returnValue = '';
 
+                // clientUpdatedAt is REQUIRED: the flush endpoint overwrites the
+                // whole record, and without a timestamp its conflict check is
+                // skipped entirely. A stale tab closing would then wipe edits made
+                // meanwhile on another device.
                 navigator.sendBeacon(
                     `/api/data/flush?key=${settings.account.key}`,
-                    new Blob([JSON.stringify({ entries, settings, overtime: otState })], { type: 'application/json' })
+                    new Blob([JSON.stringify({
+                        entries,
+                        settings,
+                        overtime: otState,
+                        clientUpdatedAt: lastSyncTimestampRef.current
+                    })], { type: 'application/json' })
                 );
             }
         };

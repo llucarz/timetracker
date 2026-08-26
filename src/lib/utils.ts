@@ -8,7 +8,7 @@
 import { Entry, OvertimeEvent, Settings } from "./types";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { getDailyTargetMinutes } from "./logic";
+import { getDailyOvertimeMinutes, getRecoveryDeductionMinutes } from "./logic";
 
 /**
  * Pads a number with leading zeros to ensure 2 digits
@@ -77,6 +77,34 @@ export function toLocalDateKey(d: Date): string {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Parses an ISO date string (YYYY-MM-DD) as a LOCAL calendar date.
+ *
+ * `new Date("2025-01-15")` is parsed as UTC midnight, so formatting it back with
+ * a local formatter can show the previous day west of UTC, and comparing it with
+ * locally-built boundaries mixes two timelines. Use this whenever a stored date
+ * has to become a Date object for display or comparison.
+ *
+ * @param dateStr - ISO date string (YYYY-MM-DD)
+ * @returns Date at local midnight on that calendar day
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+/**
+ * Today as an ISO date string in the user's own timezone.
+ *
+ * Never use `new Date().toISOString().slice(0,10)` for this: between midnight and
+ * the UTC offset it returns yesterday.
+ *
+ * @returns ISO date string (YYYY-MM-DD)
+ */
+export function todayKey(): string {
+  return toLocalDateKey(new Date());
 }
 
 /**
@@ -269,104 +297,110 @@ export function getRecoveryState(date: string, events: OvertimeEvent[]) {
 }
 
 /**
- * Sums up all recovery minutes for a specific date
- * Used in overtime calculation to credit recovered time back as "earned"
- * 
+ * Sums the recovery time CONSUMED on a specific date.
+ *
+ * Recovery events are stored as negative minutes (a debit on the balance). For the
+ * daily balance they act as a credit that offsets the hours not worked that day,
+ * so they are returned as a positive number.
+ *
+ * Positive events are deliberately excluded: a manual credit is not time taken off,
+ * it must not reduce the day's target. It is added once, globally, via
+ * getManualCreditMinutes.
+ *
  * @param date - ISO date string (YYYY-MM-DD)
  * @param events - Array of overtime events
- * @returns Total recovery minutes for the date (positive values)
+ * @returns Recovery minutes consumed on that date (>= 0)
  */
 export function getRecoveryMinutesForDay(date: string, events: OvertimeEvent[]): number {
-  const dayEvents = events.filter(e => e.date === date);
-  // Abs() is used because recovery events are stored as negative (consumption),
-  // but for the "Daily Balance" calculation, they act as a credit (positive)
-  // that offsets the "missed work" for that day.
-  return dayEvents.reduce((acc, e) => acc + Math.abs(e.minutes || 0), 0);
+  return events
+    .filter(e => e.date === date && (e.minutes || 0) < 0)
+    .reduce((acc, e) => acc + Math.abs(e.minutes || 0), 0);
 }
 
 /**
- * CORE BUSINESS LOGIC: Computes total overtime earned across all entries
- * 
- * This is the heart of the overtime calculation system. It processes all time entries
- * and recovery events to determine the cumulative overtime balance in minutes.
- * 
- * Algorithm:
- * 1. Groups entries by ISO week (Monday-Sunday) using weekRangeOf()
- * 2. For each week, calculates:
- *    - Total minutes worked (from time entries)
- *    - Recovery minutes (from overtime events)
- *    - Absence days (school, vacation, sick, holiday) that reduce target
- * 3. Compares actual vs target minutes per week:
- *    - CURRENT WEEK: Target = days_logged × daily_target - absence_days × daily_target
- *      (Only counts entered days, not full week)
- *    - PAST WEEKS: Target = weekly_target - absence_days × daily_target
- *      (Assumes full week was worked unless absent)
- * 4. Sums up deltas across all weeks: (actual - target)
- * 
+ * Total overtime consumed across all events (the "used" side of the balance).
+ *
+ * DERIVED, never stored: an incremental counter drifts for good as soon as one
+ * event is added or removed outside the normal path (cloud restore, storage
+ * migration, a second tab).
+ *
+ * @param events - Array of overtime events
+ * @returns Minutes consumed (>= 0)
+ */
+export function getUsedMinutes(events: OvertimeEvent[]): number {
+  return events.reduce(
+    (acc, e) => ((e.minutes || 0) < 0 ? acc + Math.abs(e.minutes) : acc),
+    0
+  );
+}
+
+/**
+ * Total of manual positive adjustments (credits granted outside of worked time).
+ *
+ * @param events - Array of overtime events
+ * @returns Minutes credited (>= 0)
+ */
+export function getManualCreditMinutes(events: OvertimeEvent[]): number {
+  return events.reduce(
+    (acc, e) => ((e.minutes || 0) > 0 ? acc + e.minutes : acc),
+    0
+  );
+}
+
+/**
+ * CORE BUSINESS LOGIC: total overtime EARNED, in minutes.
+ *
+ * Walks every entry once and sums its daily delta. Only days that have an entry
+ * count: a day you never logged is neither surplus nor deficit.
+ *
+ * Per entry:
+ * - work day     -> worked + recoveryTakenThatDay - dailyTarget
+ * - absence      -> 0 (school, vacation, sick, holiday suspend the target)
+ * - recovery day -> 0 when a matching OvertimeEvent already debits the balance,
+ *                   otherwise the entry's own duration is deducted (capped at
+ *                   the daily target, since a full day stores its raw clock span)
+ *
+ * Manual positive adjustments are added once, globally, so they count whether or
+ * not an entry exists on their date.
+ *
+ * This is the EARNED side only. The consumed side is getUsedMinutes(events), and
+ * the balance is earned - used. Both are derived from the same event list, so
+ * they can never drift apart.
+ *
  * @param entries - Array of time entries
  * @param settings - User settings containing schedule and targets
- * @param events - Optional overtime events (recovery/gift minutes)
- * @returns Total overtime in minutes (positive = surplus, negative = deficit)
- * 
- * @example
- * computeOvertimeEarned(entries, settings, [])
+ * @param events - Overtime events (recovery + manual adjustments)
+ * @returns Total overtime earned in minutes (positive = surplus, negative = deficit)
  */
-export function computeOvertimeEarned(entries: Entry[], settings: Settings, events: OvertimeEvent[] = []): number {
+export function computeOvertimeEarned(
+  entries: Entry[],
+  settings: Settings,
+  events: OvertimeEvent[] = []
+): number {
   let totalDelta = 0;
 
   for (const e of entries) {
     if (!e || !e.date) continue;
 
     if (e.status === "recovery") {
-      // Recovery entries come in two forms:
-      // A) Created by RecoveryForm → always paired with an OvertimeEvent (negative minutes).
-      //    The OvertimeEvent already handles the balance via usedMinutes, so we skip the entry
-      //    to avoid double-counting.
-      // B) Created via DailyEntryModal → no OvertimeEvent. We must deduct from earned
-      //    using the actual time span stored on the entry.
+      // Two kinds of recovery entries:
+      // A) created by RecoveryForm -> always paired with a negative OvertimeEvent.
+      //    That event already debits the balance through usedMinutes; deducting
+      //    here too would count the recovery twice.
+      // B) created via DailyEntryModal -> no event, so the entry itself carries
+      //    the deduction.
       const hasPairedEvent = events.some(ev => ev.date === e.date && ev.minutes < 0);
-      if (hasPairedEvent) continue; // Case A: handled by usedMinutes
+      if (hasPairedEvent) continue;
 
-      // Case B: standalone recovery — deduct actual duration from earned,
-      // capped at the daily target to handle full-day recovery correctly.
-      // A full-day recovery entry stores 09:00-18:30 (raw clock time) but should
-      // only deduct the daily target (e.g. 7h), not the full clock span.
-      if (e.start && e.end) {
-        const rawDuration = Math.max(0, hmToMin(e.end) - hmToMin(e.start));
-        const dailyTarget = getDailyTargetMinutes(e.date, settings, e);
-        const duration = dailyTarget > 0 ? Math.min(rawDuration, dailyTarget) : rawDuration;
-        totalDelta -= duration;
-      }
+      totalDelta -= getRecoveryDeductionMinutes(e, settings);
       continue;
     }
 
-    // Add minutes worked for this entry
-    const workMinutes = computeMinutes(e);
-
-    // Add recovery minutes for this date (credits back time taken off for work days)
-    const recoveryMinutes = getRecoveryMinutesForDay(e.date, events);
-
-    // Total credited minutes for this day
-    const totalMinutes = workMinutes + recoveryMinutes;
-
-    // Calculate daily target using the new logic
-    let dailyTargetMinutes: number;
-
-    // Check if this is an absence day (no target expected)
-    if (
-      e.status === "school" ||
-      e.status === "vacation" ||
-      e.status === "sick" ||
-      e.status === "holiday"
-    ) {
-      dailyTargetMinutes = 0; // Absence days have 0 target
-    } else {
-      // Use schedule-based target or fallback to average
-      dailyTargetMinutes = getDailyTargetMinutes(e.date, settings, e);
-    }
-
-    totalDelta += totalMinutes - dailyTargetMinutes;
+    totalDelta += getDailyOvertimeMinutes(e, settings, events);
   }
+
+  // Manual credits are independent of any entry.
+  totalDelta += getManualCreditMinutes(events);
 
   return totalDelta;
 }
@@ -449,7 +483,7 @@ export function minutesToDHM(minutes: number) {
  */
 export function formatDHM(dhm: { days: number; hours: number; mins: number; sign: number }) {
   const { days, hours, mins, sign } = dhm;
-  const parts = [];
+  const parts: string[] = [];
   if (days > 0) parts.push(`${days} ${days > 1 ? "jours" : "jour"}`);
   if (hours > 0) parts.push(`${hours} ${hours > 1 ? "heures" : "heure"}`);
   if (mins > 0) parts.push(`${mins} ${mins > 1 ? "minutes" : "minute"}`);

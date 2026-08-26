@@ -272,24 +272,29 @@ class IndexedDBEngine implements StorageEngine {
     });
   }
 
+  /**
+   * Replaces the whole entry set.
+   *
+   * Runs as ONE transaction: the clear and every put commit together, or nothing
+   * does. The previous version awaited between requests on a shared transaction,
+   * which both risked TransactionInactiveError and left a window where the store
+   * was empty - an interruption there lost the entire history.
+   */
   async importEntries(entries: Entry[]): Promise<void> {
-    const store = await this.getStore(STORES.ENTRIES, "readwrite");
+    await this.init();
 
-    // Clear existing entries
-    await new Promise<void>((resolve, reject) => {
-      const clearRequest = store.clear();
-      clearRequest.onsuccess = () => resolve();
-      clearRequest.onerror = () => reject(clearRequest.error);
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(STORES.ENTRIES, "readwrite");
+      const store = transaction.objectStore(STORES.ENTRIES);
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+
+      store.clear();
+      // put() rather than add(): tolerate duplicate ids instead of aborting.
+      entries.forEach(entry => store.put(entry));
     });
-
-    // Bulk insert new entries using put() to allow upsert
-    for (const entry of entries) {
-      await new Promise<void>((resolve, reject) => {
-        const request = store.put(entry); // Use put() instead of add() to allow overwriting
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    }
   }
 
   async getSettings(): Promise<Settings | null> {
@@ -505,6 +510,7 @@ class StorageManager {
   }
 
   async getSettings(): Promise<Settings | null> {
+    await this.migrateIfNeeded();
     return this.engine.getSettings();
   }
 
@@ -515,10 +521,12 @@ class StorageManager {
   }
 
   async getOvertimeState(): Promise<OvertimeState | null> {
+    await this.migrateIfNeeded();
     return this.engine.getOvertimeState();
   }
 
   async updateOvertimeState(state: OvertimeState): Promise<void> {
+    await this.migrateIfNeeded();
     return this.engine.updateOvertimeState(state);
   }
 

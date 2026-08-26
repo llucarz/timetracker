@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { Clock } from "lucide-react";
-import { formatDuration } from "../../../lib/utils";
+import { formatDuration, parseLocalDate } from "../../../lib/utils";
 import { HistoryItem } from "../types";
 
 interface RecentRecoveriesProps {
@@ -40,7 +40,7 @@ export function RecentRecoveries({ totalRecoveries, recentRecoveries }: RecentRe
                                             {recovery.comment || "Récupération"}
                                         </p>
                                         <p className="text-xs text-gray-500 mt-0.5">
-                                            {new Date(recovery.date).toLocaleDateString("fr-FR", {
+                                            {parseLocalDate(recovery.date).toLocaleDateString("fr-FR", {
                                                 day: "numeric",
                                                 month: "short"
                                             })}

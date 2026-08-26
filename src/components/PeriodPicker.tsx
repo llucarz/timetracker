@@ -53,12 +53,13 @@ export function PeriodPicker({ isOpen, period, onClose, onSelect, anchorElement,
     const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     startDay.setDate(firstDay.getDate() + diff);
     
-    const weeks = [];
+    type CalendarDay = { date: Date; isCurrentMonth: boolean; isToday: boolean };
+    const weeks: CalendarDay[][] = [];
     let currentDay = new Date(startDay);
     
     // Générer 6 semaines maximum
     for (let week = 0; week < 6; week++) {
-      const days = [];
+      const days: CalendarDay[] = [];
       for (let day = 0; day < 7; day++) {
         days.push({
           date: new Date(currentDay),

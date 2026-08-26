@@ -3,7 +3,7 @@ import { Clock, ArrowUpRight, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useNotification } from "../../../context/NotificationContext";
 import { useTimeTracker } from "../../../context/TimeTrackerContext";
-import { formatDuration } from "../../../lib/utils";
+import { formatDuration, parseLocalDate } from "../../../lib/utils";
 import { HistoryItem } from "../types";
 
 interface AdjustmentsHistoryProps {
@@ -167,7 +167,7 @@ export function AdjustmentsHistory({ historyItems }: AdjustmentsHistoryProps) {
                                             {item.comment || (item.type === "earned" ? "Heures supplémentaires" : "Récupération")}
                                         </p>
                                         <p className="text-xs text-gray-500 mt-0.5">
-                                            {new Date(item.date).toLocaleDateString("fr-FR", {
+                                            {parseLocalDate(item.date).toLocaleDateString("fr-FR", {
                                                 day: "numeric",
                                                 month: "long",
                                                 year: "numeric"

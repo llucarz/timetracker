@@ -22,10 +22,18 @@ function setCors(req, res) {
         'http://localhost:5173', // Vite default
     ];
 
-    const isAllowed = origin && (
-        allowedDomains.includes(origin) ||
-        origin.endsWith('.vercel.app') // Preview & Production Vercel domains
-    );
+    // Only OUR deployments - see api/data.js for the rationale.
+    [process.env.VERCEL_PROJECT_PRODUCTION_URL, process.env.VERCEL_URL]
+        .filter(Boolean)
+        .forEach(host => allowedDomains.push(`https://${host}`));
+
+    (process.env.ALLOWED_ORIGINS || '')
+        .split(',')
+        .map(o => o.trim())
+        .filter(Boolean)
+        .forEach(o => allowedDomains.push(o));
+
+    const isAllowed = origin && allowedDomains.includes(origin);
 
     if (isAllowed) {
         res.setHeader('Access-Control-Allow-Origin', origin);
@@ -59,10 +67,19 @@ export default async function handler(req, res) {
         const redisKey = `tt:${key}`;
         const metaKey = `tt:${key}:meta`;
 
-        // Conflict detection
+        // Conflict detection.
+        //
+        // This endpoint overwrites the WHOLE record, so an unverifiable flush is
+        // refused rather than allowed through: a client that cannot prove which
+        // server version it is based on must not be able to clobber newer data.
         const meta = await redis.hgetall(metaKey);
         const serverUpdatedAt = meta?.lastSync;
-        const clientUpdatedAt = data.updatedAt || data.clientUpdatedAt;
+        const clientUpdatedAt = data.clientUpdatedAt || data.updatedAt;
+
+        if (serverUpdatedAt && !clientUpdatedAt) {
+            console.warn(`Flush rejected: no clientUpdatedAt supplied for ${key}`);
+            return res.status(204).end();
+        }
 
         if (serverUpdatedAt && clientUpdatedAt &&
             new Date(serverUpdatedAt) > new Date(clientUpdatedAt)) {
@@ -71,11 +88,13 @@ export default async function handler(req, res) {
             return res.status(204).end();
         }
 
-        // Prepare data
-        data.updatedAt = new Date().toISOString();
+        // Prepare data (clientUpdatedAt is a request field, not stored state)
+        const { clientUpdatedAt: _ignored, ...toStore } = data;
+        toStore.updatedAt = new Date().toISOString();
+        data.updatedAt = toStore.updatedAt;
 
         // Store JSON brut (pas de compression)
-        await redis.set(redisKey, JSON.stringify(data));
+        await redis.set(redisKey, JSON.stringify(toStore));
 
         // Proper version increment
         const currentVersion = parseInt(meta?.version || '0');

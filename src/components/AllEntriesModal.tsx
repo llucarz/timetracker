@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { X, Calendar, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { computeMinutes, minToHM } from "../lib/utils";
+import { computeMinutes, minToHM, parseLocalDate } from "../lib/utils";
 
 interface AllEntriesModalProps {
   isOpen: boolean;
@@ -108,7 +108,7 @@ export function AllEntriesModal({ isOpen, onClose }: AllEntriesModalProps) {
                               <div className="flex items-center gap-2 mb-2">
                                 <Calendar className={`w-4 h-4 ${isWork ? "text-purple-600" : "text-gray-400"}`} />
                                 <p className="font-semibold text-gray-900">
-                                  {new Date(entry.date).toLocaleDateString("fr-FR", {
+                                  {parseLocalDate(entry.date).toLocaleDateString("fr-FR", {
                                     weekday: "long",
                                     day: "numeric",
                                     month: "long",

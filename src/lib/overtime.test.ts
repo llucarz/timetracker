@@ -282,3 +282,75 @@ describe('EntryDomain', () => {
     expect(result[0].end).toBe('19:00');
   });
 });
+
+// --- PC <-> phone sync -----------------------------------------------------
+
+describe('sync between devices', () => {
+  const pcEntry = (over: Partial<Entry>): Entry => ({ ...entry({ date: MONDAY }), id: 'shared', ...over });
+
+  it('brings back an edit made on the phone', () => {
+    const onThePc = pcEntry({ end: '17:00', updatedAt: 1000 });
+    const fromThePhone = pcEntry({ end: '19:00', updatedAt: 2000 });
+
+    const merged = EntryDomain.mergeEntries([onThePc], [fromThePhone]);
+
+    expect(merged[0].end).toBe('19:00');
+  });
+
+  it('does not let the cloud undo a local edit that is still pending', () => {
+    // The laptop edited while offline; the cloud still holds the old version.
+    const pendingLocalEdit = pcEntry({ end: '19:00', updatedAt: 2000 });
+    const staleCloud = pcEntry({ end: '17:00', updatedAt: 1000 });
+
+    const merged = EntryDomain.mergeEntries([pendingLocalEdit], [staleCloud]);
+
+    expect(merged[0].end).toBe('19:00');
+  });
+
+  it('does not let a legacy cloud row without a timestamp win', () => {
+    // Entries written before updatedAt existed must count as the oldest,
+    // otherwise they overwrite whatever the device holds.
+    const localEdit = pcEntry({ end: '19:00', updatedAt: 2000 });
+    const legacyCloud: Entry = { ...pcEntry({ end: '08:00' }) };
+    delete (legacyCloud as Partial<Entry>).updatedAt;
+
+    const merged = EntryDomain.mergeEntries([localEdit], [legacyCloud]);
+
+    expect(merged[0].end).toBe('19:00');
+  });
+
+  it('keeps days that only one device knows about', () => {
+    // The heart of it: merging must never mean "replace everything".
+    const onlyOnThePc = { ...entry({ date: MONDAY }), id: 'pc', updatedAt: 1000 };
+    const onlyOnThePhone = { ...entry({ date: FRIDAY }), id: 'phone', updatedAt: 1000 };
+
+    const merged = EntryDomain.mergeEntries([onlyOnThePc], [onlyOnThePhone]);
+
+    expect(merged.map(e => e.date)).toEqual([MONDAY, FRIDAY]);
+  });
+
+  it('never drops local history when the cloud comes back empty', () => {
+    // A failed or empty cloud read must be a no-op, not a wipe.
+    const local = [
+      { ...entry({ date: MONDAY }), id: 'a', updatedAt: 1000 },
+      { ...entry({ date: FRIDAY }), id: 'b', updatedAt: 1000 },
+    ];
+
+    expect(EntryDomain.mergeEntries(local, [])).toHaveLength(2);
+  });
+
+  it('merges overtime events from both devices instead of picking a side', () => {
+    const localOnly = event({ date: MONDAY, minutes: -60 });
+    const cloudOnly = event({ date: FRIDAY, minutes: -30 });
+
+    const merged = OvertimeDomain.withDerivedTotals({
+      balanceMinutes: 0,
+      earnedMinutes: 0,
+      usedMinutes: 0,
+      events: [localOnly, cloudOnly],
+    });
+
+    expect(merged.events).toHaveLength(2);
+    expect(merged.usedMinutes).toBe(90);
+  });
+});

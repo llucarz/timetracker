@@ -407,6 +407,24 @@ export function useCloudSync(
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [entries, settings, otState]);
 
+    // Push whatever is still pending as soon as the boot handshake succeeds.
+    //
+    // Dirty state survives a reload (it is persisted in localStorage), but nothing
+    // used to send it back up: it waited for the next edit or for the tab to be
+    // hidden. A laptop that lost the network mid-edit therefore kept its changes
+    // to itself, and the phone never saw them.
+    useEffect(() => {
+        if (bootState !== 'ready') return;
+        if (cloudState === 'syncing' || cloudState === 'conflict') return;
+
+        const hasPending = dirtyRef.current.entries.size > 0 ||
+            dirtyRef.current.deletedIds.size > 0 ||
+            dirtyRef.current.settings ||
+            dirtyRef.current.overtime;
+
+        if (hasPending) syncDirtyData();
+    }, [bootState, cloudState, syncDirtyData]);
+
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') syncDirtyData();

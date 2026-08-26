@@ -93,7 +93,14 @@ export class EntryDomain {
             }
 
             // Keep whichever version was written last.
-            if (entryWithId.updatedAt! >= (current.updatedAt || 0)) {
+            //
+            // An incoming entry with NO timestamp counts as the oldest, never as
+            // "now": legacy cloud rows predating updatedAt must not silently
+            // overwrite a local edit that does carry one. The app is local-first,
+            // so when in doubt the device you are holding wins.
+            const incomingWrittenAt = entry.updatedAt ?? 0;
+
+            if (incomingWrittenAt >= (current.updatedAt || 0)) {
                 merged[idx] = entryWithId;
             }
         });

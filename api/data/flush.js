@@ -33,7 +33,12 @@ function setCors(req, res) {
         .filter(Boolean)
         .forEach(o => allowedDomains.push(o));
 
-    const isAllowed = origin && allowedDomains.includes(origin);
+    // Same-origin is always allowed: the app and this API are served from the
+    // same deployment, so a custom domain can never break sync.
+    const sameOrigin = origin && req.headers.host &&
+      origin.replace(/^https?:\/\//, '') === req.headers.host;
+
+    const isAllowed = Boolean(origin) && (sameOrigin || allowedDomains.includes(origin));
 
     if (isAllowed) {
         res.setHeader('Access-Control-Allow-Origin', origin);

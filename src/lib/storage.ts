@@ -442,6 +442,8 @@ class StorageManager {
     // Migration: localStorage → IndexedDB
     if (shouldUseIDB && !this.useIndexedDB) {
       const oldEngine = this.engine;
+      // Non-destructive direction: localStorage is left untouched, so a failure
+      // here costs nothing.
       this.engine = new IndexedDBEngine();
       this.useIndexedDB = true;
 
@@ -461,24 +463,41 @@ class StorageManager {
       }
     }
     // Migration: IndexedDB → localStorage (logout)
+    //
+    // The destructive direction: it ends by wiping IndexedDB. localStorage holds
+    // roughly 5 MB, so copying a long history into it can fail halfway. Nothing is
+    // erased until the copy has been read back and verified.
     else if (!shouldUseIDB && this.useIndexedDB) {
-      // console.log("🔄 Migration: IndexedDB → localStorage");
       const oldEngine = this.engine;
-      this.engine = new LocalStorageEngine();
-      this.useIndexedDB = false;
+      const target = new LocalStorageEngine();
 
-      // Copy data from IndexedDB to localStorage
-      const entries = await oldEngine.getEntries();
-      const settings = await oldEngine.getSettings();
-      const overtime = await oldEngine.getOvertimeState();
+      try {
+        const entries = await oldEngine.getEntries();
+        const settings = await oldEngine.getSettings();
+        const overtime = await oldEngine.getOvertimeState();
 
-      if (entries.length > 0) await this.engine.importEntries(entries);
-      if (settings) await this.engine.updateSettings(settings);
-      if (overtime) await this.engine.updateOvertimeState(overtime);
+        if (entries.length > 0) await target.importEntries(entries);
+        if (settings) await target.updateSettings(settings);
+        if (overtime) await target.updateOvertimeState(overtime);
 
-      // Clean up IndexedDB after successful migration
-      await oldEngine.clear();
-      // console.log("✅ Migration complete: Now using localStorage");
+        // Verify before destroying anything.
+        const copied = await target.getEntries();
+        if (copied.length !== entries.length) {
+          throw new Error(
+            `Migration incomplete: ${copied.length}/${entries.length} entries copied`
+          );
+        }
+
+        this.engine = target;
+        this.useIndexedDB = false;
+
+        await oldEngine.clear();
+      } catch (error) {
+        // Keep using IndexedDB, which still holds the full dataset.
+        console.error('Storage migration to localStorage aborted, keeping IndexedDB:', error);
+        this.engine = oldEngine;
+        this.useIndexedDB = true;
+      }
     }
   }
 

@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "./ui/button";
-import { X, Download, Calendar, Clock, TrendingUp, Sparkles, FileDown, ChevronDown } from "lucide-react";
+import { X, Download, Calendar, Clock, TrendingUp, Sparkles, FileDown, ChevronDown, Layers } from "lucide-react";
 import { useNotification } from "../context/NotificationContext";
 import { motion, AnimatePresence } from "motion/react";
 import { DatePicker } from "./DatePicker";
 import { useTimeTracker } from "../context/TimeTrackerContext";
-import { computeMinutes, minToHM, toDateKey, toLocalDateKey, weekRangeOf } from "../lib/utils";
+import { computeMinutes, minToHM, parseLocalDate, todayKey, toLocalDateKey, weekRangeOf } from "../lib/utils";
+import { buildOvertimeHistory, summariseHistory, HISTORY_TYPE_LABELS } from "../lib/overtimeHistory";
+import { getStatusLabel } from "../lib/status";
 import { GRADIENTS } from "../ui/design-system/tokens";
 
 interface ExportModalProps {
@@ -15,10 +17,28 @@ interface ExportModalProps {
 
 type ExportPeriod = "week" | "month" | "year" | "all" | "custom";
 
+/** What goes in the file: the timesheet, the overtime ledger, or both. */
+type ExportContent = "hours" | "overtime" | "both";
+
+/** Wraps a CSV field, escaping quotes and anything that would break a column. */
+function csvCell(value: string | number): string {
+  const text = String(value ?? "");
+  // Quote as soon as the value carries a separator, a quote or a line break -
+  // a note containing a comma would otherwise shift every following column.
+  const needsQuotes = ['"', ",", ";", "\n", "\r"].some(char => text.includes(char));
+  return needsQuotes ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/** Signed duration, e.g. "+1h30" / "-4h00". */
+function signedDuration(minutes: number): string {
+  return (minutes > 0 ? "+" : "") + minToHM(minutes);
+}
+
 export function ExportModal({ isOpen, onClose }: ExportModalProps) {
   const { showNotification } = useNotification();
-  const { entries } = useTimeTracker();
+  const { entries, settings, otState } = useTimeTracker();
   const [selectedPeriod, setSelectedPeriod] = useState<ExportPeriod>("month");
+  const [selectedContent, setSelectedContent] = useState<ExportContent>("hours");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -91,43 +111,99 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     });
   }, [entries, selectedPeriod, dateRange]);
 
+  // Overtime movements for the same window, from the shared builder.
+  const filteredHistory = useMemo(() => {
+    const all = buildOvertimeHistory(entries, settings, otState.events);
+
+    if (selectedPeriod === "all") return all;
+
+    const { start, end } = dateRange;
+    if (!start && !end) return all;
+
+    return all.filter(item => {
+      if (start && end) return item.date >= start && item.date <= end;
+      if (start) return item.date >= start;
+      return item.date <= end;
+    });
+  }, [entries, settings, otState.events, selectedPeriod, dateRange]);
+
+  const includesHours = selectedContent === "hours" || selectedContent === "both";
+  const includesOvertime = selectedContent === "overtime" || selectedContent === "both";
+
+  const rowCount =
+    (includesHours ? filteredEntries.length : 0) +
+    (includesOvertime ? filteredHistory.length : 0);
+
   const handleExport = () => {
-    if (filteredEntries.length === 0) {
+    if (rowCount === 0) {
       showNotification({
         type: "error",
-        title: "Erreur",
-        message: "Aucune entrée à exporter pour cette période"
+        title: "Rien à exporter",
+        message: "Aucune donnée pour cette période et ce contenu"
       });
       return;
     }
 
-    // Generate CSV
-    const headers = [
-      "Date",
-      "Arrivée",
-      "Début pause",
-      "Fin pause",
-      "Départ",
-      "Statut",
-      "Notes",
-      "Heures totales",
-    ];
-    const rows = filteredEntries.map((entry) => {
-      const minutes = computeMinutes(entry);
-      const hours = minToHM(minutes);
-      return [
-        entry.date,
-        entry.start || "",
-        entry.lunchStart || "",
-        entry.lunchEnd || "",
-        entry.end || "",
-        entry.status || "work",
-        `"${(entry.notes || "").replace(/"/g, '""')}"`,
-        hours,
-      ].join(",");
-    });
+    const lines: string[] = [];
 
-    const csv = [headers.join(","), ...rows].join("\n");
+    // --- Timesheet ---
+    if (includesHours) {
+      if (selectedContent === "both") lines.push("HORAIRES");
+
+      lines.push([
+        "Date", "Arrivée", "Début pause", "Fin pause", "Départ",
+        "Statut", "Notes", "Heures totales",
+      ].join(","));
+
+      filteredEntries.forEach(entry => {
+        lines.push([
+          entry.date,
+          entry.start || "",
+          entry.lunchStart || "",
+          entry.lunchEnd || "",
+          entry.end || "",
+          csvCell(getStatusLabel(entry.status)),
+          csvCell(entry.notes || ""),
+          minToHM(computeMinutes(entry)),
+        ].join(","));
+      });
+    }
+
+    // --- Overtime ledger ---
+    if (includesOvertime) {
+      if (selectedContent === "both") {
+        lines.push("");
+        lines.push("HEURES SUPPLÉMENTAIRES");
+      }
+
+      lines.push(["Date", "Type", "Durée", "Début", "Fin", "Commentaire"].join(","));
+
+      filteredHistory.forEach(item => {
+        // Recovery and deficit both remove time from the balance.
+        const signed = item.type === "earned" ? item.minutes : -item.minutes;
+        lines.push([
+          item.date,
+          csvCell(HISTORY_TYPE_LABELS[item.type]),
+          signedDuration(signed),
+          item.start || "",
+          item.end || "",
+          csvCell(item.comment || ""),
+        ].join(","));
+      });
+
+      const totals = summariseHistory(filteredHistory);
+      lines.push("");
+      lines.push(["Total gagné", signedDuration(totals.earned)].join(","));
+      lines.push(["Total récupéré", signedDuration(-totals.recovered)].join(","));
+      if (totals.deficit > 0) {
+        lines.push(["Total absences non justifiées", signedDuration(-totals.deficit)].join(","));
+      }
+      lines.push(["Solde de la période", signedDuration(totals.net)].join(","));
+      lines.push(["Solde total à ce jour", signedDuration(otState.balanceMinutes)].join(","));
+    }
+
+    const csv = lines.join("\r\n");
+
     const periodLabel = {
       week: "semaine",
       month: "mois",
@@ -136,11 +212,17 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
       custom: "periode",
     }[selectedPeriod] || "export";
 
-    const filename = `timetracker_${periodLabel}_${new Date().toISOString().split("T")[0]}.csv`;
+    const contentLabel = {
+      hours: "horaires",
+      overtime: "heures-sup",
+      both: "complet",
+    }[selectedContent];
+
+    const filename = `timetracker_${contentLabel}_${periodLabel}_${todayKey()}.csv`;
 
     // Use application/octet-stream to force download on all browsers
     // This prevents the browser from trying to open the file directly
-    const blob = new Blob(["\uFEFF" + csv], { type: "application/octet-stream" });
+    const blob = new Blob(["﻿" + csv], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement("a");
@@ -157,8 +239,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
     showNotification({
       type: "success",
-      title: "Succès",
-      message: "Export réussi" // Description not supported in same way, simplifying
+      title: "Export réussi",
+      message: `${rowCount} ligne${rowCount > 1 ? "s" : ""} exportée${rowCount > 1 ? "s" : ""}`
     });
 
     onClose();
@@ -196,8 +278,8 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
   const getPeriodLabel = () => {
     if (selectedPeriod === "week") {
-      const { start } = weekRangeOf(toDateKey(selectedDate));
-      return new Date(start).toLocaleDateString("fr-FR", {
+      const { start } = weekRangeOf(toLocalDateKey(selectedDate));
+      return parseLocalDate(start).toLocaleDateString("fr-FR", {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -212,6 +294,27 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
     }
     return "";
   };
+
+  const contentOptions = [
+    {
+      id: "hours" as ExportContent,
+      label: "Horaires",
+      icon: Clock,
+      hint: "Vos saisies : arrivée, pauses, départ et total par jour.",
+    },
+    {
+      id: "overtime" as ExportContent,
+      label: "Heures sup.",
+      icon: TrendingUp,
+      hint: "Heures gagnées, récupérations et soldes, sans le détail des journées.",
+    },
+    {
+      id: "both" as ExportContent,
+      label: "Les deux",
+      icon: Layers,
+      hint: "Les deux tableaux dans un seul fichier, l'un sous l'autre.",
+    },
+  ];
 
   const periodOptions = [
     {
@@ -295,6 +398,36 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
 
               {/* Content */}
               <div className="px-8 py-6">
+                {/* Content Selection */}
+                <div className="mb-6">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2.5">
+                    Contenu du fichier
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 bg-gray-100 p-1 rounded-2xl">
+                    {contentOptions.map((option) => {
+                      const Icon = option.icon;
+                      const isSelected = selectedContent === option.id;
+
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => setSelectedContent(option.id)}
+                          className={`relative flex items-center justify-center gap-2 px-2 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors ${isSelected
+                            ? "bg-white text-gray-900 shadow-sm"
+                            : "text-gray-600 hover:text-gray-900"
+                            }`}
+                        >
+                          <Icon className={`w-4 h-4 flex-shrink-0 ${isSelected ? "text-teal-600" : "text-gray-400"}`} />
+                          <span className="truncate">{option.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {contentOptions.find(o => o.id === selectedContent)?.hint}
+                  </p>
+                </div>
+
                 {/* Period Selection Grid */}
                 <div className="grid grid-cols-5 gap-3 mb-6">
                   {periodOptions.map((option) => {
@@ -418,26 +551,33 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-purple-700 mb-1">
-                        Entrées à exporter
+                        Lignes à exporter
                       </p>
                       <div className="flex items-baseline gap-2">
                         <p className="text-3xl font-bold text-purple-900">
-                          {filteredEntries.length}
+                          {rowCount}
                         </p>
                         <p className="text-sm text-purple-700">
-                          entrée{filteredEntries.length > 1 ? "s" : ""}
+                          ligne{rowCount > 1 ? "s" : ""}
                         </p>
                       </div>
+                      {selectedContent === "both" && (
+                        <p className="text-xs text-purple-700 mt-1">
+                          {filteredEntries.length} jour{filteredEntries.length > 1 ? "s" : ""}
+                          {" · "}
+                          {filteredHistory.length} mouvement{filteredHistory.length > 1 ? "s" : ""}
+                        </p>
+                      )}
                       {selectedPeriod !== "all" && (
                         <p className="text-xs text-purple-600 mt-2">
                           {selectedPeriod === "custom" && startDate && endDate ? (
                             <>
-                              {new Date(startDate).toLocaleDateString("fr-FR", {
+                              {parseLocalDate(startDate).toLocaleDateString("fr-FR", {
                                 day: "numeric",
                                 month: "short",
                               })}{" "}
                               →{" "}
-                              {new Date(endDate).toLocaleDateString("fr-FR", {
+                              {parseLocalDate(endDate).toLocaleDateString("fr-FR", {
                                 day: "numeric",
                                 month: "short",
                                 year: "numeric",
@@ -445,12 +585,12 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                             </>
                           ) : dateRange.start && dateRange.end ? (
                             <>
-                              {new Date(dateRange.start).toLocaleDateString("fr-FR", {
+                              {parseLocalDate(dateRange.start).toLocaleDateString("fr-FR", {
                                 day: "numeric",
                                 month: "short",
                               })}{" "}
                               →{" "}
-                              {new Date(dateRange.end).toLocaleDateString("fr-FR", {
+                              {parseLocalDate(dateRange.end).toLocaleDateString("fr-FR", {
                                 day: "numeric",
                                 month: "short",
                                 year: "numeric",
@@ -478,7 +618,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                 </Button>
                 <Button
                   onClick={handleExport}
-                  disabled={filteredEntries.length === 0}
+                  disabled={rowCount === 0}
                   className={`flex-1 h-11 bg-gradient-to-r ${GRADIENTS.accentButton} hover:${GRADIENTS.accentButtonHover} text-white rounded-xl font-semibold shadow-lg shadow-teal-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none`}
                 >
                   <Download className="w-4 h-4" />

@@ -1,11 +1,5 @@
-export interface HistoryItem {
-    id: string;
-    date: string;
-    type: "earned" | "recovered" | "deficit";
-    minutes: number;
-    comment?: string;
-    isManual: boolean;
-    start?: string;
-    end?: string;
-    source: "entry" | "event";
-}
+/**
+ * Re-exported so existing imports keep working. The definition and the builder
+ * live in lib/overtimeHistory.ts, shared with the CSV export.
+ */
+export type { HistoryItem } from "../../lib/overtimeHistory";

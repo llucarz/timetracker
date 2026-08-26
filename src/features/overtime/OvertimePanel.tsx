@@ -1,11 +1,10 @@
 import { useMemo } from "react";
 import { useTimeTracker } from "../../context/TimeTrackerContext";
-import { getDailyOvertimeMinutes, getRecoveryDeductionMinutes } from "../../lib/logic";
+import { buildOvertimeHistory } from "../../lib/overtimeHistory";
 import { BalanceCard } from "./components/BalanceCard";
 import { RecentRecoveries } from "./components/RecentRecoveries";
 import { RecoveryForm } from "./components/RecoveryForm";
 import { AdjustmentsHistory } from "./components/AdjustmentsHistory";
-import { HistoryItem } from "./types";
 
 export function OvertimePanel() {
     const { otState, entries, settings } = useTimeTracker();
@@ -13,83 +12,12 @@ export function OvertimePanel() {
     // Calculate stats from context
     const overtimeBalance = otState.balanceMinutes;
 
-    // Combine events and earned overtime
-    const historyItems = useMemo(() => {
-        const items: HistoryItem[] = [];
-
-        // 1. Manual adjustments (from events)
-        otState.events.forEach(event => {
-            items.push({
-                id: event.id,
-                date: event.date,
-                type: event.minutes > 0 ? "earned" : "recovered",
-                minutes: Math.abs(event.minutes),
-                comment: event.note,
-                isManual: true,
-                start: event.start,
-                end: event.end,
-                source: "event"
-            });
-        });
-
-        // 2. Earned / Deficit (Work entries) + Standalone recovery entries
-        // Note: recovery entries paired with an OvertimeEvent are skipped here because
-        // they are already shown via the events loop above (RecoveryForm creates both).
-        entries.forEach(entry => {
-            if (entry.status === "recovery") {
-                // Only show if there is NO paired OvertimeEvent (standalone, from DailyEntryModal)
-                const hasPairedEvent = otState.events.some(ev => ev.date === entry.date && ev.minutes < 0);
-                if (hasPairedEvent) return;
-
-                {
-                    const duration = getRecoveryDeductionMinutes(entry, settings);
-                    if (duration > 0) {
-                        items.push({
-                            id: entry.id,
-                            date: entry.date,
-                            type: "recovered",
-                            minutes: duration,
-                            comment: entry.notes || "Récupération",
-                            isManual: true,
-                            start: entry.start,
-                            end: entry.end,
-                            source: "entry"
-                        });
-                    }
-                }
-                return;
-            }
-
-            // Only process work entries for earned/deficit
-            if (!entry.status || entry.status !== "work") return;
-
-            const delta = getDailyOvertimeMinutes(entry, settings, otState.events);
-
-            if (delta > 0) {
-                items.push({
-                    id: `earned-${entry.id}`,
-                    date: entry.date,
-                    type: "earned",
-                    minutes: delta,
-                    comment: "Heures supplémentaires",
-                    isManual: false,
-                    source: "entry"
-                });
-            } else if (delta < 0) {
-                items.push({
-                    id: `deficit-${entry.id}`,
-                    date: entry.date,
-                    type: "deficit",
-                    minutes: Math.abs(delta),
-                    comment: "Absence non justifiée",
-                    isManual: false,
-                    source: "entry"
-                });
-            }
-        });
-
-        return items.sort((a, b) => b.date.localeCompare(a.date));
-    }, [otState.events, entries, settings]);
+    // Movements that make up the balance. Built by the shared helper so the
+    // overtime panel and the CSV export can never disagree.
+    const historyItems = useMemo(
+        () => buildOvertimeHistory(entries, settings, otState.events),
+        [entries, settings, otState.events]
+    );
 
     // Get recent recoveries (last 2)
     const recentRecoveries = useMemo(() => {

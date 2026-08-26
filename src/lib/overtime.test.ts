@@ -17,6 +17,7 @@ import {
 } from './logic';
 import { Entry, OvertimeEvent, OvertimeState, Settings } from './types';
 import { computeOvertimeEarned, getUsedMinutes } from './utils';
+import { buildOvertimeHistory, summariseHistory } from './overtimeHistory';
 
 // --- fixtures -------------------------------------------------------------
 
@@ -352,5 +353,51 @@ describe('sync between devices', () => {
 
     expect(merged.events).toHaveLength(2);
     expect(merged.usedMinutes).toBe(90);
+  });
+});
+
+// --- export / panel consistency -------------------------------------------
+
+describe('overtime history', () => {
+  const entries = [
+    entry({ date: MONDAY, end: '18:00' }),                       // +1h
+    entry({ date: FRIDAY, start: '09:00', lunchStart: '12:30', lunchEnd: '13:30', end: '16:00' }),
+    entry({ date: SATURDAY, start: '09:00', lunchStart: '', lunchEnd: '', end: '11:00' }), // +2h
+  ];
+  const events = [
+    event({ date: FRIDAY, minutes: -60, start: '16:00', end: '17:00' }),
+    event({ date: MONDAY, minutes: 45, note: 'Prime' }),
+  ];
+
+  it('nets out to exactly the balance shown in the app', () => {
+    // The invariant that keeps the CSV totals and the balance card in step:
+    // summing every movement must reproduce the balance, to the minute.
+    const history = buildOvertimeHistory(entries, sameSettings, events);
+    const totals = summariseHistory(history);
+
+    const state = OvertimeCalculator.recalculateState(
+      { balanceMinutes: 0, earnedMinutes: 0, usedMinutes: 0, events },
+      entries,
+      sameSettings
+    );
+
+    expect(totals.net).toBe(state.balanceMinutes);
+  });
+
+  it('lists a recovery once, not twice, when an entry accompanies the event', () => {
+    const withRecoveryEntry = [
+      ...entries,
+      entry({ date: FRIDAY, status: 'recovery', start: '16:00', end: '17:00', lunchStart: '', lunchEnd: '' }),
+    ];
+
+    const recovered = buildOvertimeHistory(withRecoveryEntry, sameSettings, events)
+      .filter(i => i.type === 'recovered');
+
+    expect(recovered).toHaveLength(1);
+  });
+
+  it('sorts most recent first', () => {
+    const dates = buildOvertimeHistory(entries, sameSettings, events).map(i => i.date);
+    expect(dates).toEqual([...dates].sort().reverse());
   });
 });
